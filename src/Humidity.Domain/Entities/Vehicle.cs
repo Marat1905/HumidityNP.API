@@ -1,0 +1,85 @@
+﻿namespace Humidity.Domain.Entities;
+
+/// <summary>
+/// Машина, въезжающая на площадку.
+/// Содержит информацию о номере, датах, контрагенте, виде работ и персонале.
+/// </summary>
+public class Vehicle : BaseEntity
+{
+    /// <summary>
+    /// Номер заявки (например, Я-9310099848).
+    /// </summary>
+    public string Number { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Дата создания записи.
+    /// </summary>
+    public DateTime Date { get; set; }
+
+    /// <summary>
+    /// Дата приезда машины.
+    /// </summary>
+    public DateTime ArrivalDate { get; set; }
+
+    /// <summary>
+    /// Дата въезда на площадку.
+    /// </summary>
+    public DateTime EntryDate { get; set; }
+
+    /// <summary>
+    /// Дата выезда с площадки (может быть null, если машина ещё не выехала).
+    /// </summary>
+    public DateTime? ExitDate { get; set; }
+
+    /// <summary>
+    /// Контрагент (например, "Тандер(Сургут)").
+    /// </summary>
+    public string Counterparty { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Вид работ (например, "Разгрузка").
+    /// </summary>
+    public string WorkType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Марка автомобиля (например, "FAW", "KAMAZ").
+    /// </summary>
+    public string VehicleBrand { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Государственный номер автомобиля.
+    /// </summary>
+    public string VehiclePlate { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Номер прицепа.
+    /// </summary>
+    public string Trailer { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ФИО водителя.
+    /// </summary>
+    public string Driver { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ФИО грузчика.
+    /// </summary>
+    public string Loader { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ФИО экспедитора.
+    /// </summary>
+    public string Expeditor { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Подразделение.
+    /// </summary>
+    public string Department { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Коллекция замеров влажности, привязанных к данной машине.
+    /// Отношение "один ко многим": одна машина может иметь несколько замеров.
+    /// При удалении машины все связанные замеры удаляются каскадно.
+    /// </summary>
+    public virtual ICollection<HumidityMeasurement> Measurements { get; set; } = new List<HumidityMeasurement>();
+}
