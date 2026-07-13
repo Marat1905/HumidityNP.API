@@ -1,9 +1,17 @@
-using Microsoft.EntityFrameworkCore;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Humidity.Application;
+using Humidity.Application.Validators;
 using Humidity.Infrastructure;
 using Humidity.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 1. РЕГИСТРАЦИЯ FLUENT VALIDATION
+// Автоматически находит все классы, наследующие AbstractValidator, в указанной сборке
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateVehicleRequestValidator>();
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -46,6 +54,7 @@ try
         {
             // Только для разработки - пересоздание БД
             context.Database.EnsureCreated();
+            await DataSeeder.SeedAsync(context);
         }
         else
         {

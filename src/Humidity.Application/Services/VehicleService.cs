@@ -40,20 +40,17 @@ public class VehicleService : IVehicleService
 
     public async Task<VehicleDto> CreateAsync(CreateVehicleRequest request)
     {
-        if (!DateTime.TryParse(request.Date, out var parsedDate))
-            throw new ArgumentException("Некорректный формат даты");
-
         var vehicle = _mapper.Map<Vehicle>(request);
-        vehicle.Date = DateTime.SpecifyKind(parsedDate, DateTimeKind.Utc);
 
-        if (DateTime.TryParse(request.ArrivalDate, out var arrivalDate))
-            vehicle.ArrivalDate = DateTime.SpecifyKind(arrivalDate, DateTimeKind.Utc);
+        // Формат дат уже гарантированно корректен благодаря FluentValidation
+        vehicle.Date = DateTime.Parse(request.Date).ToUniversalTime();
+        vehicle.ArrivalDate = DateTime.Parse(request.ArrivalDate).ToUniversalTime();
+        vehicle.EntryDate = DateTime.Parse(request.EntryDate).ToUniversalTime();
 
-        if (DateTime.TryParse(request.EntryDate, out var entryDate))
-            vehicle.EntryDate = DateTime.SpecifyKind(entryDate, DateTimeKind.Utc);
-
-        if (!string.IsNullOrEmpty(request.ExitDate) && DateTime.TryParse(request.ExitDate, out var exitDate))
-            vehicle.ExitDate = DateTime.SpecifyKind(exitDate, DateTimeKind.Utc);
+        if (!string.IsNullOrEmpty(request.ExitDate))
+        {
+            vehicle.ExitDate = DateTime.Parse(request.ExitDate).ToUniversalTime();
+        }
 
         vehicle.CreatedAt = DateTime.UtcNow;
 
@@ -69,8 +66,10 @@ public class VehicleService : IVehicleService
 
         _mapper.Map(request, existing);
 
-        if (!string.IsNullOrEmpty(request.ExitDate) && DateTime.TryParse(request.ExitDate, out var exitDate))
-            existing.ExitDate = DateTime.SpecifyKind(exitDate, DateTimeKind.Utc);
+        if (!string.IsNullOrEmpty(request.ExitDate))
+        {
+            existing.ExitDate = DateTime.Parse(request.ExitDate).ToUniversalTime();
+        }
 
         existing.UpdatedAt = DateTime.UtcNow;
 

@@ -73,7 +73,7 @@ public class VehiclesController : ControllerBase
             var created = await _vehicleService.CreateAsync(request);
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
             return BadRequest(ex.Message);
         }

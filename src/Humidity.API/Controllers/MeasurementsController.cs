@@ -80,10 +80,6 @@ public class MeasurementsController : ControllerBase
         {
             return NotFound(ex.Message);
         }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
     }
 
     /// <summary>

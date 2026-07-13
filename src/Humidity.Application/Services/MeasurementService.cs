@@ -50,15 +50,10 @@ public class MeasurementService : IMeasurementService
         if (!vehicleExists)
             throw new KeyNotFoundException($"Машина с id {request.VehicleId} не найдена");
 
-        if (!DateTime.TryParse(request.Timestamp, out var parsedTimestamp))
-            throw new ArgumentException("Некорректный формат даты замера");
-
-        if (!Enum.TryParse<MeasurementSource>(request.Source, true, out var source))
-            source = MeasurementSource.Auto;
-
+        // Формат даты и Enum уже гарантированно корректны благодаря FluentValidation
         var measurement = _mapper.Map<HumidityMeasurement>(request);
-        measurement.Timestamp = DateTime.SpecifyKind(parsedTimestamp, DateTimeKind.Utc);
-        measurement.Source = source;
+        measurement.Timestamp = DateTime.Parse(request.Timestamp).ToUniversalTime();
+        measurement.Source = Enum.Parse<MeasurementSource>(request.Source, true);
         measurement.CreatedAt = DateTime.UtcNow;
 
         var created = await _repository.AddAsync(measurement);
@@ -69,7 +64,7 @@ public class MeasurementService : IMeasurementService
     {
         var existing = await _repository.GetByIdAsync(id);
         if (existing == null)
-            throw new KeyNotFoundException($"Замер с id {id} не найдена");
+            throw new KeyNotFoundException($"Замер с id {id} не найден");
 
         if (request.HumidityValue.HasValue)
             existing.HumidityValue = request.HumidityValue.Value;
@@ -83,8 +78,8 @@ public class MeasurementService : IMeasurementService
         if (!string.IsNullOrEmpty(request.Material))
             existing.Material = request.Material;
 
-        if (!string.IsNullOrEmpty(request.Source) && Enum.TryParse<MeasurementSource>(request.Source, true, out var source))
-            existing.Source = source;
+        if (!string.IsNullOrEmpty(request.Source))
+            existing.Source = Enum.Parse<MeasurementSource>(request.Source, true);
 
         if (!string.IsNullOrEmpty(request.Sign))
             existing.Sign = request.Sign;
@@ -99,7 +94,7 @@ public class MeasurementService : IMeasurementService
     {
         var existing = await _repository.GetByIdAsync(id);
         if (existing == null)
-            throw new KeyNotFoundException($"Замер с id {id} не найдена");
+            throw new KeyNotFoundException($"Замер с id {id} не найден");
 
         await _repository.DeleteAsync(existing);
     }
@@ -114,15 +109,9 @@ public class MeasurementService : IMeasurementService
             if (!vehicleExists)
                 continue; // Пропускаем замеры для несуществующих машин
 
-            if (!DateTime.TryParse(request.Timestamp, out var parsedTimestamp))
-                continue;
-
-            if (!Enum.TryParse<MeasurementSource>(request.Source, true, out var source))
-                source = MeasurementSource.Auto;
-
             var measurement = _mapper.Map<HumidityMeasurement>(request);
-            measurement.Timestamp = DateTime.SpecifyKind(parsedTimestamp, DateTimeKind.Utc);
-            measurement.Source = source;
+            measurement.Timestamp = DateTime.Parse(request.Timestamp).ToUniversalTime();
+            measurement.Source = Enum.Parse<MeasurementSource>(request.Source, true);
             measurement.CreatedAt = DateTime.UtcNow;
             measurement.Id = Guid.NewGuid();
 
