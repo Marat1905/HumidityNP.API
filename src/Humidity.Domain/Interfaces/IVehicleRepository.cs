@@ -4,14 +4,27 @@ namespace Humidity.Domain.Interfaces;
 
 /// <summary>
 /// Интерфейс репозитория для работы с машинами.
+/// Расширяет базовый IRepository дополнительными методами, специфичными для Vehicle.
 /// </summary>
-public interface IVehicleRepository
+public interface IVehicleRepository : IRepository<Vehicle>
 {
-    Task<IEnumerable<Vehicle>> GetAllAsync();
-    Task<Vehicle?> GetByIdAsync(Guid id);
+    /// <summary>
+    /// Получить список машин, которые ещё не выехали (ExitDate = null).
+    /// </summary>
+    /// <returns>Коллекция активных машин.</returns>
     Task<IEnumerable<Vehicle>> GetActiveVehiclesAsync();
-    Task<bool> ExistsAsync(Guid id);
-    Task<Vehicle> AddAsync(Vehicle entity);
-    Task<Vehicle> UpdateAsync(Vehicle entity);
-    Task DeleteAsync(Vehicle entity);
+
+    /// <summary>
+    /// Найти машины по государственному номеру.
+    /// </summary>
+    /// <param name="plate">Государственный номер.</param>
+    /// <returns>Коллекция машин с указанным номером.</returns>
+    Task<IEnumerable<Vehicle>> GetByPlateAsync(string plate);
+
+    /// <summary>
+    /// Найти машины по номеру заявки.
+    /// </summary>
+    /// <param name="number">Номер заявки.</param>
+    /// <returns>Коллекция машин с указанным номером заявки.</returns>
+    Task<IEnumerable<Vehicle>> GetByNumberAsync(string number);
 }

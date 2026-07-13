@@ -4,16 +4,36 @@ namespace Humidity.Domain.Interfaces;
 
 /// <summary>
 /// Интерфейс репозитория для работы с замерами влажности.
+/// Расширяет базовый IRepository дополнительными методами, специфичными для HumidityMeasurement.
 /// </summary>
-public interface IMeasurementRepository
+public interface IMeasurementRepository : IRepository<HumidityMeasurement>
 {
+    /// <summary>
+    /// Получить все замеры для указанной машины, отсортированные по времени (новые первыми).
+    /// </summary>
+    /// <param name="vehicleId">Идентификатор машины.</param>
+    /// <returns>Коллекция замеров.</returns>
     Task<IEnumerable<HumidityMeasurement>> GetByVehicleIdAsync(Guid vehicleId);
+
+    /// <summary>
+    /// Получить последний (самый свежий) замер для указанной машины.
+    /// </summary>
+    /// <param name="vehicleId">Идентификатор машины.</param>
+    /// <returns>Последний замер или null, если замеров нет.</returns>
     Task<HumidityMeasurement?> GetLatestByVehicleIdAsync(Guid vehicleId);
+
+    /// <summary>
+    /// Получить все замеры за указанную дату.
+    /// </summary>
+    /// <param name="date">Дата (время игнорируется, берётся весь день).</param>
+    /// <returns>Коллекция замеров за день.</returns>
     Task<IEnumerable<HumidityMeasurement>> GetByDateAsync(DateTime date);
-    Task<HumidityMeasurement?> GetByIdAsync(Guid id);
-    Task<bool> ExistsAsync(Guid id);
-    Task<HumidityMeasurement> AddAsync(HumidityMeasurement entity);
-    Task<IEnumerable<HumidityMeasurement>> BulkAddAsync(IEnumerable<HumidityMeasurement> entities);
-    Task<HumidityMeasurement> UpdateAsync(HumidityMeasurement entity);
-    Task DeleteAsync(HumidityMeasurement entity);
+
+    /// <summary>
+    /// Получить замеры в диапазоне дат.
+    /// </summary>
+    /// <param name="from">Начало диапазона (включительно).</param>
+    /// <param name="to">Конец диапазона (включительно).</param>
+    /// <returns>Коллекция замеров в диапазоне.</returns>
+    Task<IEnumerable<HumidityMeasurement>> GetByDateRangeAsync(DateTime from, DateTime to);
 }
