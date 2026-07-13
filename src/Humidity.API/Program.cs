@@ -1,6 +1,62 @@
+using Microsoft.EntityFrameworkCore;
+using Humidity.Application;
+using Humidity.Infrastructure;
+using Humidity.Infrastructure.Data;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Add layers
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
+
+// Logging
+builder.Services.AddLogging();
+builder.Services.AddHealthChecks();
+
 var app = builder.Build();
 
-app.MapGet("/", () => "Hello World!");
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Humidity API v1");
+        c.RoutePrefix = string.Empty;
+    });
+    app.UseSwagger();
+}
+
+app.UseAuthorization();
+app.MapControllers();
+app.MapHealthChecks("/health");
+
+try
+{
+    // Initialize database
+    using (var scope = app.Services.CreateScope())
+    {
+        var context = scope.ServiceProvider.GetRequiredService<HumidityDbContext>();
+
+        if (app.Environment.IsDevelopment())
+        {
+            // Только для разработки - пересоздание БД
+            context.Database.EnsureCreated();
+        }
+        else
+        {
+            // Для production - применяем миграции
+            context.Database.Migrate();
+        }
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Database initialization failed: {ex.Message}");
+}
 
 app.Run();

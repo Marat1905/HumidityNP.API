@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # Сервис базы данных PostgreSQL
+  db:
+    image: postgres:16-alpine
+    container_name: humidity_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: HumidityDB
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d HumidityDB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - humidity_network
+
+  # Сервис API
+  api:
+    build:
+      context: .
+      dockerfile: src/Humidity.API/Dockerfile
+    container_name: humidity_api
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      # Строка подключения указывает на сервис 'db' внутри docker-сети
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=HumidityDB;Username=postgres;Password=postgres
+    ports:
+      - "5000:8080"
+      - "5001:8081"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - humidity_network
+
+volumes:
+  pgdata:
+    name: humidity_pgdata
+
+networks:
+  humidity_network:
+    driver: bridge
