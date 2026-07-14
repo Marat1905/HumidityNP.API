@@ -1,71 +1,95 @@
 ﻿using FluentValidation;
 using Humidity.Application.DTOs;
-using Humidity.Domain.Enums;
 
 namespace Humidity.Application.Validators;
 
 /// <summary>
-/// Валидатор для создания записи о замере влажности.
+/// Валидатор для запроса на создание замера влажности (CreateMeasurementRequest).
+/// Проверяет обязательность полей, диапазоны числовых значений и корректность даты.
 /// </summary>
 public class CreateMeasurementRequestValidator : AbstractValidator<CreateMeasurementRequest>
 {
     public CreateMeasurementRequestValidator()
     {
+        // Идентификатор машины: обязателен (не может быть пустым Guid)
         RuleFor(x => x.VehicleId)
             .NotEmpty().WithMessage("Идентификатор машины обязателен.");
 
+        // Значение влажности: обязательно, в диапазоне от 0 до 100 процентов
         RuleFor(x => x.HumidityValue)
-            .InclusiveBetween(0, 100).WithMessage("Значение влажности должно быть в диапазоне от 0 до 100%.");
+            .InclusiveBetween(0, 100)
+            .WithMessage("Значение влажности должно быть в диапазоне от 0 до 100%.");
 
+        // Температура: обязательна, в разумном диапазоне (от -50 до +100 °C)
         RuleFor(x => x.TemperatureC)
-            .InclusiveBetween(-60, 100).WithMessage("Температура вне разумных пределов (-60 ... 100 °C).");
+            .InclusiveBetween(-50, 100)
+            .WithMessage("Температура должна быть в диапазоне от -50 до +100 °C.");
 
-        RuleFor(x => x.Timestamp)
-            .NotEmpty().WithMessage("Время замера обязательно.")
-            .Must(BeValidDate).WithMessage("Некорректный формат времени замера.");
+        // Тип измерения: обязателен, максимум 50 символов
+        RuleFor(x => x.MeasurementType)
+            .NotEmpty().WithMessage("Тип измерения обязателен.")
+            .MaximumLength(50).WithMessage("Тип измерения не может быть длиннее 50 символов.");
 
-        RuleFor(x => x.MeasurementType).MaximumLength(50);
-        RuleFor(x => x.Material).MaximumLength(100);
-        RuleFor(x => x.Sign).MaximumLength(10);
+        // Материал: обязателен, максимум 100 символов
+        RuleFor(x => x.Material)
+            .NotEmpty().WithMessage("Материал обязателен.")
+            .MaximumLength(100).WithMessage("Материал не может быть длиннее 100 символов.");
 
+        // Источник данных: обязателен, максимум 20 символов
         RuleFor(x => x.Source)
-            .Must(BeValidSource).WithMessage("Источник данных должен быть 'Auto' или 'Manual'.");
-    }
+            .NotEmpty().WithMessage("Источник данных обязателен.")
+            .MaximumLength(20).WithMessage("Источник данных не может быть длиннее 20 символов.");
 
-    private bool BeValidDate(string date) => !string.IsNullOrWhiteSpace(date) && DateTime.TryParse(date, out _);
+        // Дата и время замера: обязательна, не может быть в будущем
+        RuleFor(x => x.Timestamp)
+            .NotEmpty().WithMessage("Дата и время замера обязательны.")
+            .LessThanOrEqualTo(DateTime.UtcNow.AddMinutes(1))
+            .WithMessage("Дата и время замера не могут быть в будущем.");
 
-    private bool BeValidSource(string source)
-    {
-        return Enum.TryParse<MeasurementSource>(source, true, out _);
+        // Знак (Less/Greater/None): обязателен, максимум 10 символов
+        RuleFor(x => x.Sign)
+            .NotEmpty().WithMessage("Знак обязателен.")
+            .MaximumLength(10).WithMessage("Знак не может быть длиннее 10 символов.");
     }
 }
 
 /// <summary>
-/// Валидатор для обновления записи о замере.
+/// Валидатор для запроса на обновление замера влажности (UpdateMeasurementRequest).
+/// Все поля опциональны, проверяются только диапазоны и длина строк.
 /// </summary>
 public class UpdateMeasurementRequestValidator : AbstractValidator<UpdateMeasurementRequest>
 {
     public UpdateMeasurementRequestValidator()
     {
+        // Значение влажности: если указано, в диапазоне от 0 до 100 процентов
         RuleFor(x => x.HumidityValue)
-            .InclusiveBetween(0, 100).WithMessage("Значение влажности должно быть в диапазоне от 0 до 100%.")
-            .When(x => x.HumidityValue.HasValue);
+            .InclusiveBetween(0, 100)
+            .WithMessage("Значение влажности должно быть в диапазоне от 0 до 100%.");
 
+        // Температура: если указана, в разумном диапазоне (от -50 до +100 °C)
         RuleFor(x => x.TemperatureC)
-            .InclusiveBetween(-60, 100).WithMessage("Температура вне разумных пределов (-60 ... 100 °C).")
-            .When(x => x.TemperatureC.HasValue);
+            .InclusiveBetween(-50, 100)
+            .WithMessage("Температура должна быть в диапазоне от -50 до +100 °C.");
 
+        // Тип измерения: максимум 50 символов
+        RuleFor(x => x.MeasurementType)
+            .MaximumLength(50).WithMessage("Тип измерения не может быть длиннее 50 символов.");
+
+        // Материал: максимум 100 символов
+        RuleFor(x => x.Material)
+            .MaximumLength(100).WithMessage("Материал не может быть длиннее 100 символов.");
+
+        // Источник данных: максимум 20 символов
         RuleFor(x => x.Source)
-            .Must(BeValidSource).WithMessage("Источник данных должен быть 'Auto' или 'Manual'.")
-            .When(x => !string.IsNullOrWhiteSpace(x.Source));
+            .MaximumLength(20).WithMessage("Источник данных не может быть длиннее 20 символов.");
 
-        RuleFor(x => x.MeasurementType).MaximumLength(50).When(x => x.MeasurementType != null);
-        RuleFor(x => x.Material).MaximumLength(100).When(x => x.Material != null);
-        RuleFor(x => x.Sign).MaximumLength(10).When(x => x.Sign != null);
-    }
+        // Знак: максимум 10 символов
+        RuleFor(x => x.Sign)
+            .MaximumLength(10).WithMessage("Знак не может быть длиннее 10 символов.");
 
-    private bool BeValidSource(string source)
-    {
-        return Enum.TryParse<MeasurementSource>(source, true, out _);
+        // Дата и время замера: если указана, не может быть в будущем
+        RuleFor(x => x.Timestamp)
+            .Must(timestamp => timestamp == null || timestamp <= DateTime.UtcNow.AddMinutes(1))
+            .WithMessage("Дата и время замера не могут быть в будущем.");
     }
 }

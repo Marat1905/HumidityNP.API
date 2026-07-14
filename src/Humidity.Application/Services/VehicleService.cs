@@ -1,4 +1,6 @@
-﻿using AutoMapper;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
+using AutoMapper;
 using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
 using Humidity.Domain.Entities;
@@ -42,14 +44,14 @@ public class VehicleService : IVehicleService
     {
         var vehicle = _mapper.Map<Vehicle>(request);
 
-        // Формат дат уже гарантированно корректен благодаря FluentValidation
-        vehicle.Date = DateTime.Parse(request.Date).ToUniversalTime();
-        vehicle.ArrivalDate = DateTime.Parse(request.ArrivalDate).ToUniversalTime();
-        vehicle.EntryDate = DateTime.Parse(request.EntryDate).ToUniversalTime();
+        // Формат дат уже гарантированно корректен благодаря FluentValidation, выполняем приведение к UTC
+        vehicle.Date = request.Date.ToUniversalTime();
+        vehicle.ArrivalDate = request.ArrivalDate.ToUniversalTime();
+        vehicle.EntryDate = request.EntryDate.ToUniversalTime();
 
-        if (!string.IsNullOrEmpty(request.ExitDate))
+        if (request.ExitDate.HasValue)
         {
-            vehicle.ExitDate = DateTime.Parse(request.ExitDate).ToUniversalTime();
+            vehicle.ExitDate = request.ExitDate.Value.ToUniversalTime();
         }
 
         vehicle.CreatedAt = DateTime.UtcNow;
@@ -66,9 +68,9 @@ public class VehicleService : IVehicleService
 
         _mapper.Map(request, existing);
 
-        if (!string.IsNullOrEmpty(request.ExitDate))
+        if (request.ExitDate.HasValue)
         {
-            existing.ExitDate = DateTime.Parse(request.ExitDate).ToUniversalTime();
+            existing.ExitDate = request.ExitDate.Value.ToUniversalTime();
         }
 
         existing.UpdatedAt = DateTime.UtcNow;

@@ -4,70 +4,140 @@ using Humidity.Application.DTOs;
 namespace Humidity.Application.Validators;
 
 /// <summary>
-/// Валидатор для создания записи о машине.
+/// Валидатор для запроса на создание машины (CreateVehicleRequest).
+/// Проверяет обязательность полей, длину строк и корректность дат.
 /// </summary>
 public class CreateVehicleRequestValidator : AbstractValidator<CreateVehicleRequest>
 {
     public CreateVehicleRequestValidator()
     {
+        // Номер заявки: обязателен, максимум 50 символов
         RuleFor(x => x.Number)
             .NotEmpty().WithMessage("Номер заявки обязателен.")
             .MaximumLength(50).WithMessage("Номер заявки не может быть длиннее 50 символов.");
 
+        // Дата создания записи: обязательна, не может быть в будущем
         RuleFor(x => x.Date)
-            .NotEmpty().WithMessage("Дата создания обязательна.")
-            .Must(BeValidDate).WithMessage("Некорректный формат даты создания.");
+            .NotEmpty().WithMessage("Дата создания записи обязательна.")
+            .LessThanOrEqualTo(DateTime.UtcNow.AddMinutes(1))
+            .WithMessage("Дата создания записи не может быть в будущем.");
 
+        // Дата приезда: обязательна, не может быть в будущем
         RuleFor(x => x.ArrivalDate)
             .NotEmpty().WithMessage("Дата приезда обязательна.")
-            .Must(BeValidDate).WithMessage("Некорректный формат даты приезда.");
+            .LessThanOrEqualTo(DateTime.UtcNow.AddMinutes(1))
+            .WithMessage("Дата приезда не может быть в будущем.");
 
+        // Дата въезда: обязательна, не может быть в будущем, не должна быть раньше даты приезда
         RuleFor(x => x.EntryDate)
             .NotEmpty().WithMessage("Дата въезда обязательна.")
-            .Must(BeValidDate).WithMessage("Некорректный формат даты въезда.");
+            .LessThanOrEqualTo(DateTime.UtcNow.AddMinutes(1))
+            .WithMessage("Дата въезда не может быть в будущем.")
+            .GreaterThanOrEqualTo(x => x.ArrivalDate)
+            .WithMessage("Дата въезда не может быть раньше даты приезда.");
 
+        // Дата выезда: опциональна, но если указана, должна быть не раньше даты въезда и не в будущем
         RuleFor(x => x.ExitDate)
-            .Must(BeValidDateOrNull).WithMessage("Некорректный формат даты выезда.");
+            .Must((vehicle, exitDate) => exitDate == null || exitDate >= vehicle.EntryDate)
+            .WithMessage("Дата выезда не может быть раньше даты въезда.")
+            .Must(exitDate => exitDate == null || exitDate <= DateTime.UtcNow.AddMinutes(1))
+            .WithMessage("Дата выезда не может быть в будущем.");
 
+        // Контрагент: обязателен, максимум 100 символов
+        RuleFor(x => x.Counterparty)
+            .NotEmpty().WithMessage("Контрагент обязателен.")
+            .MaximumLength(100).WithMessage("Контрагент не может быть длиннее 100 символов.");
+
+        // Вид работ: обязателен, максимум 50 символов
+        RuleFor(x => x.WorkType)
+            .NotEmpty().WithMessage("Вид работ обязателен.")
+            .MaximumLength(50).WithMessage("Вид работ не может быть длиннее 50 символов.");
+
+        // Марка автомобиля: обязательна, максимум 50 символов
+        RuleFor(x => x.VehicleBrand)
+            .NotEmpty().WithMessage("Марка автомобиля обязательна.")
+            .MaximumLength(50).WithMessage("Марка автомобиля не может быть длиннее 50 символов.");
+
+        // Государственный номер: обязателен, максимум 20 символов
         RuleFor(x => x.VehiclePlate)
-            .NotEmpty().WithMessage("Гос. номер автомобиля обязателен.")
-            .MaximumLength(20).WithMessage("Гос. номер не может быть длиннее 20 символов.");
+            .NotEmpty().WithMessage("Государственный номер обязателен.")
+            .MaximumLength(20).WithMessage("Государственный номер не может быть длиннее 20 символов.");
 
-        RuleFor(x => x.Counterparty).MaximumLength(200);
-        RuleFor(x => x.WorkType).MaximumLength(100);
-        RuleFor(x => x.VehicleBrand).MaximumLength(100);
-        RuleFor(x => x.Trailer).MaximumLength(20);
-        RuleFor(x => x.Driver).MaximumLength(200);
-        RuleFor(x => x.Loader).MaximumLength(200);
-        RuleFor(x => x.Expeditor).MaximumLength(200);
-        RuleFor(x => x.Department).MaximumLength(100);
+        // Номер прицепа: опционален, максимум 20 символов
+        RuleFor(x => x.Trailer)
+            .MaximumLength(20).WithMessage("Номер прицепа не может быть длиннее 20 символов.");
+
+        // ФИО водителя: обязательно, максимум 100 символов
+        RuleFor(x => x.Driver)
+            .NotEmpty().WithMessage("ФИО водителя обязательно.")
+            .MaximumLength(100).WithMessage("ФИО водителя не может быть длиннее 100 символов.");
+
+        // ФИО грузчика: опционально, максимум 100 символов
+        RuleFor(x => x.Loader)
+            .MaximumLength(100).WithMessage("ФИО грузчика не может быть длиннее 100 символов.");
+
+        // ФИО экспедитора: опционально, максимум 100 символов
+        RuleFor(x => x.Expeditor)
+            .MaximumLength(100).WithMessage("ФИО экспедитора не может быть длиннее 100 символов.");
+
+        // Подразделение: обязательно, максимум 100 символов
+        RuleFor(x => x.Department)
+            .NotEmpty().WithMessage("Подразделение обязательно.")
+            .MaximumLength(100).WithMessage("Подразделение не может быть длиннее 100 символов.");
     }
-
-    private bool BeValidDate(string date) => !string.IsNullOrWhiteSpace(date) && DateTime.TryParse(date, out _);
-    private bool BeValidDateOrNull(string? date) => string.IsNullOrWhiteSpace(date) || DateTime.TryParse(date, out _);
 }
 
 /// <summary>
-/// Валидатор для обновления записи о машине.
-/// Проверяет форматы только тех полей, которые были переданы (не null).
+/// Валидатор для запроса на обновление машины (UpdateVehicleRequest).
+/// Проверяет длину строк и корректность дат (все поля опциональны).
 /// </summary>
 public class UpdateVehicleRequestValidator : AbstractValidator<UpdateVehicleRequest>
 {
     public UpdateVehicleRequestValidator()
     {
-        RuleFor(x => x.Number).MaximumLength(50).When(x => x.Number != null);
-        RuleFor(x => x.ExitDate).Must(BeValidDateOrNull).When(x => x.ExitDate != null)
-            .WithMessage("Некорректный формат даты выезда.");
-        RuleFor(x => x.VehiclePlate).MaximumLength(20).When(x => x.VehiclePlate != null);
-        RuleFor(x => x.Counterparty).MaximumLength(200).When(x => x.Counterparty != null);
-        RuleFor(x => x.WorkType).MaximumLength(100).When(x => x.WorkType != null);
-        RuleFor(x => x.VehicleBrand).MaximumLength(100).When(x => x.VehicleBrand != null);
-        RuleFor(x => x.Trailer).MaximumLength(20).When(x => x.Trailer != null);
-        RuleFor(x => x.Driver).MaximumLength(200).When(x => x.Driver != null);
-        RuleFor(x => x.Loader).MaximumLength(200).When(x => x.Loader != null);
-        RuleFor(x => x.Expeditor).MaximumLength(200).When(x => x.Expeditor != null);
-        RuleFor(x => x.Department).MaximumLength(100).When(x => x.Department != null);
-    }
+        // Номер заявки: максимум 50 символов
+        RuleFor(x => x.Number)
+            .MaximumLength(50).WithMessage("Номер заявки не может быть длиннее 50 символов.");
 
-    private bool BeValidDateOrNull(string? date) => string.IsNullOrWhiteSpace(date) || DateTime.TryParse(date, out _);
+        // Контрагент: максимум 100 символов
+        RuleFor(x => x.Counterparty)
+            .MaximumLength(100).WithMessage("Контрагент не может быть длиннее 100 символов.");
+
+        // Вид работ: максимум 50 символов
+        RuleFor(x => x.WorkType)
+            .MaximumLength(50).WithMessage("Вид работ не может быть длиннее 50 символов.");
+
+        // Марка автомобиля: максимум 50 символов
+        RuleFor(x => x.VehicleBrand)
+            .MaximumLength(50).WithMessage("Марка автомобиля не может быть длиннее 50 символов.");
+
+        // Государственный номер: максимум 20 символов
+        RuleFor(x => x.VehiclePlate)
+            .MaximumLength(20).WithMessage("Государственный номер не может быть длиннее 20 символов.");
+
+        // Номер прицепа: максимум 20 символов
+        RuleFor(x => x.Trailer)
+            .MaximumLength(20).WithMessage("Номер прицепа не может быть длиннее 20 символов.");
+
+        // ФИО водителя: максимум 100 символов
+        RuleFor(x => x.Driver)
+            .MaximumLength(100).WithMessage("ФИО водителя не может быть длиннее 100 символов.");
+
+        // ФИО грузчика: максимум 100 символов
+        RuleFor(x => x.Loader)
+            .MaximumLength(100).WithMessage("ФИО грузчика не может быть длиннее 100 символов.");
+
+        // ФИО экспедитора: максимум 100 символов
+        RuleFor(x => x.Expeditor)
+            .MaximumLength(100).WithMessage("ФИО экспедитора не может быть длиннее 100 символов.");
+
+        // Подразделение: максимум 100 символов
+        RuleFor(x => x.Department)
+            .MaximumLength(100).WithMessage("Подразделение не может быть длиннее 100 символов.");
+
+        // Дата выезда: если указана, не должна быть в будущем
+        RuleFor(x => x.ExitDate)
+            .Must(exitDate => exitDate == null || exitDate <= DateTime.UtcNow.AddMinutes(1))
+            .WithMessage("Дата выезда не может быть в будущем.");
+    }
 }

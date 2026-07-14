@@ -16,24 +16,24 @@ public class VehicleDto
     public string Number { get; set; } = string.Empty;
 
     /// <summary>
-    /// Дата создания записи (ISO формат).
+    /// Дата создания записи.
     /// </summary>
-    public string Date { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
 
     /// <summary>
-    /// Дата приезда (ISO формат).
+    /// Дата приезда.
     /// </summary>
-    public string ArrivalDate { get; set; } = string.Empty;
+    public DateTime ArrivalDate { get; set; }
 
     /// <summary>
-    /// Дата въезда (ISO формат).
+    /// Дата въезда.
     /// </summary>
-    public string EntryDate { get; set; } = string.Empty;
+    public DateTime EntryDate { get; set; }
 
     /// <summary>
-    /// Дата выезда (ISO формат, может быть null).
+    /// Дата выезда (может быть null).
     /// </summary>
-    public string? ExitDate { get; set; }
+    public DateTime? ExitDate { get; set; }
 
     /// <summary>
     /// Контрагент.
@@ -87,10 +87,10 @@ public class VehicleDto
 public class CreateVehicleRequest
 {
     public string Number { get; set; } = string.Empty;
-    public string Date { get; set; } = string.Empty;
-    public string ArrivalDate { get; set; } = string.Empty;
-    public string EntryDate { get; set; } = string.Empty;
-    public string? ExitDate { get; set; }
+    public DateTime Date { get; set; }
+    public DateTime ArrivalDate { get; set; }
+    public DateTime EntryDate { get; set; }
+    public DateTime? ExitDate { get; set; }
     public string Counterparty { get; set; } = string.Empty;
     public string WorkType { get; set; } = string.Empty;
     public string VehicleBrand { get; set; } = string.Empty;
@@ -117,5 +117,5 @@ public class UpdateVehicleRequest
     public string? Loader { get; set; }
     public string? Expeditor { get; set; }
     public string? Department { get; set; }
-    public string? ExitDate { get; set; }
+    public DateTime? ExitDate { get; set; }
 }

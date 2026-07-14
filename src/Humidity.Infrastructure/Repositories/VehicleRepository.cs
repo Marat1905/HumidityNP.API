@@ -1,74 +1,92 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Humidity.Domain.Entities;
+﻿using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
 using Humidity.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace Humidity.Infrastructure.Repositories;
 
 /// <summary>
-/// Репозиторий для работы с сущностью Vehicle.
-/// Наследует все базовые CRUD-операции от BaseRepository.
-/// Реализует только методы, специфичные для машин.
+/// Реализация репозитория для работы с сущностью Vehicle.
+/// Наследует базовый репозиторий и добавляет специфичные методы для машин.
 /// </summary>
 public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
 {
-    public VehicleRepository(HumidityDbContext context)
-        : base(context)
+    private readonly HumidityDbContext _context;
+
+    public VehicleRepository(HumidityDbContext context) : base(context)
     {
+        _context = context;
     }
 
     /// <summary>
-    /// Переопределяем базовый GetAllAsync, чтобы eagerly load замеры.
-    /// Это позволяет избежать N+1 проблемы при сериализации.
+    /// Получить все машины.
     /// </summary>
     public override async Task<IEnumerable<Vehicle>> GetAllAsync()
     {
-        return await DbSet
+        return await _context.Vehicles
             .Include(v => v.Measurements)
-            .OrderByDescending(v => v.Date)
+            .AsNoTracking()
             .ToListAsync();
     }
 
     /// <summary>
-    /// Переопределяем GetByIdAsync, чтобы eagerly load замеры.
+    /// Получить машину по идентификатору.
     /// </summary>
     public override async Task<Vehicle?> GetByIdAsync(Guid id)
     {
-        return await DbSet
+        return await _context.Vehicles
             .Include(v => v.Measurements)
+            .AsNoTracking()
             .FirstOrDefaultAsync(v => v.Id == id);
     }
 
     /// <summary>
-    /// Получить список машин, которые ещё не выехали (ExitDate = null).
+    /// Получить активные машины (те, у которых дата выезда ещё не установлена).
     /// </summary>
     public async Task<IEnumerable<Vehicle>> GetActiveVehiclesAsync()
     {
-        return await DbSet
+        return await _context.Vehicles
+            .Include(v => v.Measurements)
             .Where(v => v.ExitDate == null)
-            .OrderByDescending(v => v.EntryDate)
+            .AsNoTracking()
             .ToListAsync();
     }
 
     /// <summary>
-    /// Найти машины по государственному номеру (без учёта регистра).
+    /// Поиск машин по государственному номеру (регистронезависимый).
+    /// Использует EF.Functions.ILike для эффективного поиска в PostgreSQL,
+    /// который позволяет использовать функциональный индекс LOWER(vehicle_plate).
+    /// Возвращает коллекцию, так как один и тот же гос. номер может встречаться
+    /// у разных заявок в разное время (например, одна машина — несколько визитов).
     /// </summary>
     public async Task<IEnumerable<Vehicle>> GetByPlateAsync(string plate)
     {
-        return await DbSet
-            .Where(v => v.VehiclePlate.ToLower() == plate.ToLower())
-            .OrderByDescending(v => v.Date)
+        return await _context.Vehicles
+            .Include(v => v.Measurements)
+            .AsNoTracking()
+            .Where(v => EF.Functions.ILike(v.VehiclePlate, plate))
             .ToListAsync();
     }
 
     /// <summary>
-    /// Найти машины по номеру заявки (без учёта регистра).
+    /// Поиск машин по номеру заявки (регистронезависимый).
+    /// Возвращает коллекцию согласно сигнатуре интерфейса.
+    /// Использует EF.Functions.ILike для единообразия с поиском по гос. номеру.
     /// </summary>
     public async Task<IEnumerable<Vehicle>> GetByNumberAsync(string number)
     {
-        return await DbSet
-            .Where(v => v.Number.ToLower() == number.ToLower())
-            .OrderByDescending(v => v.Date)
+        return await _context.Vehicles
+            .Include(v => v.Measurements)
+            .AsNoTracking()
+            .Where(v => EF.Functions.ILike(v.Number, number))
             .ToListAsync();
+    }
+
+    /// <summary>
+    /// Проверить существование машины по идентификатору.
+    /// </summary>
+    public async Task<bool> ExistsAsync(Guid id)
+    {
+        return await _context.Vehicles.AnyAsync(v => v.Id == id);
     }
 }

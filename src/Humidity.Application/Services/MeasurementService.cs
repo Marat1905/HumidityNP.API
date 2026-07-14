@@ -1,4 +1,8 @@
-﻿using AutoMapper;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using AutoMapper;
 using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
 using Humidity.Domain.Entities;
@@ -52,7 +56,7 @@ public class MeasurementService : IMeasurementService
 
         // Формат даты и Enum уже гарантированно корректны благодаря FluentValidation
         var measurement = _mapper.Map<HumidityMeasurement>(request);
-        measurement.Timestamp = DateTime.Parse(request.Timestamp).ToUniversalTime();
+        measurement.Timestamp = request.Timestamp.ToUniversalTime();
         measurement.Source = Enum.Parse<MeasurementSource>(request.Source, true);
         measurement.CreatedAt = DateTime.UtcNow;
 
@@ -84,6 +88,9 @@ public class MeasurementService : IMeasurementService
         if (!string.IsNullOrEmpty(request.Sign))
             existing.Sign = request.Sign;
 
+        if (request.Timestamp.HasValue)
+            existing.Timestamp = request.Timestamp.Value.ToUniversalTime();
+
         existing.UpdatedAt = DateTime.UtcNow;
 
         var updated = await _repository.UpdateAsync(existing);
@@ -110,7 +117,7 @@ public class MeasurementService : IMeasurementService
                 continue; // Пропускаем замеры для несуществующих машин
 
             var measurement = _mapper.Map<HumidityMeasurement>(request);
-            measurement.Timestamp = DateTime.Parse(request.Timestamp).ToUniversalTime();
+            measurement.Timestamp = request.Timestamp.ToUniversalTime();
             measurement.Source = Enum.Parse<MeasurementSource>(request.Source, true);
             measurement.CreatedAt = DateTime.UtcNow;
             measurement.Id = Guid.NewGuid();
