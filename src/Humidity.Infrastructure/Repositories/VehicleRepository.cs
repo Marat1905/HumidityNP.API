@@ -89,4 +89,22 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     {
         return await _context.Vehicles.AnyAsync(v => v.Id == id);
     }
+
+    /// <summary>
+    /// Получить множество существующих идентификаторов машин из переданного списка.
+    /// </summary>
+    public async Task<HashSet<Guid>> GetExistingIdsAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids.ToList();
+        if (!idList.Any())
+            return new HashSet<Guid>();
+
+        // Один запрос к БД: SELECT "Id" FROM "Vehicles" WHERE "Id" IN (...)
+        var existingIds = await _context.Vehicles
+            .Where(v => idList.Contains(v.Id))
+            .Select(v => v.Id)
+            .ToListAsync();
+
+        return new HashSet<Guid>(existingIds);
+    }
 }

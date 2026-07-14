@@ -27,4 +27,12 @@ public interface IVehicleRepository : IRepository<Vehicle>
     /// <param name="number">Номер заявки.</param>
     /// <returns>Коллекция машин с указанным номером заявки.</returns>
     Task<IEnumerable<Vehicle>> GetByNumberAsync(string number);
+
+    /// <summary>
+    /// Получить множество существующих идентификаторов машин из переданного списка.
+    /// Выполняет один запрос к БД вместо N запросов.
+    /// </summary>
+    /// <param name="ids">Список проверяемых идентификаторов.</param>
+    /// <returns>HashSet существующих идентификаторов для быстрого поиска.</returns>
+    Task<HashSet<Guid>> GetExistingIdsAsync(IEnumerable<Guid> ids);
 }

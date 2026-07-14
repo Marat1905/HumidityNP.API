@@ -1,13 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using AutoMapper;
+﻿using AutoMapper;
 using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Enums;
 using Humidity.Domain.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.Metrics;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Humidity.Application.Services;
 
@@ -108,13 +109,19 @@ public class MeasurementService : IMeasurementService
 
     public async Task<IEnumerable<MeasurementDto>> BulkCreateAsync(IEnumerable<CreateMeasurementRequest> requests)
     {
+        var requestList = requests.ToList();
+        if (!requestList.Any())
+            return Enumerable.Empty<MeasurementDto>();
+
+        var vehicleIdsToCheck = requestList.Select(r => r.VehicleId).Distinct();
+        var existingVehicleIds = await _vehicleRepository.GetExistingIdsAsync(vehicleIdsToCheck);
+
         var measurements = new List<HumidityMeasurement>();
 
-        foreach (var request in requests)
+        foreach (var request in requestList)
         {
-            var vehicleExists = await _vehicleRepository.ExistsAsync(request.VehicleId);
-            if (!vehicleExists)
-                continue; // Пропускаем замеры для несуществующих машин
+            if (!existingVehicleIds.Contains(request.VehicleId))
+                continue;
 
             var measurement = _mapper.Map<HumidityMeasurement>(request);
             measurement.Timestamp = request.Timestamp.ToUniversalTime();
