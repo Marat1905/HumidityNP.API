@@ -41,7 +41,9 @@ public class MeasurementsController : ControllerBase
     {
         var measurement = await _measurementService.GetLatestByVehicleIdAsync(vehicleId);
         if (measurement == null)
+        {
             return NotFound($"Замеры для машины с id {vehicleId} не найдены");
+        }
 
         return Ok(measurement);
     }
@@ -69,17 +71,12 @@ public class MeasurementsController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateMeasurementRequest request)
     {
         if (!ModelState.IsValid)
+        {
             return BadRequest(ModelState);
+        }
 
-        try
-        {
-            var created = await _measurementService.CreateAsync(request);
-            return CreatedAtAction(nameof(GetByVehicle), new { vehicleId = request.VehicleId }, created);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(ex.Message);
-        }
+        var created = await _measurementService.CreateAsync(request);
+        return CreatedAtAction(nameof(GetByVehicle), new { vehicleId = request.VehicleId }, created);
     }
 
     /// <summary>
@@ -92,17 +89,12 @@ public class MeasurementsController : ControllerBase
     public async Task<IActionResult> BulkCreate([FromBody] IEnumerable<CreateMeasurementRequest> requests)
     {
         if (!ModelState.IsValid)
+        {
             return BadRequest(ModelState);
+        }
 
-        try
-        {
-            var created = await _measurementService.BulkCreateAsync(requests);
-            return CreatedAtAction(nameof(GetByDate), new { date = DateTime.UtcNow.Date }, created);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        var created = await _measurementService.BulkCreateAsync(requests);
+        return CreatedAtAction(nameof(GetByDate), new { date = DateTime.UtcNow.Date }, created);
     }
 
     /// <summary>
@@ -117,17 +109,12 @@ public class MeasurementsController : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateMeasurementRequest request)
     {
         if (!ModelState.IsValid)
+        {
             return BadRequest(ModelState);
+        }
 
-        try
-        {
-            var updated = await _measurementService.UpdateAsync(id, request);
-            return Ok(updated);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(ex.Message);
-        }
+        var updated = await _measurementService.UpdateAsync(id, request);
+        return Ok(updated);
     }
 
     /// <summary>
@@ -139,14 +126,7 @@ public class MeasurementsController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> Delete(Guid id)
     {
-        try
-        {
-            await _measurementService.DeleteAsync(id);
-            return NoContent();
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(ex.Message);
-        }
+        await _measurementService.DeleteAsync(id);
+        return NoContent();
     }
 }

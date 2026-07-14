@@ -40,7 +40,9 @@ public class VehiclesController : ControllerBase
     {
         var vehicle = await _vehicleService.GetByIdAsync(id);
         if (vehicle == null)
+        {
             return NotFound($"Машина с id {id} не найдена");
+        }
 
         return Ok(vehicle);
     }
@@ -66,17 +68,12 @@ public class VehiclesController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateVehicleRequest request)
     {
         if (!ModelState.IsValid)
+        {
             return BadRequest(ModelState);
+        }
 
-        try
-        {
-            var created = await _vehicleService.CreateAsync(request);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        var created = await _vehicleService.CreateAsync(request);
+        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
     /// <summary>
@@ -91,17 +88,12 @@ public class VehiclesController : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateVehicleRequest request)
     {
         if (!ModelState.IsValid)
+        {
             return BadRequest(ModelState);
+        }
 
-        try
-        {
-            var updated = await _vehicleService.UpdateAsync(id, request);
-            return Ok(updated);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(ex.Message);
-        }
+        var updated = await _vehicleService.UpdateAsync(id, request);
+        return Ok(updated);
     }
 
     /// <summary>
@@ -113,14 +105,7 @@ public class VehiclesController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> Delete(Guid id)
     {
-        try
-        {
-            await _vehicleService.DeleteAsync(id);
-            return NoContent();
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(ex.Message);
-        }
+        await _vehicleService.DeleteAsync(id);
+        return NoContent();
     }
 }

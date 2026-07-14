@@ -1,5 +1,6 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Humidity.API.Middleware;
 using Humidity.Application;
 using Humidity.Application.Validators;
 using Humidity.Infrastructure;
@@ -27,6 +28,8 @@ builder.Services.AddLogging();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
