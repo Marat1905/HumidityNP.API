@@ -6,6 +6,7 @@ using Humidity.Domain.Entities;
 using Humidity.Domain.Enums;
 using Humidity.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
+using FluentValidation; // добавлен для валидации
 
 namespace Humidity.Application.Services;
 
@@ -18,17 +19,20 @@ public class MeasurementService : IMeasurementService
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<MeasurementService> _logger;
+    private readonly IValidator<CreateMeasurementRequest> _validator; // добавлен валидатор
 
     public MeasurementService(
         IMeasurementRepository repository,
         IVehicleRepository vehicleRepository,
         IMapper mapper,
-        ILogger<MeasurementService> logger)
+        ILogger<MeasurementService> logger,
+        IValidator<CreateMeasurementRequest> validator) // внедряем валидатор
     {
         _repository = repository;
         _vehicleRepository = vehicleRepository;
         _mapper = mapper;
         _logger = logger;
+        _validator = validator;
     }
 
     public async Task<IEnumerable<MeasurementDto>> GetByVehicleIdAsync(Guid vehicleId, CancellationToken cancellationToken = default)
@@ -153,10 +157,16 @@ public class MeasurementService : IMeasurementService
     }
 
     /// <summary>
-    /// Массовая загрузка замеров.
-    /// Для каждого запроса проверяется существование машины.
-    /// Запросы с несуществующим VehicleId пропускаются, информация о них возвращается в результате.
+    /// Массовая загрузка замеров с полной валидацией каждого запроса.
+    /// Для каждого запроса проверяется:
+    /// - Валидность данных через FluentValidation (правила из CreateMeasurementRequestValidator)
+    /// - Существование машины по VehicleId
+    /// Запросы, не прошедшие валидацию или с несуществующей машиной, пропускаются,
+    /// информация о них возвращается в результате с деталями ошибок.
     /// </summary>
+    /// <param name="requests">Список запросов на создание.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Результат массовой загрузки с количеством созданных, пропущенных и списком ошибок.</returns>
     public async Task<BulkMeasurementResult> BulkCreateAsync(IEnumerable<CreateMeasurementRequest> requests, CancellationToken cancellationToken = default)
     {
         var requestList = requests.ToList();
@@ -168,35 +178,58 @@ public class MeasurementService : IMeasurementService
             return new BulkMeasurementResult();
         }
 
-        // Собираем все уникальные VehicleId из запросов
+        // Собираем все уникальные VehicleId из запросов для проверки существования машин
         var vehicleIds = requestList.Select(r => r.VehicleId).Distinct();
         var existingVehicleIds = await _vehicleRepository.GetExistingIdsAsync(vehicleIds, cancellationToken);
 
         var validMeasurements = new List<HumidityMeasurement>();
         var errors = new List<MeasurementBulkError>();
 
+        // Проходим по каждому запросу с индексом
         for (int i = 0; i < requestList.Count; i++)
         {
             var request = requestList[i];
+            var errorMessages = new List<string>();
+
+            // 1. Валидация данных запроса с помощью FluentValidation
+            var validationResult = await _validator.ValidateAsync(request, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                // Собираем все сообщения об ошибках валидации
+                var validationErrors = validationResult.Errors.Select(e => e.ErrorMessage);
+                errorMessages.AddRange(validationErrors);
+                _logger.LogWarning("Запрос с индексом {Index} не прошёл валидацию: {Errors}",
+                    i, string.Join("; ", validationErrors));
+            }
+
+            // 2. Проверка существования машины
             if (!existingVehicleIds.Contains(request.VehicleId))
             {
-                // Машина не найдена – пропускаем запись
+                errorMessages.Add($"Машина с id {request.VehicleId} не найдена.");
+                _logger.LogWarning("Запрос с индексом {Index}: машина {VehicleId} не найдена", i, request.VehicleId);
+            }
+
+            // Если есть ошибки, добавляем запись в список пропущенных и переходим к следующему запросу
+            if (errorMessages.Any())
+            {
                 var error = new MeasurementBulkError
                 {
                     Index = i,
                     VehicleId = request.VehicleId,
-                    Message = $"Машина с id {request.VehicleId} не найдена."
+                    Message = string.Join("; ", errorMessages)
                 };
                 errors.Add(error);
-                _logger.LogWarning("Пропуск замера с индексом {Index}, машина {VehicleId} не найдена", i, request.VehicleId);
                 continue;
             }
 
+            // Запрос валиден и машина существует — добавляем в список для создания
             var measurement = _mapper.Map<HumidityMeasurement>(request);
+            // Преобразуем строковое значение Source в enum (регистронезависимо)
             measurement.Source = Enum.Parse<MeasurementSource>(request.Source, true);
             validMeasurements.Add(measurement);
         }
 
+        // Выполняем массовую вставку валидных записей
         var created = new List<HumidityMeasurement>();
         if (validMeasurements.Any())
         {
@@ -206,7 +239,7 @@ public class MeasurementService : IMeasurementService
 
         if (errors.Any())
         {
-            _logger.LogWarning("Пропущено {SkippedCount} замеров из-за ошибок", errors.Count);
+            _logger.LogWarning("Пропущено {SkippedCount} замеров из-за ошибок валидации или отсутствия машины", errors.Count);
         }
 
         return new BulkMeasurementResult

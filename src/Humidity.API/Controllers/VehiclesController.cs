@@ -82,11 +82,7 @@ public class VehiclesController : ControllerBase
     [ProducesResponseType(400)]
     public async Task<IActionResult> Create([FromBody] CreateVehicleRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
-
+        // Валидация выполняется автоматически благодаря [ApiController] и FluentValidation.
         var created = await _vehicleService.CreateAsync(request, HttpContext.RequestAborted);
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
@@ -102,11 +98,7 @@ public class VehiclesController : ControllerBase
     [ProducesResponseType(400)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateVehicleRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
-
+        // Валидация выполняется автоматически.
         var updated = await _vehicleService.UpdateAsync(id, request, HttpContext.RequestAborted);
         return Ok(updated);
     }

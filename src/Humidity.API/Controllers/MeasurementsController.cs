@@ -85,11 +85,7 @@ public class MeasurementsController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> Create([FromBody] CreateMeasurementRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
-
+        // Валидация выполняется автоматически благодаря [ApiController] и FluentValidation.
         var created = await _measurementService.CreateAsync(request, HttpContext.RequestAborted);
         return CreatedAtAction(nameof(GetByVehicle), new { vehicleId = request.VehicleId }, created);
     }
@@ -104,11 +100,7 @@ public class MeasurementsController : ControllerBase
     [ProducesResponseType(400)]
     public async Task<IActionResult> BulkCreate([FromBody] IEnumerable<CreateMeasurementRequest> requests)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
-
+        // Валидация каждого элемента выполняется внутри сервиса.
         var result = await _measurementService.BulkCreateAsync(requests, HttpContext.RequestAborted);
         return CreatedAtAction(nameof(GetByDate), new { date = DateTimeOffset.UtcNow.Date }, result);
     }
@@ -124,11 +116,7 @@ public class MeasurementsController : ControllerBase
     [ProducesResponseType(400)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateMeasurementRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
-
+        // Валидация выполняется автоматически.
         var updated = await _measurementService.UpdateAsync(id, request, HttpContext.RequestAborted);
         return Ok(updated);
     }

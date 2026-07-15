@@ -110,6 +110,27 @@ public class VehicleService : IVehicleService
             throw new KeyNotFoundException($"Машина с id {id} не найдена");
         }
 
+        // Дополнительная валидация для ExitDate: если передан ExitDate, он должен быть не раньше EntryDate
+        if (request.ExitDate.HasValue)
+        {
+            // Проверяем, что ExitDate >= EntryDate (существующее значение)
+            if (request.ExitDate.Value < existing.EntryDate)
+            {
+                _logger.LogWarning("Попытка установить ExitDate {ExitDate} раньше EntryDate {EntryDate} для машины {VehicleId}",
+                    request.ExitDate.Value, existing.EntryDate, id);
+                throw new InvalidOperationException(
+                    $"Дата выезда ({request.ExitDate.Value:yyyy-MM-dd HH:mm:ss}) не может быть раньше даты въезда ({existing.EntryDate:yyyy-MM-dd HH:mm:ss}).");
+            }
+
+            // Дополнительно проверяем, что ExitDate не в будущем (это уже есть в валидаторе, но продублируем для надёжности)
+            if (request.ExitDate.Value > DateTimeOffset.UtcNow.AddMinutes(1))
+            {
+                _logger.LogWarning("Попытка установить ExitDate {ExitDate} в будущем для машины {VehicleId}",
+                    request.ExitDate.Value, id);
+                throw new InvalidOperationException("Дата выезда не может быть в будущем.");
+            }
+        }
+
         // Маппер применяет только не-null поля (настроено в MappingProfile)
         // Сущность теперь отслеживается, поэтому EF Core сгенерирует UPDATE только для изменённых свойств
         _mapper.Map(request, existing);
