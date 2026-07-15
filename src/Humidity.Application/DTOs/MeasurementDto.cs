@@ -43,7 +43,7 @@ public class MeasurementDto
     /// <summary>
     /// Дата и время замера.
     /// </summary>
-    public DateTime Timestamp { get; set; }
+    public DateTimeOffset Timestamp { get; set; }
 
     /// <summary>
     /// Знак (Less/Greater/None).
@@ -67,7 +67,7 @@ public class CreateMeasurementRequest
     public string MeasurementType { get; set; } = string.Empty;
     public string Material { get; set; } = string.Empty;
     public string Source { get; set; } = string.Empty;
-    public DateTime Timestamp { get; set; }
+    public DateTimeOffset Timestamp { get; set; }
     public string Sign { get; set; } = string.Empty;
 }
 
@@ -82,5 +82,5 @@ public class UpdateMeasurementRequest
     public string? Material { get; set; }
     public string? Source { get; set; }
     public string? Sign { get; set; }
-    public DateTime? Timestamp { get; set; }
+    public DateTimeOffset? Timestamp { get; set; }
 }

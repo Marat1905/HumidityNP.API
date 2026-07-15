@@ -5,10 +5,6 @@ using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Enums;
 using Humidity.Domain.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Humidity.Application.Services;
 
@@ -56,13 +52,13 @@ public class MeasurementService : IMeasurementService
         return measurement == null ? null : _mapper.Map<MeasurementDto>(measurement);
     }
 
-    public async Task<IEnumerable<MeasurementDto>> GetByDateAsync(DateTime date)
+    public async Task<IEnumerable<MeasurementDto>> GetByDateAsync(DateTimeOffset date)
     {
         var measurements = await _repository.GetByDateAsync(date);
         return _mapper.Map<IEnumerable<MeasurementDto>>(measurements);
     }
 
-    public async Task<PagedResult<MeasurementDto>> GetByDatePagedAsync(DateTime date, int pageNumber, int pageSize)
+    public async Task<PagedResult<MeasurementDto>> GetByDatePagedAsync(DateTimeOffset date, int pageNumber, int pageSize)
     {
         var pagedResult = await _repository.GetByDatePagedAsync(date, pageNumber, pageSize);
         return new PagedResult<MeasurementDto>

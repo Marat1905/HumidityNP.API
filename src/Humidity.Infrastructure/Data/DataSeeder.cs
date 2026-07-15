@@ -20,7 +20,7 @@ public static class DataSeeder
             return;
         }
 
-        var now = DateTime.UtcNow;
+        var now = DateTimeOffset.UtcNow;
 
         // 1. Создаем тестовые машины
         var vehicles = new List<Vehicle>

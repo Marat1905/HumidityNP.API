@@ -44,7 +44,7 @@ public class CreateMeasurementRequestValidator : AbstractValidator<CreateMeasure
         // Дата и время замера: обязательна, не может быть в будущем
         RuleFor(x => x.Timestamp)
             .NotEmpty().WithMessage("Дата и время замера обязательны.")
-            .LessThanOrEqualTo(DateTime.UtcNow.AddMinutes(1))
+            .LessThanOrEqualTo(DateTimeOffset.UtcNow.AddMinutes(1))
             .WithMessage("Дата и время замера не могут быть в будущем.");
 
         // Знак (Less/Greater/None): обязателен, допустимые значения (регистронезависимо)
@@ -108,7 +108,7 @@ public class UpdateMeasurementRequestValidator : AbstractValidator<UpdateMeasure
 
         // Дата и время замера: если указана, не может быть в будущем
         RuleFor(x => x.Timestamp)
-            .Must(timestamp => timestamp == null || timestamp <= DateTime.UtcNow.AddMinutes(1))
+            .Must(timestamp => timestamp == null || timestamp <= DateTimeOffset.UtcNow.AddMinutes(1))
             .WithMessage("Дата и время замера не могут быть в будущем.");
     }
 

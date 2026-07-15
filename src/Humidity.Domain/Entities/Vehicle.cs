@@ -1,4 +1,6 @@
-﻿namespace Humidity.Domain.Entities;
+﻿using Humidity.Domain.Enums;
+
+namespace Humidity.Domain.Entities;
 
 /// <summary>
 /// Машина, въезжающая на площадку.
@@ -14,22 +16,22 @@ public class Vehicle : BaseEntity
     /// <summary>
     /// Дата создания записи.
     /// </summary>
-    public DateTime Date { get; set; }
+    public DateTimeOffset Date { get; set; }
 
     /// <summary>
     /// Дата приезда машины.
     /// </summary>
-    public DateTime ArrivalDate { get; set; }
+    public DateTimeOffset ArrivalDate { get; set; }
 
     /// <summary>
     /// Дата въезда на площадку.
     /// </summary>
-    public DateTime EntryDate { get; set; }
+    public DateTimeOffset EntryDate { get; set; }
 
     /// <summary>
     /// Дата выезда с площадки (может быть null, если машина ещё не выехала).
     /// </summary>
-    public DateTime? ExitDate { get; set; }
+    public DateTimeOffset? ExitDate { get; set; }
 
     /// <summary>
     /// Контрагент (например, "Тандер(Сургут)").

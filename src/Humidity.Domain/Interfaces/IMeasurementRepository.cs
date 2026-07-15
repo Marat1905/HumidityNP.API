@@ -38,7 +38,7 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
     /// </summary>
     /// <param name="date">Дата (время игнорируется, берётся весь день).</param>
     /// <returns>Коллекция замеров за день.</returns>
-    Task<IEnumerable<HumidityMeasurement>> GetByDateAsync(DateTime date);
+    Task<IEnumerable<HumidityMeasurement>> GetByDateAsync(DateTimeOffset date);
 
     /// <summary>
     /// Получить страницу замеров за указанную дату.
@@ -48,7 +48,7 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
     /// <param name="pageSize">Размер страницы.</param>
     /// <param name="cancellationToken">Токен отмены.</param>
     /// <returns>Страница замеров за день.</returns>
-    Task<PagedResult<HumidityMeasurement>> GetByDatePagedAsync(DateTime date, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+    Task<PagedResult<HumidityMeasurement>> GetByDatePagedAsync(DateTimeOffset date, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Получить замеры в диапазоне дат.
@@ -56,5 +56,5 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
     /// <param name="from">Начало диапазона (включительно).</param>
     /// <param name="to">Конец диапазона (включительно).</param>
     /// <returns>Коллекция замеров в диапазоне.</returns>
-    Task<IEnumerable<HumidityMeasurement>> GetByDateRangeAsync(DateTime from, DateTime to);
+    Task<IEnumerable<HumidityMeasurement>> GetByDateRangeAsync(DateTimeOffset from, DateTimeOffset to);
 }

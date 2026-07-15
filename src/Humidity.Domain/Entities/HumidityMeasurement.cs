@@ -46,7 +46,7 @@ public class HumidityMeasurement : BaseEntity
     /// <summary>
     /// Дата и время замера (UTC).
     /// </summary>
-    public DateTime Timestamp { get; set; }
+    public DateTimeOffset Timestamp { get; set; }
 
     /// <summary>
     /// Знак для BLE-данных (Less/Greater/None).

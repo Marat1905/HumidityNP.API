@@ -6,7 +6,7 @@ namespace Humidity.Infrastructure.Data;
 
 /// <summary>
 /// Контекст базы данных для работы с машинами и замерами влажности.
-/// Использует PostgreSQL, автоматически преобразует DateTime в UTC и управляет временными метками.
+/// Использует PostgreSQL, автоматически управляет временными метками.
 /// </summary>
 public class HumidityDbContext : DbContext
 {
@@ -63,8 +63,8 @@ public class HumidityDbContext : DbContext
             entity.HasIndex(e => e.Timestamp);
         });
 
-        // Конфигурация для автоматического преобразования DateTime в UTC
-        ConfigureDateTimeProperties(modelBuilder);
+        // Для DateTimeOffset тип колонки по умолчанию будет timestamp with time zone,
+        // дополнительная настройка не требуется.
 
         base.OnModelCreating(modelBuilder);
     }
@@ -90,55 +90,13 @@ public class HumidityDbContext : DbContext
         {
             if (entityEntry.State == EntityState.Added)
             {
-                entityEntry.Entity.CreatedAt = DateTime.UtcNow;
+                entityEntry.Entity.CreatedAt = DateTimeOffset.UtcNow;
             }
 
-            entityEntry.Entity.UpdatedAt = DateTime.UtcNow;
+            entityEntry.Entity.UpdatedAt = DateTimeOffset.UtcNow;
         }
 
-        // Преобразование DateTime в UTC
-        var dateEntries = ChangeTracker.Entries()
-            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
-
-        foreach (var entityEntry in dateEntries)
-        {
-            foreach (var property in entityEntry.Properties)
-            {
-                if (property.Metadata.ClrType == typeof(DateTime) && property.CurrentValue != null)
-                {
-                    var dateTime = (DateTime)property.CurrentValue;
-                    if (dateTime.Kind != DateTimeKind.Utc)
-                    {
-                        property.CurrentValue = dateTime.Kind == DateTimeKind.Unspecified
-                            ? DateTime.SpecifyKind(dateTime, DateTimeKind.Utc)
-                            : dateTime.ToUniversalTime();
-                    }
-                }
-                else if (property.Metadata.ClrType == typeof(DateTime?) && property.CurrentValue != null)
-                {
-                    var dateTime = (DateTime?)property.CurrentValue;
-                    if (dateTime.HasValue && dateTime.Value.Kind != DateTimeKind.Utc)
-                    {
-                        property.CurrentValue = dateTime.Value.Kind == DateTimeKind.Unspecified
-                            ? DateTime.SpecifyKind(dateTime.Value, DateTimeKind.Utc)
-                            : dateTime.Value.ToUniversalTime();
-                    }
-                }
-            }
-        }
-    }
-
-    private void ConfigureDateTimeProperties(ModelBuilder modelBuilder)
-    {
-        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-        {
-            foreach (var property in entityType.GetProperties())
-            {
-                if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
-                {
-                    property.SetColumnType("timestamp with time zone");
-                }
-            }
-        }
+        // Преобразование DateTime в UTC больше не требуется, так как мы используем DateTimeOffset.
+        // EF Core автоматически сохраняет DateTimeOffset с офсетом в timestamptz.
     }
 }

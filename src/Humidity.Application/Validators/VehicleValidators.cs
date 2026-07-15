@@ -19,19 +19,19 @@ public class CreateVehicleRequestValidator : AbstractValidator<CreateVehicleRequ
         // Дата создания записи: обязательна, не может быть в будущем
         RuleFor(x => x.Date)
             .NotEmpty().WithMessage("Дата создания записи обязательна.")
-            .LessThanOrEqualTo(DateTime.UtcNow.AddMinutes(1))
+            .LessThanOrEqualTo(DateTimeOffset.UtcNow.AddMinutes(1))
             .WithMessage("Дата создания записи не может быть в будущем.");
 
         // Дата приезда: обязательна, не может быть в будущем
         RuleFor(x => x.ArrivalDate)
             .NotEmpty().WithMessage("Дата приезда обязательна.")
-            .LessThanOrEqualTo(DateTime.UtcNow.AddMinutes(1))
+            .LessThanOrEqualTo(DateTimeOffset.UtcNow.AddMinutes(1))
             .WithMessage("Дата приезда не может быть в будущем.");
 
         // Дата въезда: обязательна, не может быть в будущем, не должна быть раньше даты приезда
         RuleFor(x => x.EntryDate)
             .NotEmpty().WithMessage("Дата въезда обязательна.")
-            .LessThanOrEqualTo(DateTime.UtcNow.AddMinutes(1))
+            .LessThanOrEqualTo(DateTimeOffset.UtcNow.AddMinutes(1))
             .WithMessage("Дата въезда не может быть в будущем.")
             .GreaterThanOrEqualTo(x => x.ArrivalDate)
             .WithMessage("Дата въезда не может быть раньше даты приезда.");
@@ -40,7 +40,7 @@ public class CreateVehicleRequestValidator : AbstractValidator<CreateVehicleRequ
         RuleFor(x => x.ExitDate)
             .Must((vehicle, exitDate) => exitDate == null || exitDate >= vehicle.EntryDate)
             .WithMessage("Дата выезда не может быть раньше даты въезда.")
-            .Must(exitDate => exitDate == null || exitDate <= DateTime.UtcNow.AddMinutes(1))
+            .Must(exitDate => exitDate == null || exitDate <= DateTimeOffset.UtcNow.AddMinutes(1))
             .WithMessage("Дата выезда не может быть в будущем.");
 
         // Контрагент: обязателен, максимум 100 символов
@@ -137,7 +137,7 @@ public class UpdateVehicleRequestValidator : AbstractValidator<UpdateVehicleRequ
 
         // Дата выезда: если указана, не должна быть в будущем
         RuleFor(x => x.ExitDate)
-            .Must(exitDate => exitDate == null || exitDate <= DateTime.UtcNow.AddMinutes(1))
+            .Must(exitDate => exitDate == null || exitDate <= DateTimeOffset.UtcNow.AddMinutes(1))
             .WithMessage("Дата выезда не может быть в будущем.");
     }
 }

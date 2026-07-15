@@ -65,7 +65,7 @@ public class MeasurementsController : ControllerBase
     /// <param name="pageSize">Размер страницы.</param>
     [HttpGet("date/{date}")]
     [ProducesResponseType(typeof(PagedResult<MeasurementDto>), 200)]
-    public async Task<IActionResult> GetByDate(DateTime date, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+    public async Task<IActionResult> GetByDate(DateTimeOffset date, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
     {
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 20;
@@ -109,7 +109,7 @@ public class MeasurementsController : ControllerBase
         }
 
         var created = await _measurementService.BulkCreateAsync(requests);
-        return CreatedAtAction(nameof(GetByDate), new { date = DateTime.UtcNow.Date }, created);
+        return CreatedAtAction(nameof(GetByDate), new { date = DateTimeOffset.UtcNow.Date }, created);
     }
 
     /// <summary>

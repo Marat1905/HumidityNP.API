@@ -18,22 +18,22 @@ public class VehicleDto
     /// <summary>
     /// Дата создания записи.
     /// </summary>
-    public DateTime Date { get; set; }
+    public DateTimeOffset Date { get; set; }
 
     /// <summary>
     /// Дата приезда.
     /// </summary>
-    public DateTime ArrivalDate { get; set; }
+    public DateTimeOffset ArrivalDate { get; set; }
 
     /// <summary>
     /// Дата въезда.
     /// </summary>
-    public DateTime EntryDate { get; set; }
+    public DateTimeOffset EntryDate { get; set; }
 
     /// <summary>
     /// Дата выезда (может быть null).
     /// </summary>
-    public DateTime? ExitDate { get; set; }
+    public DateTimeOffset? ExitDate { get; set; }
 
     /// <summary>
     /// Контрагент.
@@ -87,10 +87,10 @@ public class VehicleDto
 public class CreateVehicleRequest
 {
     public string Number { get; set; } = string.Empty;
-    public DateTime Date { get; set; }
-    public DateTime ArrivalDate { get; set; }
-    public DateTime EntryDate { get; set; }
-    public DateTime? ExitDate { get; set; }
+    public DateTimeOffset Date { get; set; }
+    public DateTimeOffset ArrivalDate { get; set; }
+    public DateTimeOffset EntryDate { get; set; }
+    public DateTimeOffset? ExitDate { get; set; }
     public string Counterparty { get; set; } = string.Empty;
     public string WorkType { get; set; } = string.Empty;
     public string VehicleBrand { get; set; } = string.Empty;
@@ -117,5 +117,5 @@ public class UpdateVehicleRequest
     public string? Loader { get; set; }
     public string? Expeditor { get; set; }
     public string? Department { get; set; }
-    public DateTime? ExitDate { get; set; }
+    public DateTimeOffset? ExitDate { get; set; }
 }

@@ -83,12 +83,12 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     }
 
     /// <summary>
-    /// Получить все замеры за указанную дату (весь день от 00:00:00 до 23:59:59.9999999).
+    /// Получить все замеры за указанную дату (весь день от 00:00:00 до 23:59:59.9999999 в UTC).
     /// </summary>
-    public async Task<IEnumerable<HumidityMeasurement>> GetByDateAsync(DateTime date)
+    public async Task<IEnumerable<HumidityMeasurement>> GetByDateAsync(DateTimeOffset date)
     {
-        var startOfDay = date.Date;
-        var endOfDay = startOfDay.AddDays(1).AddTicks(-1);
+        var startOfDay = date.Date; // .Date возвращает DateTimeOffset с временем 00:00:00
+        var endOfDay = startOfDay.AddDays(1).AddTicks(-1); // конец дня
 
         return await DbSet
             .Where(m => m.Timestamp >= startOfDay && m.Timestamp <= endOfDay)
@@ -99,7 +99,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     /// <summary>
     /// Получить страницу замеров за указанную дату.
     /// </summary>
-    public async Task<PagedResult<HumidityMeasurement>> GetByDatePagedAsync(DateTime date, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<HumidityMeasurement>> GetByDatePagedAsync(DateTimeOffset date, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 10;
@@ -133,7 +133,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     /// <summary>
     /// Получить замеры в произвольном диапазоне дат.
     /// </summary>
-    public async Task<IEnumerable<HumidityMeasurement>> GetByDateRangeAsync(DateTime from, DateTime to)
+    public async Task<IEnumerable<HumidityMeasurement>> GetByDateRangeAsync(DateTimeOffset from, DateTimeOffset to)
     {
         return await DbSet
             .Where(m => m.Timestamp >= from && m.Timestamp <= to)

@@ -36,7 +36,7 @@ public interface IMeasurementService
     /// </summary>
     /// <param name="date">Дата (только дата, время игнорируется).</param>
     /// <returns>Коллекция DTO замеров.</returns>
-    Task<IEnumerable<MeasurementDto>> GetByDateAsync(DateTime date);
+    Task<IEnumerable<MeasurementDto>> GetByDateAsync(DateTimeOffset date);
 
     /// <summary>
     /// Получить страницу замеров за указанную дату.
@@ -45,7 +45,7 @@ public interface IMeasurementService
     /// <param name="pageNumber">Номер страницы.</param>
     /// <param name="pageSize">Размер страницы.</param>
     /// <returns>Страница замеров за день.</returns>
-    Task<PagedResult<MeasurementDto>> GetByDatePagedAsync(DateTime date, int pageNumber, int pageSize);
+    Task<PagedResult<MeasurementDto>> GetByDatePagedAsync(DateTimeOffset date, int pageNumber, int pageSize);
 
     /// <summary>
     /// Создать новую запись о замере.
