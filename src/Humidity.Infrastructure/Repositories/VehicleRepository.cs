@@ -21,6 +21,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
 
     /// <summary>
     /// Получить все машины.
+    /// Использует AsNoTracking для повышения производительности при чтении.
     /// </summary>
     public override async Task<IEnumerable<Vehicle>> GetAllAsync()
     {
@@ -32,17 +33,19 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
 
     /// <summary>
     /// Получить машину по идентификатору.
+    /// Возвращает отслеживаемую сущность для возможности последующего обновления.
     /// </summary>
     public override async Task<Vehicle?> GetByIdAsync(Guid id)
     {
+        // Убрали AsNoTracking(), чтобы сущность отслеживалась контекстом
         return await _context.Vehicles
             .Include(v => v.Measurements)
-            .AsNoTracking()
             .FirstOrDefaultAsync(v => v.Id == id);
     }
 
     /// <summary>
     /// Получить активные машины (те, у которых дата выезда ещё не установлена).
+    /// Только для чтения, используется AsNoTracking.
     /// </summary>
     public async Task<IEnumerable<Vehicle>> GetActiveVehiclesAsync()
     {
@@ -55,6 +58,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
 
     /// <summary>
     /// Получить страницу активных машин.
+    /// Только для чтения, используется AsNoTracking.
     /// </summary>
     public async Task<PagedResult<Vehicle>> GetActiveVehiclesPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
@@ -92,6 +96,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     /// который позволяет использовать функциональный индекс LOWER(vehicle_plate).
     /// Возвращает коллекцию, так как один и тот же гос. номер может встречаться
     /// у разных заявок в разное время (например, одна машина — несколько визитов).
+    /// Только для чтения, используется AsNoTracking.
     /// </summary>
     public async Task<IEnumerable<Vehicle>> GetByPlateAsync(string plate)
     {
@@ -106,6 +111,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     /// Поиск машин по номеру заявки (регистронезависимый).
     /// Возвращает коллекцию согласно сигнатуре интерфейса.
     /// Использует EF.Functions.ILike для единообразия с поиском по гос. номеру.
+    /// Только для чтения, используется AsNoTracking.
     /// </summary>
     public async Task<IEnumerable<Vehicle>> GetByNumberAsync(string number)
     {
@@ -126,6 +132,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
 
     /// <summary>
     /// Получить множество существующих идентификаторов машин из переданного списка.
+    /// Выполняет один запрос к БД вместо N запросов.
     /// </summary>
     public async Task<HashSet<Guid>> GetExistingIdsAsync(IEnumerable<Guid> ids)
     {

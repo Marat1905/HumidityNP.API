@@ -4,8 +4,6 @@ using Humidity.Application.Interfaces;
 using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Humidity.Application.Services;
 
@@ -80,6 +78,8 @@ public class VehicleService : IVehicleService
         if (existing == null)
             throw new KeyNotFoundException($"Машина с id {id} не найдена");
 
+        // Маппер применяет только не-null поля (настроено в MappingProfile)
+        // Сущность теперь отслеживается, поэтому EF Core сгенерирует UPDATE только для изменённых свойств
         _mapper.Map(request, existing);
         var updated = await _repository.UpdateAsync(existing);
         return _mapper.Map<VehicleDto>(updated);
