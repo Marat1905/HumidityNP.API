@@ -1,14 +1,16 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
+using Asp.Versioning; // Важно: используем Asp.Versioning
 
 namespace Humidity.API.Controllers;
 
 /// <summary>
 /// Контроллер для управления записями о замерах влажности
 /// </summary>
-[Route("api/[controller]")]
 [ApiController]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class MeasurementsController : ControllerBase
 {
     private readonly IMeasurementService _measurementService;

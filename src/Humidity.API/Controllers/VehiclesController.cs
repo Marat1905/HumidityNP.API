@@ -1,14 +1,16 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
+using Asp.Versioning; // Важно: используем Asp.Versioning
 
 namespace Humidity.API.Controllers;
 
 /// <summary>
 /// Контроллер для управления записями о машинах
 /// </summary>
-[Route("api/[controller]")]
 [ApiController]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class VehiclesController : ControllerBase
 {
     private readonly IVehicleService _vehicleService;

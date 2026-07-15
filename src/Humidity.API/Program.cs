@@ -6,6 +6,10 @@ using Humidity.Application.Validators;
 using Humidity.Infrastructure;
 using Humidity.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using HealthChecks.NpgSql;
+using Asp.Versioning;
+using Microsoft.OpenApi.Models;              
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,8 +20,30 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateVehicleRequestValidat
 
 // Add services to the container.
 builder.Services.AddControllers();
+
+// 2. НАСТРОЙКА ВЕРСИОНИРОВАНИЯ API
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+    options.ApiVersionReader = new UrlSegmentApiVersionReader();
+})
+.AddMvc()
+.AddApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
+});
+
+// 3. НАСТРОЙКА SWAGGER
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Humidity API", Version = "v1" });
+    // Добавляем фильтр для замены {version} в путях
+    c.DocumentFilter<ReplaceVersionWithExactValueInPathFilter>();
+});
 
 // Add layers
 builder.Services.AddApplication();
@@ -25,7 +51,14 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 // Logging
 builder.Services.AddLogging();
-builder.Services.AddHealthChecks();
+
+// Health Checks with database connectivity check
+builder.Services.AddHealthChecks()
+    .AddNpgSql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        name: "PostgreSQL",
+        failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy,
+        tags: new[] { "db", "postgresql" });
 
 var app = builder.Build();
 
@@ -44,7 +77,28 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthorization();
 app.MapControllers();
-app.MapHealthChecks("/health");
+
+// Карта health checks с выводом подробной информации
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var response = new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration.TotalMilliseconds
+            }),
+            totalDuration = report.TotalDuration.TotalMilliseconds
+        };
+        await context.Response.WriteAsJsonAsync(response);
+    }
+});
 
 try
 {
@@ -72,3 +126,21 @@ catch (Exception ex)
 }
 
 app.Run();
+
+/// <summary>
+/// Фильтр для Swagger, который заменяет {version} в пути на актуальное значение версии.
+/// </summary>
+public class ReplaceVersionWithExactValueInPathFilter : IDocumentFilter
+{
+    public void Apply(OpenApiDocument swaggerDoc, DocumentFilterContext context)
+    {
+        var paths = new OpenApiPaths();
+        foreach (var path in swaggerDoc.Paths)
+        {
+            // Заменяем {version} в ключе пути на фактическую версию из документации
+            var newKey = path.Key.Replace("{version}", swaggerDoc.Info.Version);
+            paths.Add(newKey, path.Value);
+        }
+        swaggerDoc.Paths = paths;
+    }
+}

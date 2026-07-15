@@ -6,7 +6,6 @@ using Humidity.Domain.Enums;
 using Humidity.Domain.Interfaces;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -55,12 +54,10 @@ public class MeasurementService : IMeasurementService
         if (!vehicleExists)
             throw new KeyNotFoundException($"Машина с id {request.VehicleId} не найдена");
 
-        // Формат даты и Enum уже гарантированно корректны благодаря FluentValidation
         var measurement = _mapper.Map<HumidityMeasurement>(request);
-        measurement.Timestamp = request.Timestamp.ToUniversalTime();
+        // Преобразование Source из строки в enum
         measurement.Source = Enum.Parse<MeasurementSource>(request.Source, true);
-        measurement.CreatedAt = DateTime.UtcNow;
-
+        // Timestamp и CreatedAt будут автоматически обработаны контекстом (преобразование в UTC и установка CreatedAt)
         var created = await _repository.AddAsync(measurement);
         return _mapper.Map<MeasurementDto>(created);
     }
@@ -71,6 +68,7 @@ public class MeasurementService : IMeasurementService
         if (existing == null)
             throw new KeyNotFoundException($"Замер с id {id} не найден");
 
+        // Обновление полей, если они указаны
         if (request.HumidityValue.HasValue)
             existing.HumidityValue = request.HumidityValue.Value;
 
@@ -90,10 +88,9 @@ public class MeasurementService : IMeasurementService
             existing.Sign = request.Sign;
 
         if (request.Timestamp.HasValue)
-            existing.Timestamp = request.Timestamp.Value.ToUniversalTime();
+            existing.Timestamp = request.Timestamp.Value; // Контекст преобразует в UTC при сохранении
 
-        existing.UpdatedAt = DateTime.UtcNow;
-
+        // UpdatedAt устанавливается автоматически в контексте
         var updated = await _repository.UpdateAsync(existing);
         return _mapper.Map<MeasurementDto>(updated);
     }
@@ -124,11 +121,8 @@ public class MeasurementService : IMeasurementService
                 continue;
 
             var measurement = _mapper.Map<HumidityMeasurement>(request);
-            measurement.Timestamp = request.Timestamp.ToUniversalTime();
             measurement.Source = Enum.Parse<MeasurementSource>(request.Source, true);
-            measurement.CreatedAt = DateTime.UtcNow;
-            measurement.Id = Guid.NewGuid();
-
+            // Id, CreatedAt и Timestamp будут установлены/обработаны репозиторием и контекстом
             measurements.Add(measurement);
         }
 

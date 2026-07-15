@@ -43,19 +43,8 @@ public class VehicleService : IVehicleService
     public async Task<VehicleDto> CreateAsync(CreateVehicleRequest request)
     {
         var vehicle = _mapper.Map<Vehicle>(request);
-
-        // Формат дат уже гарантированно корректен благодаря FluentValidation, выполняем приведение к UTC
-        vehicle.Date = request.Date.ToUniversalTime();
-        vehicle.ArrivalDate = request.ArrivalDate.ToUniversalTime();
-        vehicle.EntryDate = request.EntryDate.ToUniversalTime();
-
-        if (request.ExitDate.HasValue)
-        {
-            vehicle.ExitDate = request.ExitDate.Value.ToUniversalTime();
-        }
-
-        vehicle.CreatedAt = DateTime.UtcNow;
-
+        // Даты будут автоматически преобразованы в UTC контекстом БД при сохранении.
+        // Id и CreatedAt устанавливаются в репозитории/контексте.
         var created = await _repository.AddAsync(vehicle);
         return _mapper.Map<VehicleDto>(created);
     }
@@ -66,15 +55,9 @@ public class VehicleService : IVehicleService
         if (existing == null)
             throw new KeyNotFoundException($"Машина с id {id} не найдена");
 
+        // Маппер применит только не-null поля (настроено в MappingProfile)
         _mapper.Map(request, existing);
-
-        if (request.ExitDate.HasValue)
-        {
-            existing.ExitDate = request.ExitDate.Value.ToUniversalTime();
-        }
-
-        existing.UpdatedAt = DateTime.UtcNow;
-
+        // Обновление UpdatedAt и преобразование дат в UTC выполняется автоматически в контексте.
         var updated = await _repository.UpdateAsync(existing);
         return _mapper.Map<VehicleDto>(updated);
     }

@@ -1,4 +1,6 @@
 ﻿using Humidity.Application.Common.Models;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using System.Diagnostics;
 using System.Net;
 
@@ -64,10 +66,8 @@ public class ExceptionHandlingMiddleware
                 response.Errors = validationEx.Errors.Select(e => e.ErrorMessage);
                 break;
 
-            case Microsoft.EntityFrameworkCore.DbUpdateException dbEx:
-                context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-                response.StatusCode = context.Response.StatusCode;
-                response.Message = "Ошибка при сохранении данных в базу (возможно, нарушение уникальности).";
+            case DbUpdateException dbEx:
+                HandleDbUpdateException(context, response, dbEx);
                 break;
 
             default:
@@ -75,15 +75,56 @@ public class ExceptionHandlingMiddleware
                 response.StatusCode = context.Response.StatusCode;
                 response.Message = "Произошла внутренняя ошибка сервера";
 
-                // ВАЖНО: Возвращаем детали и StackTrace ТОЛЬКО в режиме разработки
                 if (_env.IsDevelopment())
                 {
                     response.Details = exception.Message;
-                    // response.Details += $"\n{exception.StackTrace}"; // Раскомментируйте при острой необходимости
                 }
                 break;
         }
 
         await context.Response.WriteAsJsonAsync(response);
+    }
+
+    /// <summary>
+    /// Обрабатывает исключения, связанные с обновлением базы данных, извлекая код ошибки PostgreSQL
+    /// и формируя понятное сообщение для клиента.
+    /// </summary>
+    private void HandleDbUpdateException(HttpContext context, ErrorResponse response, DbUpdateException dbEx)
+    {
+        context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+        response.StatusCode = context.Response.StatusCode;
+
+        // Получаем внутреннее исключение PostgreSQL
+        var postgresEx = dbEx.InnerException as PostgresException;
+        if (postgresEx != null)
+        {
+            // Сопоставляем код ошибки PostgreSQL с сообщением
+            response.Message = postgresEx.SqlState switch
+            {
+                "23505" => "Нарушение уникальности: запись с такими данными уже существует.",
+                "23503" => "Нарушение внешнего ключа: невозможно удалить или изменить связанные данные.",
+                "23514" => "Нарушение ограничения CHECK: значение не удовлетворяет условию.",
+                "23502" => "Нарушение NOT NULL: обязательное поле не заполнено.",
+                "23000" => "Общая ошибка целостности данных.",
+                _ => "Ошибка при сохранении данных в базу."
+            };
+
+            // В режиме разработки добавляем детали ошибки для отладки
+            if (_env.IsDevelopment())
+            {
+                response.Details = $"PostgreSQL Error Code: {postgresEx.SqlState}, Message: {postgresEx.MessageText}";
+                if (!string.IsNullOrEmpty(postgresEx.Detail))
+                    response.Details += $", Detail: {postgresEx.Detail}";
+            }
+        }
+        else
+        {
+            // Если не удалось распознать специфичную ошибку PostgreSQL
+            response.Message = "Ошибка при сохранении данных в базу.";
+            if (_env.IsDevelopment())
+            {
+                response.Details = dbEx.InnerException?.Message ?? dbEx.Message;
+            }
+        }
     }
 }
