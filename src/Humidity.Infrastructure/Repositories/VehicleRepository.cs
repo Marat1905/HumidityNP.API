@@ -131,16 +131,6 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     }
 
     /// <summary>
-    /// Проверить существование машины по идентификатору.
-    /// </summary>
-    /// <param name="id">Идентификатор машины.</param>
-    /// <param name="cancellationToken">Токен отмены операции.</param>
-    public async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        return await _context.Vehicles.AnyAsync(v => v.Id == id, cancellationToken);
-    }
-
-    /// <summary>
     /// Получить множество существующих идентификаторов машин из переданного списка.
     /// Выполняет один запрос к БД вместо N запросов.
     /// </summary>
@@ -158,5 +148,55 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
             .ToListAsync(cancellationToken);
 
         return new HashSet<Guid>(existingIds);
+    }
+
+    /// <summary>
+    /// Переопределение метода GetPagedAsync с использованием AsNoTracking() для read‑only запросов.
+    /// </summary>
+    public override async Task<PagedResult<Vehicle>> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        System.Linq.Expressions.Expression<Func<Vehicle, bool>>? filter = null,
+        Func<IQueryable<Vehicle>, IOrderedQueryable<Vehicle>>? orderBy = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Защита от невалидных значений
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100;
+
+        IQueryable<Vehicle> query = DbSet;
+
+        if (filter != null)
+        {
+            query = query.Where(filter);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        if (orderBy != null)
+        {
+            query = orderBy(query);
+        }
+        else
+        {
+            // Сортировка по умолчанию – по CreatedAt убыванию (новые первыми)
+            query = query.OrderByDescending(e => e.CreatedAt);
+        }
+
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking() // Добавлено AsNoTracking для повышения производительности
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<Vehicle>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+        };
     }
 }

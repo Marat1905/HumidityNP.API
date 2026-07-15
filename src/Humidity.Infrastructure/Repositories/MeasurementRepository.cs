@@ -165,4 +165,55 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
             .OrderByDescending(m => m.Timestamp)
             .ToListAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Переопределение метода GetPagedAsync с добавлением Include для Vehicle и AsNoTracking().
+    /// </summary>
+    public override async Task<PagedResult<HumidityMeasurement>> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        System.Linq.Expressions.Expression<Func<HumidityMeasurement, bool>>? filter = null,
+        Func<IQueryable<HumidityMeasurement>, IOrderedQueryable<HumidityMeasurement>>? orderBy = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Защита от невалидных значений
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100;
+
+        IQueryable<HumidityMeasurement> query = DbSet
+            .Include(m => m.Vehicle); // Добавляем подгрузку связанной машины
+
+        if (filter != null)
+        {
+            query = query.Where(filter);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        if (orderBy != null)
+        {
+            query = orderBy(query);
+        }
+        else
+        {
+            // Сортировка по умолчанию – по Timestamp убыванию (новые первыми)
+            query = query.OrderByDescending(m => m.Timestamp);
+        }
+
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking() // Добавлено AsNoTracking для повышения производительности
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<HumidityMeasurement>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+        };
+    }
 }
