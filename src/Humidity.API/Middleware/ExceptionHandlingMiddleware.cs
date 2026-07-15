@@ -3,9 +3,15 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using System.Diagnostics;
 using System.Net;
+using FluentValidation;
 
 namespace Humidity.API.Middleware;
 
+/// <summary>
+/// Промежуточное ПО для глобальной обработки исключений.
+/// Перехватывает все необработанные исключения, логирует их и возвращает клиенту
+/// структурированный ответ в формате JSON с соответствующим HTTP-статусом.
+/// </summary>
 public class ExceptionHandlingMiddleware
 {
     private readonly RequestDelegate _next;
@@ -22,6 +28,10 @@ public class ExceptionHandlingMiddleware
         _env = env;
     }
 
+    /// <summary>
+    /// Обрабатывает входящий HTTP-запрос, перехватывая исключения и формируя ответ.
+    /// </summary>
+    /// <param name="context">Контекст HTTP-запроса.</param>
     public async Task InvokeAsync(HttpContext context)
     {
         try
@@ -30,11 +40,48 @@ public class ExceptionHandlingMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Необработанное исключение: {Message}", ex.Message);
+            // Логируем исключение с соответствующим уровнем
+            LogException(context, ex);
             await HandleExceptionAsync(context, ex);
         }
     }
 
+    /// <summary>
+    /// Логирует исключение в зависимости от его типа (Warning или Error).
+    /// </summary>
+    /// <param name="context">Контекст HTTP-запроса.</param>
+    /// <param name="exception">Перехваченное исключение.</param>
+    private void LogException(HttpContext context, Exception exception)
+    {
+        // Для ожидаемых бизнес-ошибок используем уровень Warning
+        if (exception is KeyNotFoundException ||
+            exception is ArgumentException ||
+            exception is ValidationException ||
+            exception is FormatException ||
+            exception is InvalidOperationException)
+        {
+            _logger.LogWarning(exception,
+                "Ожидаемая ошибка при обработке запроса {Method} {Path}: {Message}",
+                context.Request.Method,
+                context.Request.Path,
+                exception.Message);
+        }
+        else
+        {
+            // Для всех прочих неожиданных ошибок — уровень Error
+            _logger.LogError(exception,
+                "Необработанное исключение при обработке запроса {Method} {Path}: {Message}",
+                context.Request.Method,
+                context.Request.Path,
+                exception.Message);
+        }
+    }
+
+    /// <summary>
+    /// Формирует и отправляет клиенту структурированный ответ об ошибке.
+    /// </summary>
+    /// <param name="context">Контекст HTTP-запроса.</param>
+    /// <param name="exception">Перехваченное исключение.</param>
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
@@ -59,11 +106,39 @@ public class ExceptionHandlingMiddleware
                 response.Message = notFoundEx.Message;
                 break;
 
-            case FluentValidation.ValidationException validationEx:
+            case ValidationException validationEx:
                 context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                 response.StatusCode = context.Response.StatusCode;
                 response.Message = "Ошибка валидации данных";
                 response.Errors = validationEx.Errors.Select(e => e.ErrorMessage);
+                break;
+
+            case ArgumentException argEx:
+                context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                response.StatusCode = context.Response.StatusCode;
+                response.Message = argEx.Message;
+                break;
+
+            case InvalidOperationException invalidOpEx:
+                context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                response.StatusCode = context.Response.StatusCode;
+                response.Message = invalidOpEx.Message;
+                break;
+
+            case FormatException formatEx:
+                context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                response.StatusCode = context.Response.StatusCode;
+                response.Message = "Неверный формат данных: " + formatEx.Message;
+                break;
+
+            case DbUpdateConcurrencyException concurrencyEx:
+                context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+                response.StatusCode = context.Response.StatusCode;
+                response.Message = "Запись была изменена другим пользователем. Обновите данные и повторите попытку.";
+                if (_env.IsDevelopment())
+                {
+                    response.Details = concurrencyEx.Message;
+                }
                 break;
 
             case DbUpdateException dbEx:
@@ -89,6 +164,9 @@ public class ExceptionHandlingMiddleware
     /// Обрабатывает исключения, связанные с обновлением базы данных, извлекая код ошибки PostgreSQL
     /// и формируя понятное сообщение для клиента.
     /// </summary>
+    /// <param name="context">Контекст HTTP-запроса.</param>
+    /// <param name="response">Объект ответа с ошибкой.</param>
+    /// <param name="dbEx">Исключение DbUpdateException.</param>
     private void HandleDbUpdateException(HttpContext context, ErrorResponse response, DbUpdateException dbEx)
     {
         context.Response.StatusCode = (int)HttpStatusCode.Conflict;

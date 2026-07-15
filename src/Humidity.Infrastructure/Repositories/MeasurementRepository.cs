@@ -85,15 +85,17 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     /// <summary>
     /// Получить все замеры за указанную дату (весь день от 00:00:00 до 23:59:59.9999999 в UTC).
     /// Входная дата приводится к UTC, чтобы корректно сравнивать с Timestamp, хранящимся в UTC.
+    /// Используется полуинтервал [начало дня, начало следующего дня) для корректного учёта микросекунд.
     /// </summary>
     public async Task<IEnumerable<HumidityMeasurement>> GetByDateAsync(DateTimeOffset date)
     {
         // Приводим дату к UTC и берём начало дня в UTC
         var startOfDayUtc = new DateTimeOffset(date.UtcDateTime.Date, TimeSpan.Zero);
-        var endOfDayUtc = startOfDayUtc.AddDays(1).AddTicks(-1);
+        // Конец интервала – начало следующего дня (исключительно)
+        var endOfDayUtc = startOfDayUtc.AddDays(1);
 
         return await DbSet
-            .Where(m => m.Timestamp >= startOfDayUtc && m.Timestamp <= endOfDayUtc)
+            .Where(m => m.Timestamp >= startOfDayUtc && m.Timestamp < endOfDayUtc)
             .OrderByDescending(m => m.Timestamp)
             .ToListAsync();
     }
@@ -101,6 +103,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     /// <summary>
     /// Получить страницу замеров за указанную дату.
     /// Входная дата приводится к UTC, чтобы корректно сравнивать с Timestamp, хранящимся в UTC.
+    /// Используется полуинтервал [начало дня, начало следующего дня) для корректного учёта микросекунд.
     /// </summary>
     public async Task<PagedResult<HumidityMeasurement>> GetByDatePagedAsync(DateTimeOffset date, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
@@ -109,10 +112,10 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
         if (pageSize > 100) pageSize = 100;
 
         var startOfDayUtc = new DateTimeOffset(date.UtcDateTime.Date, TimeSpan.Zero);
-        var endOfDayUtc = startOfDayUtc.AddDays(1).AddTicks(-1);
+        var endOfDayUtc = startOfDayUtc.AddDays(1);
 
         IQueryable<HumidityMeasurement> query = DbSet
-            .Where(m => m.Timestamp >= startOfDayUtc && m.Timestamp <= endOfDayUtc)
+            .Where(m => m.Timestamp >= startOfDayUtc && m.Timestamp < endOfDayUtc)
             .Include(m => m.Vehicle);
 
         var totalCount = await query.CountAsync(cancellationToken);

@@ -8,12 +8,31 @@ using Humidity.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using HealthChecks.NpgSql;
 using Asp.Versioning;
-using Microsoft.OpenApi.Models;              
+using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
+using Serilog; // добавлен using для Serilog
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. РЕГИСТРАЦИЯ FLUENT VALIDATION
+// 1. НАСТРОЙКА SERILOG
+// Читаем конфигурацию из appsettings.json
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .Enrich.WithThreadId()
+    .WriteTo.Console()
+    .WriteTo.File(
+        path: "logs/humidity-api-.txt",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 30,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+    )
+    .CreateLogger();
+
+builder.Host.UseSerilog(); // заменяем стандартный логгер на Serilog
+
+// 2. РЕГИСТРАЦИЯ FLUENT VALIDATION
 // Автоматически находит все классы, наследующие AbstractValidator, в указанной сборке
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateVehicleRequestValidator>();
@@ -21,7 +40,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateVehicleRequestValidat
 // Add services to the container.
 builder.Services.AddControllers();
 
-// 2. НАСТРОЙКА ВЕРСИОНИРОВАНИЯ API
+// 3. НАСТРОЙКА ВЕРСИОНИРОВАНИЯ API
 builder.Services.AddApiVersioning(options =>
 {
     options.DefaultApiVersion = new ApiVersion(1, 0);
@@ -36,7 +55,7 @@ builder.Services.AddApiVersioning(options =>
     options.SubstituteApiVersionInUrl = true;
 });
 
-// 3. НАСТРОЙКА SWAGGER
+// 4. НАСТРОЙКА SWAGGER
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -45,12 +64,39 @@ builder.Services.AddSwaggerGen(c =>
     c.DocumentFilter<ReplaceVersionWithExactValueInPathFilter>();
 });
 
+// 5. НАСТРОЙКА CORS
+// Читаем настройки CORS из конфигурации
+var corsSettings = builder.Configuration.GetSection("CorsSettings").Get<CorsSettings>()
+                   ?? new CorsSettings();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowSpecificOrigins", policy =>
+    {
+        // Если в режиме разработки и список разрешённых источников не задан — разрешаем любые
+        if (builder.Environment.IsDevelopment() && corsSettings.AllowedOrigins == null)
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
+        else
+        {
+            // В продакшене используем строго определённые источники, методы и заголовки
+            policy.WithOrigins(corsSettings.AllowedOrigins ?? Array.Empty<string>())
+                  .WithMethods(corsSettings.AllowedMethods ?? new[] { "GET", "POST", "PUT", "DELETE", "OPTIONS" })
+                  .WithHeaders(corsSettings.AllowedHeaders ?? new[] { "Content-Type", "Authorization", "X-Requested-With" })
+                  .SetPreflightMaxAge(TimeSpan.FromMinutes(corsSettings.PreflightMaxAgeMinutes ?? 10));
+        }
+    });
+});
+
 // Add layers
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// Logging
-builder.Services.AddLogging();
+// Logging - уже настроен Serilog, дополнительная регистрация не требуется
+// builder.Services.AddLogging(); // удаляем, так как Serilog предоставляет свой логгер
 
 // Health Checks with database connectivity check
 builder.Services.AddHealthChecks()
@@ -61,6 +107,10 @@ builder.Services.AddHealthChecks()
         tags: new[] { "db", "postgresql" });
 
 var app = builder.Build();
+
+// 6. ПРИМЕНЕНИЕ CORS MIDDLEWARE
+// Важно: размещаем после UseRouting, но до UseAuthorization и UseEndpoints
+app.UseCors("AllowSpecificOrigins");
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
@@ -122,7 +172,13 @@ try
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"Database initialization failed: {ex.Message}");
+    // Используем Serilog для логирования фатальной ошибки
+    Log.Fatal(ex, "Database initialization failed");
+}
+finally
+{
+    // Обеспечиваем корректное завершение работы логгера
+    Log.CloseAndFlush();
 }
 
 app.Run();
@@ -143,4 +199,30 @@ public class ReplaceVersionWithExactValueInPathFilter : IDocumentFilter
         }
         swaggerDoc.Paths = paths;
     }
+}
+
+/// <summary>
+/// Настройки CORS, читаемые из appsettings.json.
+/// </summary>
+public class CorsSettings
+{
+    /// <summary>
+    /// Массив разрешённых источников (например, https://myfrontend.com).
+    /// </summary>
+    public string[]? AllowedOrigins { get; set; }
+
+    /// <summary>
+    /// Массив разрешённых HTTP-методов (если не указан, используются GET, POST, PUT, DELETE, OPTIONS).
+    /// </summary>
+    public string[]? AllowedMethods { get; set; }
+
+    /// <summary>
+    /// Массив разрешённых заголовков (если не указан, используются Content-Type, Authorization, X-Requested-With).
+    /// </summary>
+    public string[]? AllowedHeaders { get; set; }
+
+    /// <summary>
+    /// Время кеширования предварительного запроса (preflight) в минутах.
+    /// </summary>
+    public int? PreflightMaxAgeMinutes { get; set; }
 }
