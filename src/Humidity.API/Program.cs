@@ -10,13 +10,12 @@ using HealthChecks.NpgSql;
 using Asp.Versioning;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
-using Serilog; // добавлен using для Serilog
+using Serilog;
+using AspNetCoreRateLimit; 
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. НАСТРОЙКА SERILOG (унифицированная)
-// Конфигурация полностью читается из appsettings.json (секция "Serilog").
-// Все WriteTo (Console, File) заданы там же, поэтому в коде их не дублируем.
+// 1. НАСТРОЙКА SERILOG
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
@@ -24,7 +23,7 @@ Log.Logger = new LoggerConfiguration()
     .Enrich.WithThreadId()
     .CreateLogger();
 
-builder.Host.UseSerilog(); // заменяем стандартный логгер на Serilog
+builder.Host.UseSerilog();
 
 // 2. РЕГИСТРАЦИЯ FLUENT VALIDATION
 // Автоматически находит все классы, наследующие AbstractValidator, в указанной сборке
@@ -60,6 +59,7 @@ builder.Services.AddSwaggerGen(c =>
 
 // 5. НАСТРОЙКА CORS
 // Читаем настройки CORS из конфигурации
+
 var corsSettings = builder.Configuration.GetSection("CorsSettings").Get<CorsSettings>()
                    ?? new CorsSettings();
 
@@ -85,6 +85,16 @@ builder.Services.AddCors(options =>
     });
 });
 
+// ========== НОВОЕ: РЕГИСТРАЦИЯ RATE LIMITING ==========
+builder.Services.AddMemoryCache();
+builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
+builder.Services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
+builder.Services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounterStore>();
+builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrategy>(); // или AspNetCoreRateLimit
+// Если используется AspNetCoreRateLimit 5.0, IProcessingStrategy регистрируется автоматически, 
+// но для явности оставляем.
+
 // Add layers
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -101,8 +111,10 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
-// 6. ПРИМЕНЕНИЕ CORS MIDDLEWARE
-// Важно: размещаем после UseRouting, но до UseAuthorization и UseEndpoints
+// ========== НОВОЕ: ДОБАВЛЯЕМ ПРОМЕЖУТОЧНОЕ ПО RATE LIMITING ==========
+// Должно быть добавлено до других middleware, но после использования CORS.
+app.UseIpRateLimiting();
+
 app.UseCors("AllowSpecificOrigins");
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -121,7 +133,7 @@ if (app.Environment.IsDevelopment())
 app.UseAuthorization();
 app.MapControllers();
 
-// Карта health checks с выводом подробной информации
+// Карта health checks
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
     ResponseWriter = async (context, report) =>
