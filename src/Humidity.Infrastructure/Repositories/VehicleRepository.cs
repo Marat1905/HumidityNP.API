@@ -22,11 +22,11 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     /// <summary>
     /// Получить все машины.
     /// Использует AsNoTracking для повышения производительности при чтении.
+    /// Связанные измерения не загружаются, так как они не требуются в большинстве сценариев.
     /// </summary>
     public override async Task<IEnumerable<Vehicle>> GetAllAsync()
     {
         return await _context.Vehicles
-            .Include(v => v.Measurements)
             .AsNoTracking()
             .ToListAsync();
     }
@@ -34,23 +34,22 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     /// <summary>
     /// Получить машину по идентификатору.
     /// Возвращает отслеживаемую сущность для возможности последующего обновления.
+    /// Связанные измерения не загружаются, так как они не нужны для обновления.
     /// </summary>
     public override async Task<Vehicle?> GetByIdAsync(Guid id)
     {
-        // Убрали AsNoTracking(), чтобы сущность отслеживалась контекстом
         return await _context.Vehicles
-            .Include(v => v.Measurements)
             .FirstOrDefaultAsync(v => v.Id == id);
     }
 
     /// <summary>
     /// Получить активные машины (те, у которых дата выезда ещё не установлена).
     /// Только для чтения, используется AsNoTracking.
+    /// Связанные измерения не загружаются.
     /// </summary>
     public async Task<IEnumerable<Vehicle>> GetActiveVehiclesAsync()
     {
         return await _context.Vehicles
-            .Include(v => v.Measurements)
             .Where(v => v.ExitDate == null)
             .AsNoTracking()
             .ToListAsync();
@@ -59,6 +58,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     /// <summary>
     /// Получить страницу активных машин.
     /// Только для чтения, используется AsNoTracking.
+    /// Связанные измерения не загружаются.
     /// </summary>
     public async Task<PagedResult<Vehicle>> GetActiveVehiclesPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
@@ -68,8 +68,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
         if (pageSize > 100) pageSize = 100;
 
         IQueryable<Vehicle> query = _context.Vehicles
-            .Where(v => v.ExitDate == null)
-            .Include(v => v.Measurements); // при необходимости можно загружать связанные данные
+            .Where(v => v.ExitDate == null);
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -92,17 +91,14 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
 
     /// <summary>
     /// Поиск машин по государственному номеру (регистронезависимый, частичное совпадение).
-    /// Использует EF.Functions.ILike с символами % для поиска по подстроке,
-    /// что позволяет найти все машины, номер которых содержит переданную строку.
-    /// Для эффективного поиска в PostgreSQL рекомендуется создать GIN-индекс с расширением pg_trgm.
+    /// Использует EF.Functions.ILike с символами % для поиска по подстроке.
     /// Только для чтения, используется AsNoTracking.
+    /// Связанные измерения не загружаются.
     /// </summary>
     public async Task<IEnumerable<Vehicle>> GetByPlateAsync(string plate)
     {
-        // Добавляем % с обеих сторон для поиска по подстроке
         var searchPattern = $"%{plate}%";
         return await _context.Vehicles
-            .Include(v => v.Measurements)
             .AsNoTracking()
             .Where(v => EF.Functions.ILike(v.VehiclePlate, searchPattern))
             .ToListAsync();
@@ -110,16 +106,14 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
 
     /// <summary>
     /// Поиск машин по номеру заявки (регистронезависимый, частичное совпадение).
-    /// Возвращает коллекцию согласно сигнатуре интерфейса.
     /// Использует EF.Functions.ILike с символами % для поиска по подстроке.
     /// Только для чтения, используется AsNoTracking.
+    /// Связанные измерения не загружаются.
     /// </summary>
     public async Task<IEnumerable<Vehicle>> GetByNumberAsync(string number)
     {
-        // Добавляем % с обеих сторон для поиска по подстроке
         var searchPattern = $"%{number}%";
         return await _context.Vehicles
-            .Include(v => v.Measurements)
             .AsNoTracking()
             .Where(v => EF.Functions.ILike(v.Number, searchPattern))
             .ToListAsync();
@@ -143,7 +137,6 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
         if (!idList.Any())
             return new HashSet<Guid>();
 
-        // Один запрос к БД: SELECT "Id" FROM "Vehicles" WHERE "Id" IN (...)
         var existingIds = await _context.Vehicles
             .Where(v => idList.Contains(v.Id))
             .Select(v => v.Id)
