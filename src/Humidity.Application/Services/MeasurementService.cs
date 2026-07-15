@@ -105,28 +105,59 @@ public class MeasurementService : IMeasurementService
         await _repository.DeleteAsync(existing);
     }
 
-    public async Task<IEnumerable<MeasurementDto>> BulkCreateAsync(IEnumerable<CreateMeasurementRequest> requests)
+    /// <summary>
+    /// Массовая загрузка замеров.
+    /// Для каждого запроса проверяется существование машины.
+    /// Запросы с несуществующим VehicleId пропускаются, информация о них возвращается в результате.
+    /// </summary>
+    public async Task<BulkMeasurementResult> BulkCreateAsync(IEnumerable<CreateMeasurementRequest> requests)
     {
         var requestList = requests.ToList();
         if (!requestList.Any())
-            return Enumerable.Empty<MeasurementDto>();
+            return new BulkMeasurementResult();
 
-        var vehicleIdsToCheck = requestList.Select(r => r.VehicleId).Distinct();
-        var existingVehicleIds = await _vehicleRepository.GetExistingIdsAsync(vehicleIdsToCheck);
+        // Собираем все уникальные VehicleId из запросов
+        var vehicleIds = requestList.Select(r => r.VehicleId).Distinct();
+        var existingVehicleIds = await _vehicleRepository.GetExistingIdsAsync(vehicleIds);
 
-        var measurements = new List<HumidityMeasurement>();
+        var validMeasurements = new List<HumidityMeasurement>();
+        var errors = new List<MeasurementBulkError>();
 
-        foreach (var request in requestList)
+        for (int i = 0; i < requestList.Count; i++)
         {
+            var request = requestList[i];
             if (!existingVehicleIds.Contains(request.VehicleId))
+            {
+                // Машина не найдена – пропускаем запись
+                errors.Add(new MeasurementBulkError
+                {
+                    Index = i,
+                    VehicleId = request.VehicleId,
+                    Message = $"Машина с id {request.VehicleId} не найдена."
+                });
                 continue;
+            }
+
+            // Валидация остальных полей может быть выполнена через FluentValidation,
+            // но здесь мы полагаемся на то, что запросы уже прошли валидацию на уровне контроллера.
+            // Тем не менее, при необходимости можно добавить дополнительную проверку.
 
             var measurement = _mapper.Map<HumidityMeasurement>(request);
             measurement.Source = Enum.Parse<MeasurementSource>(request.Source, true);
-            measurements.Add(measurement);
+            validMeasurements.Add(measurement);
         }
 
-        var created = await _repository.BulkAddAsync(measurements);
-        return _mapper.Map<IEnumerable<MeasurementDto>>(created);
+        var created = new List<HumidityMeasurement>();
+        if (validMeasurements.Any())
+        {
+            created = (await _repository.BulkAddAsync(validMeasurements)).ToList();
+        }
+
+        return new BulkMeasurementResult
+        {
+            CreatedCount = created.Count,
+            SkippedCount = errors.Count,
+            Errors = errors
+        };
     }
 }

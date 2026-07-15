@@ -96,10 +96,11 @@ public class MeasurementsController : ControllerBase
 
     /// <summary>
     /// Массовая загрузка замеров (для выгрузки с мобильного приложения)
+    /// Возвращает результат с количеством созданных и пропущенных записей.
     /// </summary>
     /// <param name="requests">Список запросов на создание</param>
     [HttpPost("bulk")]
-    [ProducesResponseType(typeof(IEnumerable<MeasurementDto>), 201)]
+    [ProducesResponseType(typeof(BulkMeasurementResult), 201)]
     [ProducesResponseType(400)]
     public async Task<IActionResult> BulkCreate([FromBody] IEnumerable<CreateMeasurementRequest> requests)
     {
@@ -108,8 +109,8 @@ public class MeasurementsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var created = await _measurementService.BulkCreateAsync(requests);
-        return CreatedAtAction(nameof(GetByDate), new { date = DateTimeOffset.UtcNow.Date }, created);
+        var result = await _measurementService.BulkCreateAsync(requests);
+        return CreatedAtAction(nameof(GetByDate), new { date = DateTimeOffset.UtcNow.Date }, result);
     }
 
     /// <summary>

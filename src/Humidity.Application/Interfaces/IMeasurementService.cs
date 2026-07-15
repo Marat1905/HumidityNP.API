@@ -70,8 +70,9 @@ public interface IMeasurementService
 
     /// <summary>
     /// Массовая загрузка замеров (для выгрузки с мобильного приложения).
+    /// Возвращает результат с количеством созданных и пропущенных записей и списком ошибок.
     /// </summary>
     /// <param name="requests">Список запросов на создание.</param>
-    /// <returns>Список созданных замеров.</returns>
-    Task<IEnumerable<MeasurementDto>> BulkCreateAsync(IEnumerable<CreateMeasurementRequest> requests);
+    /// <returns>Результат массовой загрузки.</returns>
+    Task<BulkMeasurementResult> BulkCreateAsync(IEnumerable<CreateMeasurementRequest> requests);
 }
