@@ -14,20 +14,14 @@ using Serilog; // добавлен using для Serilog
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. НАСТРОЙКА SERILOG
-// Читаем конфигурацию из appsettings.json
+// 1. НАСТРОЙКА SERILOG (унифицированная)
+// Конфигурация полностью читается из appsettings.json (секция "Serilog").
+// Все WriteTo (Console, File) заданы там же, поэтому в коде их не дублируем.
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
     .Enrich.WithMachineName()
     .Enrich.WithThreadId()
-    .WriteTo.Console()
-    .WriteTo.File(
-        path: "logs/humidity-api-.txt",
-        rollingInterval: RollingInterval.Day,
-        retainedFileCountLimit: 30,
-        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
-    )
     .CreateLogger();
 
 builder.Host.UseSerilog(); // заменяем стандартный логгер на Serilog
@@ -96,7 +90,6 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 // Logging - уже настроен Serilog, дополнительная регистрация не требуется
-// builder.Services.AddLogging(); // удаляем, так как Serilog предоставляет свой логгер
 
 // Health Checks with database connectivity check
 builder.Services.AddHealthChecks()
