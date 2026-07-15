@@ -13,8 +13,9 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
     /// Получить все замеры для указанной машины, отсортированные по времени (новые первыми).
     /// </summary>
     /// <param name="vehicleId">Идентификатор машины.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
     /// <returns>Коллекция замеров.</returns>
-    Task<IEnumerable<HumidityMeasurement>> GetByVehicleIdAsync(Guid vehicleId);
+    Task<IEnumerable<HumidityMeasurement>> GetByVehicleIdAsync(Guid vehicleId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Получить страницу замеров для указанной машины.
@@ -30,15 +31,17 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
     /// Получить последний (самый свежий) замер для указанной машины.
     /// </summary>
     /// <param name="vehicleId">Идентификатор машины.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
     /// <returns>Последний замер или null, если замеров нет.</returns>
-    Task<HumidityMeasurement?> GetLatestByVehicleIdAsync(Guid vehicleId);
+    Task<HumidityMeasurement?> GetLatestByVehicleIdAsync(Guid vehicleId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Получить все замеры за указанную дату.
     /// </summary>
     /// <param name="date">Дата (время игнорируется, берётся весь день).</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
     /// <returns>Коллекция замеров за день.</returns>
-    Task<IEnumerable<HumidityMeasurement>> GetByDateAsync(DateTimeOffset date);
+    Task<IEnumerable<HumidityMeasurement>> GetByDateAsync(DateTimeOffset date, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Получить страницу замеров за указанную дату.
@@ -55,6 +58,7 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
     /// </summary>
     /// <param name="from">Начало диапазона (включительно).</param>
     /// <param name="to">Конец диапазона (включительно).</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
     /// <returns>Коллекция замеров в диапазоне.</returns>
-    Task<IEnumerable<HumidityMeasurement>> GetByDateRangeAsync(DateTimeOffset from, DateTimeOffset to);
+    Task<IEnumerable<HumidityMeasurement>> GetByDateRangeAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default);
 }

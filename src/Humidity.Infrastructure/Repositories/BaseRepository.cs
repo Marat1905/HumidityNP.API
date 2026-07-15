@@ -39,48 +39,57 @@ public abstract class BaseRepository<T> : IRepository<T> where T : BaseEntity
     /// Получить все записи, отсортированные по дате создания (новые первыми).
     /// Может быть переопределён в наследниках для изменения сортировки или добавления Include.
     /// </summary>
-    public virtual async Task<IEnumerable<T>> GetAllAsync()
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public virtual async Task<IEnumerable<T>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await DbSet
             .OrderByDescending(e => e.CreatedAt)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>
     /// Получить запись по идентификатору.
     /// </summary>
-    public virtual async Task<T?> GetByIdAsync(Guid id)
+    /// <param name="id">Идентификатор записи.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public virtual async Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await DbSet.FindAsync(id);
+        return await DbSet.FindAsync(new object[] { id }, cancellationToken);
     }
 
     /// <summary>
     /// Проверить существование записи.
     /// </summary>
-    public virtual async Task<bool> ExistsAsync(Guid id)
+    /// <param name="id">Идентификатор записи.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public virtual async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await DbSet.AnyAsync(e => e.Id == id);
+        return await DbSet.AnyAsync(e => e.Id == id, cancellationToken);
     }
 
     /// <summary>
     /// Добавить новую запись. Автоматически генерирует Guid, если он пустой.
     /// </summary>
-    public virtual async Task<T> AddAsync(T entity)
+    /// <param name="entity">Сущность для добавления.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public virtual async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
     {
         if (entity.Id == Guid.Empty)
         {
             entity.Id = Guid.NewGuid();
         }
 
-        await DbSet.AddAsync(entity);
-        await Context.SaveChangesAsync();
+        await DbSet.AddAsync(entity, cancellationToken);
+        await Context.SaveChangesAsync(cancellationToken);
         return entity;
     }
 
     /// <summary>
     /// Массовое добавление записей.
     /// </summary>
-    public virtual async Task<IEnumerable<T>> BulkAddAsync(IEnumerable<T> entities)
+    /// <param name="entities">Коллекция сущностей для добавления.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public virtual async Task<IEnumerable<T>> BulkAddAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default)
     {
         var entityList = entities.ToList();
 
@@ -92,47 +101,58 @@ public abstract class BaseRepository<T> : IRepository<T> where T : BaseEntity
             }
         }
 
-        await DbSet.AddRangeAsync(entityList);
-        await Context.SaveChangesAsync();
+        await DbSet.AddRangeAsync(entityList, cancellationToken);
+        await Context.SaveChangesAsync(cancellationToken);
         return entityList;
     }
 
     /// <summary>
     /// Обновить существующую запись.
     /// </summary>
-    public virtual async Task<T> UpdateAsync(T entity)
+    /// <param name="entity">Сущность с обновлёнными данными.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public virtual async Task<T> UpdateAsync(T entity, CancellationToken cancellationToken = default)
     {
         DbSet.Update(entity);
-        await Context.SaveChangesAsync();
+        await Context.SaveChangesAsync(cancellationToken);
         return entity;
     }
 
     /// <summary>
     /// Удалить запись.
     /// </summary>
-    public virtual async Task DeleteAsync(T entity)
+    /// <param name="entity">Сущность для удаления.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public virtual async Task DeleteAsync(T entity, CancellationToken cancellationToken = default)
     {
         DbSet.Remove(entity);
-        await Context.SaveChangesAsync();
+        await Context.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>
     /// Удалить запись по идентификатору.
     /// </summary>
-    public virtual async Task<bool> DeleteByIdAsync(Guid id)
+    /// <param name="id">Идентификатор записи для удаления.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public virtual async Task<bool> DeleteByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var entity = await GetByIdAsync(id);
+        var entity = await GetByIdAsync(id, cancellationToken);
         if (entity == null)
             return false;
 
         DbSet.Remove(entity);
-        await Context.SaveChangesAsync();
+        await Context.SaveChangesAsync(cancellationToken);
         return true;
     }
 
     /// <summary>
     /// Получить страницу записей с возможностью применения фильтра и сортировки.
     /// </summary>
+    /// <param name="pageNumber">Номер страницы (начиная с 1).</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="filter">Фильтр (опционально).</param>
+    /// <param name="orderBy">Функция сортировки (опционально).</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
     public virtual async Task<PagedResult<T>> GetPagedAsync(
         int pageNumber,
         int pageSize,

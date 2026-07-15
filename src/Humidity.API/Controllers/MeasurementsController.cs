@@ -35,7 +35,7 @@ public class MeasurementsController : ControllerBase
         if (pageSize < 1) pageSize = 20;
         if (pageSize > 100) pageSize = 100;
 
-        var result = await _measurementService.GetByVehicleIdPagedAsync(vehicleId, pageNumber, pageSize);
+        var result = await _measurementService.GetByVehicleIdPagedAsync(vehicleId, pageNumber, pageSize, HttpContext.RequestAborted);
         return Ok(result);
     }
 
@@ -48,7 +48,7 @@ public class MeasurementsController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetLatestByVehicle(Guid vehicleId)
     {
-        var measurement = await _measurementService.GetLatestByVehicleIdAsync(vehicleId);
+        var measurement = await _measurementService.GetLatestByVehicleIdAsync(vehicleId, HttpContext.RequestAborted);
         if (measurement == null)
         {
             return NotFound($"Замеры для машины с id {vehicleId} не найдены");
@@ -71,7 +71,7 @@ public class MeasurementsController : ControllerBase
         if (pageSize < 1) pageSize = 20;
         if (pageSize > 100) pageSize = 100;
 
-        var result = await _measurementService.GetByDatePagedAsync(date, pageNumber, pageSize);
+        var result = await _measurementService.GetByDatePagedAsync(date, pageNumber, pageSize, HttpContext.RequestAborted);
         return Ok(result);
     }
 
@@ -90,7 +90,7 @@ public class MeasurementsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var created = await _measurementService.CreateAsync(request);
+        var created = await _measurementService.CreateAsync(request, HttpContext.RequestAborted);
         return CreatedAtAction(nameof(GetByVehicle), new { vehicleId = request.VehicleId }, created);
     }
 
@@ -109,7 +109,7 @@ public class MeasurementsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var result = await _measurementService.BulkCreateAsync(requests);
+        var result = await _measurementService.BulkCreateAsync(requests, HttpContext.RequestAborted);
         return CreatedAtAction(nameof(GetByDate), new { date = DateTimeOffset.UtcNow.Date }, result);
     }
 
@@ -129,7 +129,7 @@ public class MeasurementsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var updated = await _measurementService.UpdateAsync(id, request);
+        var updated = await _measurementService.UpdateAsync(id, request, HttpContext.RequestAborted);
         return Ok(updated);
     }
 
@@ -142,7 +142,7 @@ public class MeasurementsController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> Delete(Guid id)
     {
-        await _measurementService.DeleteAsync(id);
+        await _measurementService.DeleteAsync(id, HttpContext.RequestAborted);
         return NoContent();
     }
 }

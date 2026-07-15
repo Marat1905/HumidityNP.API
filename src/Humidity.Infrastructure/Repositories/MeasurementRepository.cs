@@ -21,28 +21,35 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     /// <summary>
     /// Переопределяем базовый GetAllAsync, чтобы eagerly load связанную машину.
     /// </summary>
-    public override async Task<IEnumerable<HumidityMeasurement>> GetAllAsync()
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public override async Task<IEnumerable<HumidityMeasurement>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await DbSet
             .Include(m => m.Vehicle)
             .OrderByDescending(m => m.Timestamp)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>
     /// Получить все замеры для указанной машины, отсортированные по времени (новые первыми).
     /// </summary>
-    public async Task<IEnumerable<HumidityMeasurement>> GetByVehicleIdAsync(Guid vehicleId)
+    /// <param name="vehicleId">Идентификатор машины.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public async Task<IEnumerable<HumidityMeasurement>> GetByVehicleIdAsync(Guid vehicleId, CancellationToken cancellationToken = default)
     {
         return await DbSet
             .Where(m => m.VehicleId == vehicleId)
             .OrderByDescending(m => m.Timestamp)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>
     /// Получить страницу замеров для указанной машины.
     /// </summary>
+    /// <param name="vehicleId">Идентификатор машины.</param>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
     public async Task<PagedResult<HumidityMeasurement>> GetByVehicleIdPagedAsync(Guid vehicleId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
         if (pageNumber < 1) pageNumber = 1;
@@ -74,12 +81,14 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     /// <summary>
     /// Получить последний (самый свежий) замер для указанной машины.
     /// </summary>
-    public async Task<HumidityMeasurement?> GetLatestByVehicleIdAsync(Guid vehicleId)
+    /// <param name="vehicleId">Идентификатор машины.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public async Task<HumidityMeasurement?> GetLatestByVehicleIdAsync(Guid vehicleId, CancellationToken cancellationToken = default)
     {
         return await DbSet
             .Where(m => m.VehicleId == vehicleId)
             .OrderByDescending(m => m.Timestamp)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     /// <summary>
@@ -87,7 +96,9 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     /// Входная дата приводится к UTC, чтобы корректно сравнивать с Timestamp, хранящимся в UTC.
     /// Используется полуинтервал [начало дня, начало следующего дня) для корректного учёта микросекунд.
     /// </summary>
-    public async Task<IEnumerable<HumidityMeasurement>> GetByDateAsync(DateTimeOffset date)
+    /// <param name="date">Дата.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public async Task<IEnumerable<HumidityMeasurement>> GetByDateAsync(DateTimeOffset date, CancellationToken cancellationToken = default)
     {
         // Приводим дату к UTC и берём начало дня в UTC
         var startOfDayUtc = new DateTimeOffset(date.UtcDateTime.Date, TimeSpan.Zero);
@@ -97,7 +108,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
         return await DbSet
             .Where(m => m.Timestamp >= startOfDayUtc && m.Timestamp < endOfDayUtc)
             .OrderByDescending(m => m.Timestamp)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>
@@ -105,6 +116,10 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     /// Входная дата приводится к UTC, чтобы корректно сравнивать с Timestamp, хранящимся в UTC.
     /// Используется полуинтервал [начало дня, начало следующего дня) для корректного учёта микросекунд.
     /// </summary>
+    /// <param name="date">Дата.</param>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
     public async Task<PagedResult<HumidityMeasurement>> GetByDatePagedAsync(DateTimeOffset date, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
         if (pageNumber < 1) pageNumber = 1;
@@ -140,11 +155,14 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     /// Получить замеры в произвольном диапазоне дат.
     /// Предполагается, что from и to уже корректно заданы (например, с учётом UTC).
     /// </summary>
-    public async Task<IEnumerable<HumidityMeasurement>> GetByDateRangeAsync(DateTimeOffset from, DateTimeOffset to)
+    /// <param name="from">Начало диапазона (включительно).</param>
+    /// <param name="to">Конец диапазона (включительно).</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public async Task<IEnumerable<HumidityMeasurement>> GetByDateRangeAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
     {
         return await DbSet
             .Where(m => m.Timestamp >= from && m.Timestamp <= to)
             .OrderByDescending(m => m.Timestamp)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 }

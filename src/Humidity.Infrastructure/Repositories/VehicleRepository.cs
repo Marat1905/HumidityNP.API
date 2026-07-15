@@ -24,11 +24,12 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     /// Использует AsNoTracking для повышения производительности при чтении.
     /// Связанные измерения не загружаются, так как они не требуются в большинстве сценариев.
     /// </summary>
-    public override async Task<IEnumerable<Vehicle>> GetAllAsync()
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public override async Task<IEnumerable<Vehicle>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Vehicles
             .AsNoTracking()
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>
@@ -36,10 +37,12 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     /// Возвращает отслеживаемую сущность для возможности последующего обновления.
     /// Связанные измерения не загружаются, так как они не нужны для обновления.
     /// </summary>
-    public override async Task<Vehicle?> GetByIdAsync(Guid id)
+    /// <param name="id">Идентификатор машины.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public override async Task<Vehicle?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.Vehicles
-            .FirstOrDefaultAsync(v => v.Id == id);
+            .FirstOrDefaultAsync(v => v.Id == id, cancellationToken);
     }
 
     /// <summary>
@@ -47,12 +50,13 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     /// Только для чтения, используется AsNoTracking.
     /// Связанные измерения не загружаются.
     /// </summary>
-    public async Task<IEnumerable<Vehicle>> GetActiveVehiclesAsync()
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public async Task<IEnumerable<Vehicle>> GetActiveVehiclesAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Vehicles
             .Where(v => v.ExitDate == null)
             .AsNoTracking()
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>
@@ -60,6 +64,9 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     /// Только для чтения, используется AsNoTracking.
     /// Связанные измерения не загружаются.
     /// </summary>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
     public async Task<PagedResult<Vehicle>> GetActiveVehiclesPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
         // Защита от невалидных значений
@@ -95,13 +102,15 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     /// Только для чтения, используется AsNoTracking.
     /// Связанные измерения не загружаются.
     /// </summary>
-    public async Task<IEnumerable<Vehicle>> GetByPlateAsync(string plate)
+    /// <param name="plate">Государственный номер.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public async Task<IEnumerable<Vehicle>> GetByPlateAsync(string plate, CancellationToken cancellationToken = default)
     {
         var searchPattern = $"%{plate}%";
         return await _context.Vehicles
             .AsNoTracking()
             .Where(v => EF.Functions.ILike(v.VehiclePlate, searchPattern))
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>
@@ -110,28 +119,34 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     /// Только для чтения, используется AsNoTracking.
     /// Связанные измерения не загружаются.
     /// </summary>
-    public async Task<IEnumerable<Vehicle>> GetByNumberAsync(string number)
+    /// <param name="number">Номер заявки.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public async Task<IEnumerable<Vehicle>> GetByNumberAsync(string number, CancellationToken cancellationToken = default)
     {
         var searchPattern = $"%{number}%";
         return await _context.Vehicles
             .AsNoTracking()
             .Where(v => EF.Functions.ILike(v.Number, searchPattern))
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>
     /// Проверить существование машины по идентификатору.
     /// </summary>
-    public async Task<bool> ExistsAsync(Guid id)
+    /// <param name="id">Идентификатор машины.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _context.Vehicles.AnyAsync(v => v.Id == id);
+        return await _context.Vehicles.AnyAsync(v => v.Id == id, cancellationToken);
     }
 
     /// <summary>
     /// Получить множество существующих идентификаторов машин из переданного списка.
     /// Выполняет один запрос к БД вместо N запросов.
     /// </summary>
-    public async Task<HashSet<Guid>> GetExistingIdsAsync(IEnumerable<Guid> ids)
+    /// <param name="ids">Список проверяемых идентификаторов.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    public async Task<HashSet<Guid>> GetExistingIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
     {
         var idList = ids.ToList();
         if (!idList.Any())
@@ -140,7 +155,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
         var existingIds = await _context.Vehicles
             .Where(v => idList.Contains(v.Id))
             .Select(v => v.Id)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return new HashSet<Guid>(existingIds);
     }

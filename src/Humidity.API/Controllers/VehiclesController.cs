@@ -34,7 +34,7 @@ public class VehiclesController : ControllerBase
         if (pageSize < 1) pageSize = 20;
         if (pageSize > 100) pageSize = 100;
 
-        var result = await _vehicleService.GetPagedAsync(pageNumber, pageSize);
+        var result = await _vehicleService.GetPagedAsync(pageNumber, pageSize, HttpContext.RequestAborted);
         return Ok(result);
     }
 
@@ -47,7 +47,7 @@ public class VehiclesController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetById(Guid id)
     {
-        var vehicle = await _vehicleService.GetByIdAsync(id);
+        var vehicle = await _vehicleService.GetByIdAsync(id, HttpContext.RequestAborted);
         if (vehicle == null)
         {
             return NotFound($"Машина с id {id} не найдена");
@@ -69,7 +69,7 @@ public class VehiclesController : ControllerBase
         if (pageSize < 1) pageSize = 20;
         if (pageSize > 100) pageSize = 100;
 
-        var result = await _vehicleService.GetActiveVehiclesPagedAsync(pageNumber, pageSize);
+        var result = await _vehicleService.GetActiveVehiclesPagedAsync(pageNumber, pageSize, HttpContext.RequestAborted);
         return Ok(result);
     }
 
@@ -87,7 +87,7 @@ public class VehiclesController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var created = await _vehicleService.CreateAsync(request);
+        var created = await _vehicleService.CreateAsync(request, HttpContext.RequestAborted);
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
@@ -107,7 +107,7 @@ public class VehiclesController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var updated = await _vehicleService.UpdateAsync(id, request);
+        var updated = await _vehicleService.UpdateAsync(id, request, HttpContext.RequestAborted);
         return Ok(updated);
     }
 
@@ -120,7 +120,7 @@ public class VehiclesController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> Delete(Guid id)
     {
-        await _vehicleService.DeleteAsync(id);
+        await _vehicleService.DeleteAsync(id, HttpContext.RequestAborted);
         return NoContent();
     }
 }

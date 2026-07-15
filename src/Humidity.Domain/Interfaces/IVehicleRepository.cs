@@ -12,8 +12,9 @@ public interface IVehicleRepository : IRepository<Vehicle>
     /// <summary>
     /// Получить список машин, которые ещё не выехали (ExitDate = null).
     /// </summary>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
     /// <returns>Коллекция активных машин.</returns>
-    Task<IEnumerable<Vehicle>> GetActiveVehiclesAsync();
+    Task<IEnumerable<Vehicle>> GetActiveVehiclesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Получить страницу активных машин.
@@ -28,21 +29,24 @@ public interface IVehicleRepository : IRepository<Vehicle>
     /// Найти машины по государственному номеру.
     /// </summary>
     /// <param name="plate">Государственный номер.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
     /// <returns>Коллекция машин с указанным номером.</returns>
-    Task<IEnumerable<Vehicle>> GetByPlateAsync(string plate);
+    Task<IEnumerable<Vehicle>> GetByPlateAsync(string plate, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Найти машины по номеру заявки.
     /// </summary>
     /// <param name="number">Номер заявки.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
     /// <returns>Коллекция машин с указанным номером заявки.</returns>
-    Task<IEnumerable<Vehicle>> GetByNumberAsync(string number);
+    Task<IEnumerable<Vehicle>> GetByNumberAsync(string number, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Получить множество существующих идентификаторов машин из переданного списка.
     /// Выполняет один запрос к БД вместо N запросов.
     /// </summary>
     /// <param name="ids">Список проверяемых идентификаторов.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
     /// <returns>HashSet существующих идентификаторов для быстрого поиска.</returns>
-    Task<HashSet<Guid>> GetExistingIdsAsync(IEnumerable<Guid> ids);
+    Task<HashSet<Guid>> GetExistingIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
 }
