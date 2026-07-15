@@ -91,34 +91,37 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     }
 
     /// <summary>
-    /// Поиск машин по государственному номеру (регистронезависимый).
-    /// Использует EF.Functions.ILike для эффективного поиска в PostgreSQL,
-    /// который позволяет использовать функциональный индекс LOWER(vehicle_plate).
-    /// Возвращает коллекцию, так как один и тот же гос. номер может встречаться
-    /// у разных заявок в разное время (например, одна машина — несколько визитов).
+    /// Поиск машин по государственному номеру (регистронезависимый, частичное совпадение).
+    /// Использует EF.Functions.ILike с символами % для поиска по подстроке,
+    /// что позволяет найти все машины, номер которых содержит переданную строку.
+    /// Для эффективного поиска в PostgreSQL рекомендуется создать GIN-индекс с расширением pg_trgm.
     /// Только для чтения, используется AsNoTracking.
     /// </summary>
     public async Task<IEnumerable<Vehicle>> GetByPlateAsync(string plate)
     {
+        // Добавляем % с обеих сторон для поиска по подстроке
+        var searchPattern = $"%{plate}%";
         return await _context.Vehicles
             .Include(v => v.Measurements)
             .AsNoTracking()
-            .Where(v => EF.Functions.ILike(v.VehiclePlate, plate))
+            .Where(v => EF.Functions.ILike(v.VehiclePlate, searchPattern))
             .ToListAsync();
     }
 
     /// <summary>
-    /// Поиск машин по номеру заявки (регистронезависимый).
+    /// Поиск машин по номеру заявки (регистронезависимый, частичное совпадение).
     /// Возвращает коллекцию согласно сигнатуре интерфейса.
-    /// Использует EF.Functions.ILike для единообразия с поиском по гос. номеру.
+    /// Использует EF.Functions.ILike с символами % для поиска по подстроке.
     /// Только для чтения, используется AsNoTracking.
     /// </summary>
     public async Task<IEnumerable<Vehicle>> GetByNumberAsync(string number)
     {
+        // Добавляем % с обеих сторон для поиска по подстроке
+        var searchPattern = $"%{number}%";
         return await _context.Vehicles
             .Include(v => v.Measurements)
             .AsNoTracking()
-            .Where(v => EF.Functions.ILike(v.Number, number))
+            .Where(v => EF.Functions.ILike(v.Number, searchPattern))
             .ToListAsync();
     }
 
