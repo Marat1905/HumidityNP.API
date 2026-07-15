@@ -1,7 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
 using Humidity.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace Humidity.Infrastructure.Repositories;
 
@@ -126,5 +128,54 @@ public abstract class BaseRepository<T> : IRepository<T> where T : BaseEntity
         DbSet.Remove(entity);
         await Context.SaveChangesAsync();
         return true;
+    }
+
+    /// <summary>
+    /// Получить страницу записей с возможностью применения фильтра и сортировки.
+    /// </summary>
+    public virtual async Task<PagedResult<T>> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        Expression<Func<T, bool>>? filter = null,
+        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Защита от невалидных значений
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100; // ограничиваем максимальный размер страницы
+
+        IQueryable<T> query = DbSet;
+
+        if (filter != null)
+        {
+            query = query.Where(filter);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        if (orderBy != null)
+        {
+            query = orderBy(query);
+        }
+        else
+        {
+            // Сортировка по умолчанию – по CreatedAt убыванию (новые первыми)
+            query = query.OrderByDescending(e => e.CreatedAt);
+        }
+
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+        };
     }
 }

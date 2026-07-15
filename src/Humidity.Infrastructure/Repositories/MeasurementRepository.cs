@@ -1,7 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
 using Humidity.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace Humidity.Infrastructure.Repositories;
 
@@ -40,6 +41,37 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     }
 
     /// <summary>
+    /// Получить страницу замеров для указанной машины.
+    /// </summary>
+    public async Task<PagedResult<HumidityMeasurement>> GetByVehicleIdPagedAsync(Guid vehicleId, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    {
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100;
+
+        IQueryable<HumidityMeasurement> query = DbSet
+            .Where(m => m.VehicleId == vehicleId)
+            .Include(m => m.Vehicle);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(m => m.Timestamp)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<HumidityMeasurement>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+        };
+    }
+
+    /// <summary>
     /// Получить последний (самый свежий) замер для указанной машины.
     /// </summary>
     public async Task<HumidityMeasurement?> GetLatestByVehicleIdAsync(Guid vehicleId)
@@ -62,6 +94,40 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
             .Where(m => m.Timestamp >= startOfDay && m.Timestamp <= endOfDay)
             .OrderByDescending(m => m.Timestamp)
             .ToListAsync();
+    }
+
+    /// <summary>
+    /// Получить страницу замеров за указанную дату.
+    /// </summary>
+    public async Task<PagedResult<HumidityMeasurement>> GetByDatePagedAsync(DateTime date, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    {
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100;
+
+        var startOfDay = date.Date;
+        var endOfDay = startOfDay.AddDays(1).AddTicks(-1);
+
+        IQueryable<HumidityMeasurement> query = DbSet
+            .Where(m => m.Timestamp >= startOfDay && m.Timestamp <= endOfDay)
+            .Include(m => m.Vehicle);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(m => m.Timestamp)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<HumidityMeasurement>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+        };
     }
 
     /// <summary>

@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
+using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Enums;
 using Humidity.Domain.Interfaces;
@@ -36,6 +37,19 @@ public class MeasurementService : IMeasurementService
         return _mapper.Map<IEnumerable<MeasurementDto>>(measurements);
     }
 
+    public async Task<PagedResult<MeasurementDto>> GetByVehicleIdPagedAsync(Guid vehicleId, int pageNumber, int pageSize)
+    {
+        var pagedResult = await _repository.GetByVehicleIdPagedAsync(vehicleId, pageNumber, pageSize);
+        return new PagedResult<MeasurementDto>
+        {
+            Items = _mapper.Map<IEnumerable<MeasurementDto>>(pagedResult.Items),
+            TotalCount = pagedResult.TotalCount,
+            PageNumber = pagedResult.PageNumber,
+            PageSize = pagedResult.PageSize,
+            TotalPages = pagedResult.TotalPages
+        };
+    }
+
     public async Task<MeasurementDto?> GetLatestByVehicleIdAsync(Guid vehicleId)
     {
         var measurement = await _repository.GetLatestByVehicleIdAsync(vehicleId);
@@ -48,6 +62,19 @@ public class MeasurementService : IMeasurementService
         return _mapper.Map<IEnumerable<MeasurementDto>>(measurements);
     }
 
+    public async Task<PagedResult<MeasurementDto>> GetByDatePagedAsync(DateTime date, int pageNumber, int pageSize)
+    {
+        var pagedResult = await _repository.GetByDatePagedAsync(date, pageNumber, pageSize);
+        return new PagedResult<MeasurementDto>
+        {
+            Items = _mapper.Map<IEnumerable<MeasurementDto>>(pagedResult.Items),
+            TotalCount = pagedResult.TotalCount,
+            PageNumber = pagedResult.PageNumber,
+            PageSize = pagedResult.PageSize,
+            TotalPages = pagedResult.TotalPages
+        };
+    }
+
     public async Task<MeasurementDto> CreateAsync(CreateMeasurementRequest request)
     {
         var vehicleExists = await _vehicleRepository.ExistsAsync(request.VehicleId);
@@ -55,9 +82,7 @@ public class MeasurementService : IMeasurementService
             throw new KeyNotFoundException($"Машина с id {request.VehicleId} не найдена");
 
         var measurement = _mapper.Map<HumidityMeasurement>(request);
-        // Преобразование Source из строки в enum
         measurement.Source = Enum.Parse<MeasurementSource>(request.Source, true);
-        // Timestamp и CreatedAt будут автоматически обработаны контекстом (преобразование в UTC и установка CreatedAt)
         var created = await _repository.AddAsync(measurement);
         return _mapper.Map<MeasurementDto>(created);
     }
@@ -68,29 +93,9 @@ public class MeasurementService : IMeasurementService
         if (existing == null)
             throw new KeyNotFoundException($"Замер с id {id} не найден");
 
-        // Обновление полей, если они указаны
-        if (request.HumidityValue.HasValue)
-            existing.HumidityValue = request.HumidityValue.Value;
+        // Используем AutoMapper для обновления только переданных полей (настроено игнорирование null)
+        _mapper.Map(request, existing);
 
-        if (request.TemperatureC.HasValue)
-            existing.TemperatureC = request.TemperatureC.Value;
-
-        if (!string.IsNullOrEmpty(request.MeasurementType))
-            existing.MeasurementType = request.MeasurementType;
-
-        if (!string.IsNullOrEmpty(request.Material))
-            existing.Material = request.Material;
-
-        if (!string.IsNullOrEmpty(request.Source))
-            existing.Source = Enum.Parse<MeasurementSource>(request.Source, true);
-
-        if (!string.IsNullOrEmpty(request.Sign))
-            existing.Sign = request.Sign;
-
-        if (request.Timestamp.HasValue)
-            existing.Timestamp = request.Timestamp.Value; // Контекст преобразует в UTC при сохранении
-
-        // UpdatedAt устанавливается автоматически в контексте
         var updated = await _repository.UpdateAsync(existing);
         return _mapper.Map<MeasurementDto>(updated);
     }
@@ -122,7 +127,6 @@ public class MeasurementService : IMeasurementService
 
             var measurement = _mapper.Map<HumidityMeasurement>(request);
             measurement.Source = Enum.Parse<MeasurementSource>(request.Source, true);
-            // Id, CreatedAt и Timestamp будут установлены/обработаны репозиторием и контекстом
             measurements.Add(measurement);
         }
 

@@ -1,7 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Asp.Versioning;
 using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
-using Asp.Versioning; // Важно: используем Asp.Versioning
+using Humidity.Domain.Common;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Humidity.API.Controllers;
 
@@ -21,15 +22,21 @@ public class MeasurementsController : ControllerBase
     }
 
     /// <summary>
-    /// Получить все замеры для указанной машины
+    /// Получить страницу замеров для указанной машины
     /// </summary>
     /// <param name="vehicleId">Идентификатор машины</param>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
     [HttpGet("vehicle/{vehicleId}")]
-    [ProducesResponseType(typeof(IEnumerable<MeasurementDto>), 200)]
-    public async Task<IActionResult> GetByVehicle(Guid vehicleId)
+    [ProducesResponseType(typeof(PagedResult<MeasurementDto>), 200)]
+    public async Task<IActionResult> GetByVehicle(Guid vehicleId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
     {
-        var measurements = await _measurementService.GetByVehicleIdAsync(vehicleId);
-        return Ok(measurements);
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
+
+        var result = await _measurementService.GetByVehicleIdPagedAsync(vehicleId, pageNumber, pageSize);
+        return Ok(result);
     }
 
     /// <summary>
@@ -51,15 +58,21 @@ public class MeasurementsController : ControllerBase
     }
 
     /// <summary>
-    /// Получить все замеры за указанную дату
+    /// Получить страницу замеров за указанную дату
     /// </summary>
     /// <param name="date">Дата в формате YYYY-MM-DD</param>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
     [HttpGet("date/{date}")]
-    [ProducesResponseType(typeof(IEnumerable<MeasurementDto>), 200)]
-    public async Task<IActionResult> GetByDate(DateTime date)
+    [ProducesResponseType(typeof(PagedResult<MeasurementDto>), 200)]
+    public async Task<IActionResult> GetByDate(DateTime date, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
     {
-        var measurements = await _measurementService.GetByDateAsync(date);
-        return Ok(measurements);
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
+
+        var result = await _measurementService.GetByDatePagedAsync(date, pageNumber, pageSize);
+        return Ok(result);
     }
 
     /// <summary>

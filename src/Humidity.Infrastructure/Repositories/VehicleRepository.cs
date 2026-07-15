@@ -1,4 +1,5 @@
-﻿using Humidity.Domain.Entities;
+﻿using Humidity.Domain.Common;
+using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
 using Humidity.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -50,6 +51,39 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
             .Where(v => v.ExitDate == null)
             .AsNoTracking()
             .ToListAsync();
+    }
+
+    /// <summary>
+    /// Получить страницу активных машин.
+    /// </summary>
+    public async Task<PagedResult<Vehicle>> GetActiveVehiclesPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    {
+        // Защита от невалидных значений
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100;
+
+        IQueryable<Vehicle> query = _context.Vehicles
+            .Where(v => v.ExitDate == null)
+            .Include(v => v.Measurements); // при необходимости можно загружать связанные данные
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(v => v.CreatedAt) // сортировка по умолчанию
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking() // для чтения
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<Vehicle>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+        };
     }
 
     /// <summary>

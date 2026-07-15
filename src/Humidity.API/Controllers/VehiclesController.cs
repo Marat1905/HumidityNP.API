@@ -1,7 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Asp.Versioning;
 using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
-using Asp.Versioning; // Важно: используем Asp.Versioning
+using Humidity.Domain.Common;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Humidity.API.Controllers;
 
@@ -21,14 +22,20 @@ public class VehiclesController : ControllerBase
     }
 
     /// <summary>
-    /// Получить список всех машин
+    /// Получить страницу всех машин
     /// </summary>
+    /// <param name="pageNumber">Номер страницы (начиная с 1).</param>
+    /// <param name="pageSize">Количество записей на странице (макс. 100).</param>
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<VehicleDto>), 200)]
-    public async Task<IActionResult> GetAll()
+    [ProducesResponseType(typeof(PagedResult<VehicleDto>), 200)]
+    public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
     {
-        var vehicles = await _vehicleService.GetAllAsync();
-        return Ok(vehicles);
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
+
+        var result = await _vehicleService.GetPagedAsync(pageNumber, pageSize);
+        return Ok(result);
     }
 
     /// <summary>
@@ -50,14 +57,20 @@ public class VehiclesController : ControllerBase
     }
 
     /// <summary>
-    /// Получить список активных машин (которые ещё не выехали)
+    /// Получить страницу активных машин (которые ещё не выехали)
     /// </summary>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
     [HttpGet("active")]
-    [ProducesResponseType(typeof(IEnumerable<VehicleDto>), 200)]
-    public async Task<IActionResult> GetActive()
+    [ProducesResponseType(typeof(PagedResult<VehicleDto>), 200)]
+    public async Task<IActionResult> GetActive([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
     {
-        var vehicles = await _vehicleService.GetActiveVehiclesAsync();
-        return Ok(vehicles);
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
+
+        var result = await _vehicleService.GetActiveVehiclesPagedAsync(pageNumber, pageSize);
+        return Ok(result);
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 ﻿using Humidity.Application.DTOs;
+using Humidity.Domain.Common;
 
 namespace Humidity.Application.Interfaces;
 
@@ -15,6 +16,15 @@ public interface IMeasurementService
     Task<IEnumerable<MeasurementDto>> GetByVehicleIdAsync(Guid vehicleId);
 
     /// <summary>
+    /// Получить страницу замеров для указанной машины.
+    /// </summary>
+    /// <param name="vehicleId">Идентификатор машины.</param>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <returns>Страница замеров.</returns>
+    Task<PagedResult<MeasurementDto>> GetByVehicleIdPagedAsync(Guid vehicleId, int pageNumber, int pageSize);
+
+    /// <summary>
     /// Получить последний замер для указанной машины.
     /// </summary>
     /// <param name="vehicleId">Идентификатор машины.</param>
@@ -27,6 +37,15 @@ public interface IMeasurementService
     /// <param name="date">Дата (только дата, время игнорируется).</param>
     /// <returns>Коллекция DTO замеров.</returns>
     Task<IEnumerable<MeasurementDto>> GetByDateAsync(DateTime date);
+
+    /// <summary>
+    /// Получить страницу замеров за указанную дату.
+    /// </summary>
+    /// <param name="date">Дата.</param>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <returns>Страница замеров за день.</returns>
+    Task<PagedResult<MeasurementDto>> GetByDatePagedAsync(DateTime date, int pageNumber, int pageSize);
 
     /// <summary>
     /// Создать новую запись о замере.

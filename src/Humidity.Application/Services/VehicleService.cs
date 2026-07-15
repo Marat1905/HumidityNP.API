@@ -1,10 +1,11 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
-using AutoMapper;
+﻿using AutoMapper;
 using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
+using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Humidity.Application.Services;
 
@@ -28,6 +29,19 @@ public class VehicleService : IVehicleService
         return _mapper.Map<IEnumerable<VehicleDto>>(vehicles);
     }
 
+    public async Task<PagedResult<VehicleDto>> GetPagedAsync(int pageNumber, int pageSize)
+    {
+        var pagedResult = await _repository.GetPagedAsync(pageNumber, pageSize);
+        return new PagedResult<VehicleDto>
+        {
+            Items = _mapper.Map<IEnumerable<VehicleDto>>(pagedResult.Items),
+            TotalCount = pagedResult.TotalCount,
+            PageNumber = pagedResult.PageNumber,
+            PageSize = pagedResult.PageSize,
+            TotalPages = pagedResult.TotalPages
+        };
+    }
+
     public async Task<VehicleDto?> GetByIdAsync(Guid id)
     {
         var vehicle = await _repository.GetByIdAsync(id);
@@ -40,11 +54,22 @@ public class VehicleService : IVehicleService
         return _mapper.Map<IEnumerable<VehicleDto>>(vehicles);
     }
 
+    public async Task<PagedResult<VehicleDto>> GetActiveVehiclesPagedAsync(int pageNumber, int pageSize)
+    {
+        var pagedResult = await _repository.GetActiveVehiclesPagedAsync(pageNumber, pageSize);
+        return new PagedResult<VehicleDto>
+        {
+            Items = _mapper.Map<IEnumerable<VehicleDto>>(pagedResult.Items),
+            TotalCount = pagedResult.TotalCount,
+            PageNumber = pagedResult.PageNumber,
+            PageSize = pagedResult.PageSize,
+            TotalPages = pagedResult.TotalPages
+        };
+    }
+
     public async Task<VehicleDto> CreateAsync(CreateVehicleRequest request)
     {
         var vehicle = _mapper.Map<Vehicle>(request);
-        // Даты будут автоматически преобразованы в UTC контекстом БД при сохранении.
-        // Id и CreatedAt устанавливаются в репозитории/контексте.
         var created = await _repository.AddAsync(vehicle);
         return _mapper.Map<VehicleDto>(created);
     }
@@ -55,9 +80,7 @@ public class VehicleService : IVehicleService
         if (existing == null)
             throw new KeyNotFoundException($"Машина с id {id} не найдена");
 
-        // Маппер применит только не-null поля (настроено в MappingProfile)
         _mapper.Map(request, existing);
-        // Обновление UpdatedAt и преобразование дат в UTC выполняется автоматически в контексте.
         var updated = await _repository.UpdateAsync(existing);
         return _mapper.Map<VehicleDto>(updated);
     }

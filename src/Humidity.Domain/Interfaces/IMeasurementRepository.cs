@@ -1,4 +1,5 @@
-﻿using Humidity.Domain.Entities;
+﻿using Humidity.Domain.Common;
+using Humidity.Domain.Entities;
 
 namespace Humidity.Domain.Interfaces;
 
@@ -16,6 +17,16 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
     Task<IEnumerable<HumidityMeasurement>> GetByVehicleIdAsync(Guid vehicleId);
 
     /// <summary>
+    /// Получить страницу замеров для указанной машины.
+    /// </summary>
+    /// <param name="vehicleId">Идентификатор машины.</param>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Страница замеров.</returns>
+    Task<PagedResult<HumidityMeasurement>> GetByVehicleIdPagedAsync(Guid vehicleId, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Получить последний (самый свежий) замер для указанной машины.
     /// </summary>
     /// <param name="vehicleId">Идентификатор машины.</param>
@@ -28,6 +39,16 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
     /// <param name="date">Дата (время игнорируется, берётся весь день).</param>
     /// <returns>Коллекция замеров за день.</returns>
     Task<IEnumerable<HumidityMeasurement>> GetByDateAsync(DateTime date);
+
+    /// <summary>
+    /// Получить страницу замеров за указанную дату.
+    /// </summary>
+    /// <param name="date">Дата.</param>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Страница замеров за день.</returns>
+    Task<PagedResult<HumidityMeasurement>> GetByDatePagedAsync(DateTime date, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Получить замеры в диапазоне дат.

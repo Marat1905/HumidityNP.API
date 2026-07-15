@@ -1,4 +1,5 @@
-﻿using Humidity.Domain.Entities;
+﻿using Humidity.Domain.Common;
+using Humidity.Domain.Entities;
 
 namespace Humidity.Domain.Interfaces;
 
@@ -13,6 +14,15 @@ public interface IVehicleRepository : IRepository<Vehicle>
     /// </summary>
     /// <returns>Коллекция активных машин.</returns>
     Task<IEnumerable<Vehicle>> GetActiveVehiclesAsync();
+
+    /// <summary>
+    /// Получить страницу активных машин.
+    /// </summary>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Страница активных машин.</returns>
+    Task<PagedResult<Vehicle>> GetActiveVehiclesPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Найти машины по государственному номеру.

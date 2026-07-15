@@ -1,4 +1,7 @@
-﻿namespace Humidity.Domain.Interfaces;
+﻿using Humidity.Domain.Common;
+using System.Linq.Expressions;
+
+namespace Humidity.Domain.Interfaces;
 
 /// <summary>
 /// Базовый интерфейс репозитория с общими операциями CRUD.
@@ -58,4 +61,20 @@ public interface IRepository<T> where T : class
     /// <param name="id">Идентификатор записи для удаления.</param>
     /// <returns>true, если запись была найдена и удалена.</returns>
     Task<bool> DeleteByIdAsync(Guid id);
+
+    /// <summary>
+    /// Получить страницу записей с возможностью применения фильтра.
+    /// </summary>
+    /// <param name="pageNumber">Номер страницы (начиная с 1).</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="filter">Фильтр (опционально).</param>
+    /// <param name="orderBy">Функция сортировки (опционально).</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Объект <see cref="PagedResult{T}"/> с элементами страницы и метаданными.</returns>
+    Task<PagedResult<T>> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        Expression<Func<T, bool>>? filter = null,
+        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
+        CancellationToken cancellationToken = default);
 }

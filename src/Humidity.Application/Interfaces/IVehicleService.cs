@@ -1,4 +1,5 @@
 ﻿using Humidity.Application.DTOs;
+using Humidity.Domain.Common;
 
 namespace Humidity.Application.Interfaces;
 
@@ -14,6 +15,14 @@ public interface IVehicleService
     Task<IEnumerable<VehicleDto>> GetAllAsync();
 
     /// <summary>
+    /// Получить страницу всех машин.
+    /// </summary>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <returns>Страница машин.</returns>
+    Task<PagedResult<VehicleDto>> GetPagedAsync(int pageNumber, int pageSize);
+
+    /// <summary>
     /// Получить машину по идентификатору.
     /// </summary>
     /// <param name="id">Идентификатор машины.</param>
@@ -25,6 +34,14 @@ public interface IVehicleService
     /// </summary>
     /// <returns>Коллекция DTO машин на площадке.</returns>
     Task<IEnumerable<VehicleDto>> GetActiveVehiclesAsync();
+
+    /// <summary>
+    /// Получить страницу активных машин.
+    /// </summary>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <returns>Страница активных машин.</returns>
+    Task<PagedResult<VehicleDto>> GetActiveVehiclesPagedAsync(int pageNumber, int pageSize);
 
     /// <summary>
     /// Создать новую запись о машине.
