@@ -57,6 +57,19 @@ public class VehiclesController : ControllerBase
     }
 
     /// <summary>
+    /// Получить все активные машины (без пагинации)
+    /// </summary>
+    [HttpGet("active/all")]
+    [ProducesResponseType(typeof(IEnumerable<VehicleDto>), 200)]
+    public async Task<IActionResult> GetAllActiveVehicles()
+    {
+        // Используем существующий метод сервиса, передавая токен отмены текущего HTTP-запроса
+        var result = await _vehicleService.GetActiveVehiclesAsync(HttpContext.RequestAborted);
+
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Получить страницу активных машин (которые ещё не выехали)
     /// </summary>
     /// <param name="pageNumber">Номер страницы.</param>
