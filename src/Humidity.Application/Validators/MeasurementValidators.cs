@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using Humidity.Application.DTOs;
+using Humidity.Domain.Enums;
 
 namespace Humidity.Application.Validators;
 
@@ -35,11 +36,9 @@ public class CreateMeasurementRequestValidator : AbstractValidator<CreateMeasure
             .NotEmpty().WithMessage("Материал обязателен.")
             .MaximumLength(100).WithMessage("Материал не может быть длиннее 100 символов.");
 
-        // Источник данных: обязателен, допустимые значения (регистронезависимо): "Auto", "Manual"
+        // Источник данных: проверяем, что переданное значение определено в перечислении
         RuleFor(x => x.Source)
-            .NotEmpty().WithMessage("Источник данных обязателен.")
-            .Must(BeValidSource).WithMessage("Источник данных должен быть 'Auto' или 'Manual' (регистронезависимо).")
-            .MaximumLength(20).WithMessage("Источник данных не может быть длиннее 20 символов.");
+            .IsInEnum().WithMessage("Недопустимое значение для источника данных. Допустимые значения: Auto, Manual.");
 
         // Дата и время замера: обязательна, не может быть в будущем
         RuleFor(x => x.Timestamp)
@@ -47,30 +46,15 @@ public class CreateMeasurementRequestValidator : AbstractValidator<CreateMeasure
             .LessThanOrEqualTo(DateTimeOffset.UtcNow.AddMinutes(1))
             .WithMessage("Дата и время замера не могут быть в будущем.");
 
-        // Знак (Less/Greater/None): обязателен, допустимые значения (регистронезависимо)
+        // Знак: проверяем, что переданное значение определено в перечислении
         RuleFor(x => x.Sign)
-            .NotEmpty().WithMessage("Знак обязателен.")
-            .Must(BeValidSign).WithMessage("Знак должен быть 'Less', 'Greater' или 'None' (регистронезависимо).")
-            .MaximumLength(10).WithMessage("Знак не может быть длиннее 10 символов.");
-    }
-
-    private static bool BeValidSource(string source)
-    {
-        return string.Equals(source, "Auto", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(source, "Manual", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool BeValidSign(string sign)
-    {
-        return string.Equals(sign, "Less", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(sign, "Greater", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(sign, "None", StringComparison.OrdinalIgnoreCase);
+            .IsInEnum().WithMessage("Недопустимое значение для знака. Допустимые значения: None, Less, Greater.");
     }
 }
 
 /// <summary>
 /// Валидатор для запроса на обновление замера влажности (UpdateMeasurementRequest).
-/// Все поля опциональны, проверяются только диапазоны, длина строк и допустимость значений (если указаны).
+/// Все поля опциональны, проверяются только диапазоны, длина строк и допустимость перечислений (если указаны).
 /// </summary>
 public class UpdateMeasurementRequestValidator : AbstractValidator<UpdateMeasurementRequest>
 {
@@ -94,34 +78,19 @@ public class UpdateMeasurementRequestValidator : AbstractValidator<UpdateMeasure
         RuleFor(x => x.Material)
             .MaximumLength(100).WithMessage("Материал не может быть длиннее 100 символов.");
 
-        // Источник данных: если указан, должен быть допустимым значением (регистронезависимо)
+        // Источник данных: если указан, проверяем, что значение определено в перечислении
         RuleFor(x => x.Source)
-            .Must(source => source == null || BeValidSource(source))
-            .WithMessage("Источник данных должен быть 'Auto' или 'Manual' (регистронезависимо).")
-            .MaximumLength(20).WithMessage("Источник данных не может быть длиннее 20 символов.");
+            .IsInEnum().When(x => x.Source.HasValue)
+            .WithMessage("Недопустимое значение для источника данных. Допустимые значения: Auto, Manual.");
 
-        // Знак: если указан, должен быть допустимым значением (регистронезависимо)
+        // Знак: если указан, проверяем, что значение определено в перечислении
         RuleFor(x => x.Sign)
-            .Must(sign => sign == null || BeValidSign(sign))
-            .WithMessage("Знак должен быть 'Less', 'Greater' или 'None' (регистронезависимо).")
-            .MaximumLength(10).WithMessage("Знак не может быть длиннее 10 символов.");
+            .IsInEnum().When(x => x.Sign.HasValue)
+            .WithMessage("Недопустимое значение для знака. Допустимые значения: None, Less, Greater.");
 
         // Дата и время замера: если указана, не может быть в будущем
         RuleFor(x => x.Timestamp)
             .Must(timestamp => timestamp == null || timestamp <= DateTimeOffset.UtcNow.AddMinutes(1))
             .WithMessage("Дата и время замера не могут быть в будущем.");
-    }
-
-    private static bool BeValidSource(string source)
-    {
-        return string.Equals(source, "Auto", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(source, "Manual", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool BeValidSign(string sign)
-    {
-        return string.Equals(sign, "Less", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(sign, "Greater", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(sign, "None", StringComparison.OrdinalIgnoreCase);
     }
 }

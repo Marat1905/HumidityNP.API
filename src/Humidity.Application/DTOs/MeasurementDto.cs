@@ -1,4 +1,6 @@
-﻿namespace Humidity.Application.DTOs;
+﻿using Humidity.Domain.Enums;
+
+namespace Humidity.Application.DTOs;
 
 /// <summary>
 /// DTO для передачи данных о замере влажности клиенту.
@@ -38,7 +40,7 @@ public class MeasurementDto
     /// <summary>
     /// Источник данных (Auto/Manual).
     /// </summary>
-    public string Source { get; set; } = string.Empty;
+    public MeasurementSource Source { get; set; }
 
     /// <summary>
     /// Дата и время замера.
@@ -48,12 +50,19 @@ public class MeasurementDto
     /// <summary>
     /// Знак (Less/Greater/None).
     /// </summary>
-    public string Sign { get; set; } = string.Empty;
+    public SignType Sign { get; set; }
 
     /// <summary>
     /// Отображаемое значение влажности.
     /// </summary>
-    public string DisplayValue { get; set; } = string.Empty;
+    public string DisplayValue
+    {
+        get
+        {
+            string sign = Sign == SignType.Less ? "<" : Sign == SignType.Greater ? ">" : "";
+            return $"{sign} {HumidityValue:F1}%";
+        }
+    }
 }
 
 /// <summary>
@@ -66,9 +75,9 @@ public class CreateMeasurementRequest
     public double TemperatureC { get; set; }
     public string MeasurementType { get; set; } = string.Empty;
     public string Material { get; set; } = string.Empty;
-    public string Source { get; set; } = string.Empty;
+    public MeasurementSource Source { get; set; }
     public DateTimeOffset Timestamp { get; set; }
-    public string Sign { get; set; } = string.Empty;
+    public SignType Sign { get; set; }
 }
 
 /// <summary>
@@ -80,8 +89,8 @@ public class UpdateMeasurementRequest
     public double? TemperatureC { get; set; }
     public string? MeasurementType { get; set; }
     public string? Material { get; set; }
-    public string? Source { get; set; }
-    public string? Sign { get; set; }
+    public MeasurementSource? Source { get; set; }
+    public SignType? Sign { get; set; }
     public DateTimeOffset? Timestamp { get; set; }
 }
 

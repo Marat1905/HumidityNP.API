@@ -51,5 +51,5 @@ public class HumidityMeasurement : BaseEntity
     /// <summary>
     /// Знак для BLE-данных (Less/Greater/None).
     /// </summary>
-    public string Sign { get; set; } = string.Empty;
+    public SignType Sign { get; set; }
 }

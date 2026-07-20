@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Humidity.Domain.Entities;
+using Humidity.Domain.Enums;
 
 namespace Humidity.Infrastructure.Data;
 
@@ -57,14 +58,18 @@ public class HumidityDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.MeasurementType).HasMaxLength(50);
             entity.Property(e => e.Material).HasMaxLength(100);
-            entity.Property(e => e.Sign).HasMaxLength(10);
+
+            // Храним перечисления как строки в базе данных для читаемости
+            entity.Property(e => e.Source)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+            entity.Property(e => e.Sign)
+                .HasConversion<string>()
+                .HasMaxLength(10);
 
             entity.HasIndex(e => e.VehicleId);
             entity.HasIndex(e => e.Timestamp);
         });
-
-        // Для DateTimeOffset тип колонки по умолчанию будет timestamp with time zone,
-        // дополнительная настройка не требуется.
 
         base.OnModelCreating(modelBuilder);
     }
@@ -95,8 +100,5 @@ public class HumidityDbContext : DbContext
 
             entityEntry.Entity.UpdatedAt = DateTimeOffset.UtcNow;
         }
-
-        // Преобразование DateTime в UTC больше не требуется, так как мы используем DateTimeOffset.
-        // EF Core автоматически сохраняет DateTimeOffset с офсетом в timestamptz.
     }
 }

@@ -14,7 +14,6 @@ public static class DataSeeder
     /// </summary>
     public static async Task SeedAsync(HumidityDbContext context)
     {
-        // Проверяем, есть ли уже данные, чтобы не дублировать их при каждом перезапуске
         if (await context.Vehicles.AnyAsync())
         {
             return;
@@ -31,7 +30,7 @@ public static class DataSeeder
                 Date = now.AddDays(-2),
                 ArrivalDate = now.AddDays(-1).AddHours(-2),
                 EntryDate = now.AddDays(-1).AddHours(-1),
-                ExitDate = null, // Машина все еще на площадке (активная)
+                ExitDate = null,
                 Counterparty = "Тандер (Сургут)",
                 WorkType = "Разгрузка",
                 VehicleBrand = "KAMAZ",
@@ -48,7 +47,7 @@ public static class DataSeeder
                 Date = now.AddDays(-5),
                 ArrivalDate = now.AddDays(-4).AddHours(-3),
                 EntryDate = now.AddDays(-4).AddHours(-2),
-                ExitDate = now.AddDays(-3), // Машина уже уехала
+                ExitDate = now.AddDays(-3),
                 Counterparty = "ООО СтройТранс",
                 WorkType = "Погрузка",
                 VehicleBrand = "FAW",
@@ -65,7 +64,7 @@ public static class DataSeeder
                 Date = now.AddHours(-5),
                 ArrivalDate = now.AddHours(-4),
                 EntryDate = now.AddHours(-3),
-                ExitDate = null, // Активная машина
+                ExitDate = null,
                 Counterparty = "ЗерноТрейд",
                 WorkType = "Отбор проб",
                 VehicleBrand = "MAN",
@@ -79,12 +78,11 @@ public static class DataSeeder
         };
 
         await context.Vehicles.AddRangeAsync(vehicles);
-        await context.SaveChangesAsync(); // Сохраняем, чтобы сгенерировались Id и CreatedAt
+        await context.SaveChangesAsync();
 
-        // 2. Создаем тестовые замеры влажности для первой и третьей машины
+        // 2. Создаем тестовые замеры влажности
         var measurements = new List<HumidityMeasurement>
         {
-            // Замеры для первой машины (KAMAZ)
             new HumidityMeasurement
             {
                 VehicleId = vehicles[0].Id,
@@ -94,7 +92,7 @@ public static class DataSeeder
                 Material = "Зерно пшеницы",
                 Source = MeasurementSource.Auto,
                 Timestamp = now.AddDays(-1).AddHours(-0.5),
-                Sign = "None"
+                Sign = SignType.None
             },
             new HumidityMeasurement
             {
@@ -105,9 +103,8 @@ public static class DataSeeder
                 Material = "Зерно пшеницы",
                 Source = MeasurementSource.Auto,
                 Timestamp = now.AddHours(-1),
-                Sign = "Less"
+                Sign = SignType.Less
             },
-            // Ручной замер для третьей машины (MAN)
             new HumidityMeasurement
             {
                 VehicleId = vehicles[2].Id,
@@ -117,7 +114,7 @@ public static class DataSeeder
                 Material = "Ячмень",
                 Source = MeasurementSource.Manual,
                 Timestamp = now.AddHours(-2),
-                Sign = "Greater"
+                Sign = SignType.Greater
             }
         };
 

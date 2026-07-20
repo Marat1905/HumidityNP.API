@@ -1,17 +1,18 @@
+using Asp.Versioning;
+using AspNetCoreRateLimit; 
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using HealthChecks.NpgSql;
 using Humidity.API.Middleware;
 using Humidity.Application;
 using Humidity.Application.Validators;
 using Humidity.Infrastructure;
 using Humidity.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using HealthChecks.NpgSql;
-using Asp.Versioning;
 using Microsoft.OpenApi.Models;
-using Swashbuckle.AspNetCore.SwaggerGen;
 using Serilog;
-using AspNetCoreRateLimit; 
+using Swashbuckle.AspNetCore.SwaggerGen;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,7 +32,15 @@ builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateVehicleRequestValidator>();
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Сериализуем все enum как строки ("Auto", "Manual", "Less", "Greater", "None")
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+
+        // Опционально: формат camelCase для имен свойств (опционально, зависит от фронтенда)
+        // options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    });
 
 // 3. НАСТРОЙКА ВЕРСИОНИРОВАНИЯ API
 builder.Services.AddApiVersioning(options =>

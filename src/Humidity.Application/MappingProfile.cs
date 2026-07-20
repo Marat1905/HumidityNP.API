@@ -38,20 +38,15 @@ public class MappingProfile : Profile
         // ==========================================
 
         // Сущность HumidityMeasurement -> DTO MeasurementDto
-        // Дополнительно формируем вычисляемые поля:
-        // - Source: преобразуем Enum MeasurementSource в строку для удобного отображения на клиенте.
-        // - DisplayValue: формируем человекочитаемое отображаемое значение влажности с учётом знака.
-        CreateMap<HumidityMeasurement, MeasurementDto>()
-            .ForMember(dest => dest.Source, opt => opt.MapFrom(src => src.Source.ToString()))
-            .ForMember(dest => dest.DisplayValue, opt => opt.MapFrom(src => $"{src.Sign} {src.HumidityValue}%"));
+        // Все поля маппятся автоматически, включая перечисления Source и Sign.
+        // DisplayValue вычисляется в самом DTO, поэтому дополнительный маппинг не требуется.
+        CreateMap<HumidityMeasurement, MeasurementDto>();
 
         // DTO CreateMeasurementRequest -> Сущность HumidityMeasurement
-        // Используется при создании нового замера влажности.
         CreateMap<CreateMeasurementRequest, HumidityMeasurement>();
 
         // DTO UpdateMeasurementRequest -> Сущность HumidityMeasurement
         // При обновлении игнорируем null-значения, чтобы не перезаписывать существующие данные пустотой.
-        // Это позволяет выполнять частичное обновление (partial update) без потери данных.
         CreateMap<UpdateMeasurementRequest, HumidityMeasurement>()
             .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
     }

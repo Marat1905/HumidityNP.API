@@ -6,7 +6,7 @@ using Humidity.Domain.Entities;
 using Humidity.Domain.Enums;
 using Humidity.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
-using FluentValidation; // добавлен для валидации
+using FluentValidation;
 
 namespace Humidity.Application.Services;
 
@@ -19,14 +19,14 @@ public class MeasurementService : IMeasurementService
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<MeasurementService> _logger;
-    private readonly IValidator<CreateMeasurementRequest> _validator; // добавлен валидатор
+    private readonly IValidator<CreateMeasurementRequest> _validator;
 
     public MeasurementService(
         IMeasurementRepository repository,
         IVehicleRepository vehicleRepository,
         IMapper mapper,
         ILogger<MeasurementService> logger,
-        IValidator<CreateMeasurementRequest> validator) // внедряем валидатор
+        IValidator<CreateMeasurementRequest> validator)
     {
         _repository = repository;
         _vehicleRepository = vehicleRepository;
@@ -48,6 +48,7 @@ public class MeasurementService : IMeasurementService
     {
         _logger.LogInformation("Запрос страницы замеров для машины {VehicleId}: номер {PageNumber}, размер {PageSize}",
             vehicleId, pageNumber, pageSize);
+
         var pagedResult = await _repository.GetByVehicleIdPagedAsync(vehicleId, pageNumber, pageSize, cancellationToken);
         var result = new PagedResult<MeasurementDto>
         {
@@ -57,6 +58,7 @@ public class MeasurementService : IMeasurementService
             PageSize = pagedResult.PageSize,
             TotalPages = pagedResult.TotalPages
         };
+
         _logger.LogInformation("Возвращено {Count} замеров из {TotalCount} для машины {VehicleId}",
             result.Items.Count(), result.TotalCount, vehicleId);
         return result;
@@ -71,6 +73,7 @@ public class MeasurementService : IMeasurementService
             _logger.LogWarning("Последний замер для машины {VehicleId} не найден", vehicleId);
             return null;
         }
+
         var result = _mapper.Map<MeasurementDto>(measurement);
         _logger.LogInformation("Последний замер для машины {VehicleId} получен", vehicleId);
         return result;
@@ -89,6 +92,7 @@ public class MeasurementService : IMeasurementService
     {
         _logger.LogInformation("Запрос страницы замеров за дату {Date:yyyy-MM-dd}: номер {PageNumber}, размер {PageSize}",
             date, pageNumber, pageSize);
+
         var pagedResult = await _repository.GetByDatePagedAsync(date, pageNumber, pageSize, cancellationToken);
         var result = new PagedResult<MeasurementDto>
         {
@@ -98,6 +102,7 @@ public class MeasurementService : IMeasurementService
             PageSize = pagedResult.PageSize,
             TotalPages = pagedResult.TotalPages
         };
+
         _logger.LogInformation("Возвращено {Count} замеров из {TotalCount} за дату {Date:yyyy-MM-dd}",
             result.Items.Count(), result.TotalCount, date);
         return result;
@@ -116,9 +121,9 @@ public class MeasurementService : IMeasurementService
         }
 
         var measurement = _mapper.Map<HumidityMeasurement>(request);
-        measurement.Source = Enum.Parse<MeasurementSource>(request.Source, true);
         var created = await _repository.AddAsync(measurement, cancellationToken);
         var result = _mapper.Map<MeasurementDto>(created);
+
         _logger.LogInformation("Замер создан с id {MeasurementId} для машины {VehicleId}", created.Id, request.VehicleId);
         return result;
     }
@@ -135,9 +140,9 @@ public class MeasurementService : IMeasurementService
 
         // Используем AutoMapper для обновления только переданных полей (настроено игнорирование null)
         _mapper.Map(request, existing);
-
         var updated = await _repository.UpdateAsync(existing, cancellationToken);
         var result = _mapper.Map<MeasurementDto>(updated);
+
         _logger.LogInformation("Замер с id {MeasurementId} успешно обновлён", id);
         return result;
     }
@@ -224,8 +229,6 @@ public class MeasurementService : IMeasurementService
 
             // Запрос валиден и машина существует — добавляем в список для создания
             var measurement = _mapper.Map<HumidityMeasurement>(request);
-            // Преобразуем строковое значение Source в enum (регистронезависимо)
-            measurement.Source = Enum.Parse<MeasurementSource>(request.Source, true);
             validMeasurements.Add(measurement);
         }
 
