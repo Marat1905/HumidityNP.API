@@ -13,7 +13,6 @@
     <Folder Include="src\pages\" />
     <Folder Include="src\constants\" />
     <Folder Include="src\hooks\" />
-    <Folder Include="src\schemas\" />
     <Folder Include="src\utils\" />
     <Folder Include="src\context\" />
   </ItemGroup>
