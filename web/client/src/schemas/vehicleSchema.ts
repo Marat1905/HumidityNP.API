@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const vehicleSchema = z.object({
+export const CreateVehicleFormData = z.object({
     number: z.string().min(1, 'Номер заявки обязателен'),
     date: z.string().min(1, 'Дата создания обязательна'),
     arrivalDate: z.string().min(1, 'Дата приезда обязательна'),
@@ -17,4 +17,4 @@ export const vehicleSchema = z.object({
     department: z.string().min(1, 'Подразделение обязательно'),
 });
 
-export type VehicleFormData = z.infer<typeof vehicleSchema>;
+export type VehicleFormData = z.infer<typeof CreateVehicleFormData>;
