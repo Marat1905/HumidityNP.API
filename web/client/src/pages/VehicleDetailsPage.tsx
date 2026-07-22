@@ -39,7 +39,13 @@ export default function VehicleDetailsPage() {
     );
 
     // Получение статистики
-    const { data: statsData, loading: loadingStats } = useMeasurementStatistics(id || null);
+    const { data: statsData, loading: loadingStats, refetch: refetchStats } = useMeasurementStatistics(id || null);
+
+    // Общий рефреш для обновления и списка, и статистики
+    const handleRefresh = () => {
+        refetchMeasurements();
+        refetchStats();
+    };
 
     useEffect(() => {
         if (id) {
@@ -166,7 +172,7 @@ export default function VehicleDetailsPage() {
                     totalPages={measurementsData.totalPages}
                     onPageChange={setPageNumber}
                     onPageSizeChange={(size) => { setPageSize(size); setPageNumber(1); }}
-                    onRefresh={refetchMeasurements}
+                    onRefresh={handleRefresh}
                     loading={loadingMeasurements}
                 />
             )}
