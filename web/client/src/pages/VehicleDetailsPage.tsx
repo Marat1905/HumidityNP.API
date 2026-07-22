@@ -1,6 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import {
+    ArrowLeft,
+    Truck,
+    Calendar,
+    User,
+    Building2,
+    ClipboardList,
+    Car,
+    Gauge,
+    Users,
+    Briefcase,
+    Clock,
+    CheckCircle,
+    XCircle
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { vehicleService } from '../services/api';
 import { useMeasurements } from '../hooks/useMeasurements';
@@ -39,27 +53,99 @@ export default function VehicleDetailsPage() {
     if (loadingVehicle) return <Spinner />;
     if (!vehicle) return <div className="text-center py-10 text-gray-500">Машина не найдена</div>;
 
+    // Определяем статус (активна или выехала)
+    const isActive = !vehicle.exitDate;
+    const statusColor = isActive ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+    const statusIcon = isActive ? <Clock className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />;
+    const statusText = isActive ? 'На площадке' : 'Выехал';
+
+    // Форматирование дат
+    const formatDate = (dateStr: string) => {
+        return new Date(dateStr).toLocaleString('ru-RU', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    };
+
     return (
         <div>
-            <Link to="/" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mb-4">
-                <ArrowLeft className="w-4 h-4" /> Назад к списку
-            </Link>
+            {/* Хлебные крошки */}
+            <nav className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-4">
+                <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-400 transition">Главная</Link>
+                <span>/</span>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">{vehicle.number}</span>
+            </nav>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{vehicle.number}</h2>
-                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mt-4">
-                    <div><dt className="text-sm text-gray-500 dark:text-gray-400">Контрагент</dt><dd className="text-gray-900 dark:text-white">{vehicle.counterparty}</dd></div>
-                    <div><dt className="text-sm text-gray-500 dark:text-gray-400">Вид работ</dt><dd className="text-gray-900 dark:text-white">{vehicle.workType}</dd></div>
-                    <div><dt className="text-sm text-gray-500 dark:text-gray-400">Марка</dt><dd className="text-gray-900 dark:text-white">{vehicle.vehicleBrand}</dd></div>
-                    <div><dt className="text-sm text-gray-500 dark:text-gray-400">Гос. номер</dt><dd className="text-gray-900 dark:text-white">{vehicle.vehiclePlate}</dd></div>
-                    <div><dt className="text-sm text-gray-500 dark:text-gray-400">Прицеп</dt><dd className="text-gray-900 dark:text-white">{vehicle.trailer || '—'}</dd></div>
-                    <div><dt className="text-sm text-gray-500 dark:text-gray-400">Водитель</dt><dd className="text-gray-900 dark:text-white">{vehicle.driver}</dd></div>
-                    <div><dt className="text-sm text-gray-500 dark:text-gray-400">Грузчик</dt><dd className="text-gray-900 dark:text-white">{vehicle.loader || '—'}</dd></div>
-                    <div><dt className="text-sm text-gray-500 dark:text-gray-400">Экспедитор</dt><dd className="text-gray-900 dark:text-white">{vehicle.expeditor || '—'}</dd></div>
-                    <div><dt className="text-sm text-gray-500 dark:text-gray-400">Подразделение</dt><dd className="text-gray-900 dark:text-white">{vehicle.department}</dd></div>
-                    <div><dt className="text-sm text-gray-500 dark:text-gray-400">Дата въезда</dt><dd className="text-gray-900 dark:text-white">{new Date(vehicle.entryDate).toLocaleString()}</dd></div>
-                    <div><dt className="text-sm text-gray-500 dark:text-gray-400">Дата выезда</dt><dd className="text-gray-900 dark:text-white">{vehicle.exitDate ? new Date(vehicle.exitDate).toLocaleString() : '—'}</dd></div>
-                </dl>
+            {/* Заголовок с номером и статусом */}
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                        <Truck className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{vehicle.number}</h1>
+                        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                            <span>{vehicle.vehiclePlate}</span>
+                            <span className="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></span>
+                            <span>{vehicle.counterparty}</span>
+                        </div>
+                    </div>
+                </div>
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${statusColor}`}>
+                    {statusIcon}
+                    {statusText}
+                </span>
+            </div>
+
+            {/* Карточка с информацией о машине */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                    {/* Блок: Основное */}
+                    <div className="space-y-2">
+                        <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                            <ClipboardList className="w-4 h-4" /> Основное
+                        </h3>
+                        <InfoRow icon={<Calendar className="w-4 h-4" />} label="Дата создания" value={formatDate(vehicle.date)} />
+                        <InfoRow icon={<Building2 className="w-4 h-4" />} label="Контрагент" value={vehicle.counterparty} />
+                        <InfoRow icon={<Briefcase className="w-4 h-4" />} label="Вид работ" value={vehicle.workType} />
+                        <InfoRow icon={<Building2 className="w-4 h-4" />} label="Подразделение" value={vehicle.department} />
+                    </div>
+
+                    {/* Блок: Транспорт */}
+                    <div className="space-y-2">
+                        <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                            <Car className="w-4 h-4" /> Транспорт
+                        </h3>
+                        <InfoRow icon={<Gauge className="w-4 h-4" />} label="Марка" value={vehicle.vehicleBrand} />
+                        <InfoRow icon={<Car className="w-4 h-4" />} label="Гос. номер" value={vehicle.vehiclePlate} />
+                        <InfoRow icon={<Car className="w-4 h-4" />} label="Прицеп" value={vehicle.trailer || '—'} />
+                    </div>
+
+                    {/* Блок: Персонал */}
+                    <div className="space-y-2">
+                        <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                            <Users className="w-4 h-4" /> Персонал
+                        </h3>
+                        <InfoRow icon={<User className="w-4 h-4" />} label="Водитель" value={vehicle.driver} />
+                        <InfoRow icon={<User className="w-4 h-4" />} label="Грузчик" value={vehicle.loader || '—'} />
+                        <InfoRow icon={<User className="w-4 h-4" />} label="Экспедитор" value={vehicle.expeditor || '—'} />
+                    </div>
+
+                    {/* Блок: Даты (можно выделить отдельно) */}
+                    <div className="sm:col-span-2 lg:col-span-3 border-t border-gray-100 dark:border-gray-700 pt-4 mt-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <InfoRow icon={<Clock className="w-4 h-4" />} label="Дата приезда" value={formatDate(vehicle.arrivalDate)} />
+                        <InfoRow icon={<Clock className="w-4 h-4" />} label="Дата въезда" value={formatDate(vehicle.entryDate)} />
+                        <InfoRow
+                            icon={<Clock className="w-4 h-4" />}
+                            label="Дата выезда"
+                            value={vehicle.exitDate ? formatDate(vehicle.exitDate) : '—'}
+                            valueClassName={!vehicle.exitDate ? 'text-gray-400 dark:text-gray-500' : ''}
+                        />
+                    </div>
+                </div>
             </div>
 
             {/* Блок статистики */}
@@ -69,6 +155,7 @@ export default function VehicleDetailsPage() {
                 statsData && <MeasurementStatistics stats={statsData} />
             )}
 
+            {/* Список замеров */}
             {measurementsData && (
                 <MeasurementList
                     vehicleId={vehicle.id}
@@ -83,6 +170,21 @@ export default function VehicleDetailsPage() {
                     loading={loadingMeasurements}
                 />
             )}
+        </div>
+    );
+}
+
+/**
+ * Вспомогательный компонент для отображения одной строки информации.
+ */
+function InfoRow({ icon, label, value, valueClassName = '' }: { icon: React.ReactNode; label: string; value: string; valueClassName?: string }) {
+    return (
+        <div className="flex items-start gap-2 text-sm">
+            <span className="text-gray-400 dark:text-gray-500 mt-0.5">{icon}</span>
+            <div>
+                <span className="text-gray-500 dark:text-gray-400">{label}:</span>
+                <span className={`ml-1.5 text-gray-800 dark:text-gray-200 font-medium ${valueClassName}`}>{value}</span>
+            </div>
         </div>
     );
 }
