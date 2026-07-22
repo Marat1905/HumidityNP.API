@@ -25,6 +25,7 @@ export interface VehicleDto {
     loader: string;
     expeditor: string;
     department: string;
+    measurementsCount: number;
 }
 
 export interface CreateVehicleRequest {

@@ -14,12 +14,18 @@ namespace Humidity.Application.Services;
 public class VehicleService : IVehicleService
 {
     private readonly IVehicleRepository _repository;
+    private readonly IMeasurementRepository _measurementRepository; // добавлено
     private readonly IMapper _mapper;
     private readonly ILogger<VehicleService> _logger;
 
-    public VehicleService(IVehicleRepository repository, IMapper mapper, ILogger<VehicleService> logger)
+    public VehicleService(
+        IVehicleRepository repository,
+        IMeasurementRepository measurementRepository, // добавлено
+        IMapper mapper,
+        ILogger<VehicleService> logger)
     {
         _repository = repository;
+        _measurementRepository = measurementRepository; // добавлено
         _mapper = mapper;
         _logger = logger;
     }
@@ -36,15 +42,36 @@ public class VehicleService : IVehicleService
     public async Task<PagedResult<VehicleDto>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Запрос страницы машин: номер {PageNumber}, размер {PageSize}", pageNumber, pageSize);
+
+        // 1. Получаем пагинированный список сущностей Vehicle
         var pagedResult = await _repository.GetPagedAsync(pageNumber, pageSize, cancellationToken: cancellationToken);
+
+        // 2. Маппим сущности в DTO (без количества замеров)
+        var items = _mapper.Map<IEnumerable<VehicleDto>>(pagedResult.Items).ToList();
+
+        // 3. Если есть записи – получаем количество замеров для каждой машины
+        if (items.Any())
+        {
+            var vehicleIds = items.Select(v => v.Id).Distinct().ToList();
+            // Запрос к репозиторию замеров: группировка по VehicleId и подсчёт
+            var measurementsCounts = await _measurementRepository.GetCountsByVehicleIdsAsync(vehicleIds, cancellationToken);
+            // Заполняем свойство MeasurementsCount у каждого DTO
+            foreach (var dto in items)
+            {
+                dto.MeasurementsCount = measurementsCounts.TryGetValue(dto.Id, out var count) ? count : 0;
+            }
+        }
+
+        // 4. Формируем результат
         var result = new PagedResult<VehicleDto>
         {
-            Items = _mapper.Map<IEnumerable<VehicleDto>>(pagedResult.Items),
+            Items = items,
             TotalCount = pagedResult.TotalCount,
             PageNumber = pagedResult.PageNumber,
             PageSize = pagedResult.PageSize,
             TotalPages = pagedResult.TotalPages
         };
+
         _logger.LogInformation("Возвращено {Count} машин из {TotalCount}",
             result.Items.Count(), result.TotalCount);
         return result;

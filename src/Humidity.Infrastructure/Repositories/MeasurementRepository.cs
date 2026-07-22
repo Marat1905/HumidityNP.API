@@ -216,4 +216,22 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
             TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
         };
     }
+
+    /// <summary>
+    /// Получить количество замеров для каждого указанного VehicleId.
+    /// </summary>
+    public async Task<Dictionary<Guid, int>> GetCountsByVehicleIdsAsync(IEnumerable<Guid> vehicleIds, CancellationToken cancellationToken = default)
+    {
+        var ids = vehicleIds.Distinct().ToList();
+        if (!ids.Any())
+            return new Dictionary<Guid, int>();
+
+        var counts = await DbSet
+            .Where(m => ids.Contains(m.VehicleId))
+            .GroupBy(m => m.VehicleId)
+            .Select(g => new { VehicleId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(k => k.VehicleId, v => v.Count, cancellationToken);
+
+        return counts;
+    }
 }

@@ -27,6 +27,7 @@ export default function VehiclesPage() {
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Контрагент</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Гос. номер</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Водитель</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Замеры</th> {/* Новый столбец */}
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Статус</th>
                         </tr>
                     </thead>
@@ -49,6 +50,9 @@ export default function VehiclesPage() {
                                 <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{vehicle.counterparty}</td>
                                 <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{vehicle.vehiclePlate}</td>
                                 <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{vehicle.driver}</td>
+                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                    {vehicle.measurementsCount}
+                                </td>
                                 <td className="px-4 py-3 text-sm">
                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${vehicle.exitDate
                                         ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'

@@ -79,6 +79,11 @@ public class VehicleDto
     /// Подразделение.
     /// </summary>
     public string Department { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Количество замеров влажности, выполненных для данной машины.
+    /// </summary>
+    public int MeasurementsCount { get; set; }
 }
 
 /// <summary>
