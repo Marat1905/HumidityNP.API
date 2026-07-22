@@ -84,4 +84,13 @@ public interface IMeasurementService
     /// <param name="cancellationToken">Токен отмены операции.</param>
     /// <returns>Результат массовой загрузки.</returns>
     Task<BulkMeasurementResult> BulkCreateAsync(IEnumerable<CreateMeasurementRequest> requests, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить страницу всех замеров (без фильтра по машине).
+    /// </summary>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Страница всех замеров.</returns>
+    Task<PagedResult<MeasurementDto>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 }

@@ -252,4 +252,22 @@ public class MeasurementService : IMeasurementService
             Errors = errors
         };
     }
+
+    public async Task<PagedResult<MeasurementDto>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Запрос страницы всех замеров: номер {PageNumber}, размер {PageSize}", pageNumber, pageSize);
+
+        var pagedResult = await _repository.GetPagedAsync(pageNumber, pageSize, cancellationToken: cancellationToken);
+        var result = new PagedResult<MeasurementDto>
+        {
+            Items = _mapper.Map<IEnumerable<MeasurementDto>>(pagedResult.Items),
+            TotalCount = pagedResult.TotalCount,
+            PageNumber = pagedResult.PageNumber,
+            PageSize = pagedResult.PageSize,
+            TotalPages = pagedResult.TotalPages
+        };
+
+        _logger.LogInformation("Возвращено {Count} замеров из {TotalCount}", result.Items.Count(), result.TotalCount);
+        return result;
+    }
 }

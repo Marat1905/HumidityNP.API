@@ -61,6 +61,13 @@ export const vehicleService = {
 };
 
 export const measurementService = {
+    /**
+  * Получить страницу всех замеров (без фильтра по машине)
+  */
+  async getAll(pageNumber = 1, pageSize = 20): Promise<PagedResult<MeasurementDto>> {
+        const response = await apiClient.get('/measurements', { params: { pageNumber, pageSize } });
+        return response.data;
+  },
   async getByVehicle(vehicleId: string, pageNumber = 1, pageSize = 100): Promise<PagedResult<MeasurementDto>> {
     const response = await apiClient.get(`/measurements/vehicle/${vehicleId}`, { params: { pageNumber, pageSize } });
     return response.data;

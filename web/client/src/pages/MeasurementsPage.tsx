@@ -1,0 +1,157 @@
+import { useState } from 'react';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import { Pencil, Trash2 } from 'lucide-react';
+import { useAllMeasurements } from '../hooks/useAllMeasurements';
+import Pagination from '../components/Pagination';
+import Spinner from '../components/Spinner';
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
+import MeasurementFormModal from '../components/MeasurementFormModal';
+import { measurementService } from '../services/api';
+import toast from 'react-hot-toast';
+import type { MeasurementDto, SignType, MeasurementSource } from '../types';
+
+export default function MeasurementsPage() {
+    const [pageNumber, setPageNumber] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const { data, loading, error, refetch } = useAllMeasurements(pageNumber, pageSize);
+
+    const [editMeasurement, setEditMeasurement] = useState<MeasurementDto | null>(null);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+
+    const handleDelete = async () => {
+        if (!deleteId) return;
+        try {
+            await measurementService.delete(deleteId);
+            toast.success('Замер удалён');
+            refetch();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Ошибка удаления');
+        } finally {
+            setDeleteId(null);
+        }
+    };
+
+    const getSignSymbol = (sign: SignType) => {
+        switch (sign) {
+            case 'Less': return '<';
+            case 'Greater': return '>';
+            default: return '';
+        }
+    };
+
+    const getSourceLabel = (source: MeasurementSource) => {
+        return source === 'Auto' ? 'Авто' : 'Ручной';
+    };
+
+    if (loading) return <Spinner />;
+    if (error) return <div className="text-red-500 text-center py-10">{error}</div>;
+    if (!data) return null;
+
+    const { items, totalCount, totalPages } = data;
+
+    return (
+        <div>
+            {/* Заголовок удалён */}
+            <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Время
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Машина (ID)
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Влажность
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Температура
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Материал
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Источник
+                            </th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Действия
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                        {items.map((m) => (
+                            <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                                    {format(new Date(m.timestamp), 'dd MMM yyyy HH:mm', { locale: ru })}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                    {m.vehicleId.slice(0, 8)}...
+                                </td>
+                                <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                                    {m.displayValue}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                    {m.temperatureC.toFixed(1)} °C
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                    {m.material}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                    {getSourceLabel(m.source)}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                    <div className="flex justify-end gap-2">
+                                        <button
+                                            onClick={() => setEditMeasurement(m)}
+                                            className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition"
+                                        >
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => setDeleteId(m.id)}
+                                            className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            <Pagination
+                currentPage={pageNumber}
+                totalPages={totalPages}
+                onPageChange={setPageNumber}
+                pageSize={pageSize}
+                onPageSizeChange={(size) => { setPageSize(size); setPageNumber(1); }}
+                totalCount={totalCount}
+            />
+
+            {/* Модалка редактирования замера (создание не поддерживается на этой странице, т.к. нужен vehicleId) */}
+            {editMeasurement && (
+                <MeasurementFormModal
+                    isOpen={true}
+                    onClose={() => setEditMeasurement(null)}
+                    onSuccess={() => {
+                        refetch();
+                        setEditMeasurement(null);
+                    }}
+                    vehicleId={editMeasurement.vehicleId}
+                    measurement={editMeasurement}
+                />
+            )}
+
+            <DeleteConfirmationModal
+                isOpen={!!deleteId}
+                onClose={() => setDeleteId(null)}
+                onConfirm={handleDelete}
+                message="Вы уверены, что хотите удалить этот замер?"
+            />
+        </div>
+    );
+}

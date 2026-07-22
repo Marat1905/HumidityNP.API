@@ -22,6 +22,23 @@ public class MeasurementsController : ControllerBase
     }
 
     /// <summary>
+    /// Получить страницу всех замеров (без привязки к машине)
+    /// </summary>
+    /// <param name="pageNumber">Номер страницы</param>
+    /// <param name="pageSize">Размер страницы</param>
+    [HttpGet]
+    [ProducesResponseType(typeof(PagedResult<MeasurementDto>), 200)]
+    public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+    {
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
+
+        var result = await _measurementService.GetAllPagedAsync(pageNumber, pageSize, HttpContext.RequestAborted);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Получить страницу замеров для указанной машины
     /// </summary>
     /// <param name="vehicleId">Идентификатор машины</param>

@@ -18,8 +18,7 @@ export default function VehiclesPage() {
 
     return (
         <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Список машин</h1>
-
+            {/* Заголовок удалён, так как он есть в MainPage */}
             <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-800">
@@ -46,16 +45,14 @@ export default function VehiclesPage() {
                                     }
                                 }}
                             >
-                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                    {vehicle.number}
-                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{vehicle.number}</td>
                                 <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{vehicle.counterparty}</td>
                                 <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{vehicle.vehiclePlate}</td>
                                 <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{vehicle.driver}</td>
                                 <td className="px-4 py-3 text-sm">
                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${vehicle.exitDate
-                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
                                         }`}>
                                         {vehicle.exitDate ? 'Выехал' : 'На площадке'}
                                     </span>

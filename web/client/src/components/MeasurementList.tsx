@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, PenTool } from 'lucide-react';
 import { type MeasurementDto, SignType, MeasurementSource } from '../types';
 import Pagination from './Pagination';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
@@ -108,41 +108,51 @@ export default function MeasurementList({
                                 </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                                {measurements.map((m) => (
-                                    <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-                                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
-                                            {format(new Date(m.timestamp), 'dd MMM yyyy HH:mm', { locale: ru })}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                                            {m.displayValue}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                            {m.temperatureC.toFixed(1)} °C
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                            {m.material}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                            {getSourceLabel(m.source)}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <button
-                                                    onClick={() => setEditMeasurement(m)}
-                                                    className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition"
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => setDeleteId(m.id)}
-                                                    className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {measurements.map((m) => {
+                                    const isManual = m.source === MeasurementSource.Manual;
+                                    return (
+                                        <tr
+                                            key={m.id}
+                                            className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition ${isManual
+                                                    ? 'bg-yellow-50/50 dark:bg-yellow-900/10 border-l-4 border-yellow-400'
+                                                    : ''
+                                                }`}
+                                        >
+                                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                                                {format(new Date(m.timestamp), 'dd MMM yyyy HH:mm', { locale: ru })}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                                                {m.displayValue}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                                {m.temperatureC.toFixed(1)} °C
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                                {m.material}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                                                {isManual && <PenTool className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />}
+                                                {getSourceLabel(m.source)}
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        onClick={() => setEditMeasurement(m)}
+                                                        className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setDeleteId(m.id)}
+                                                        className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

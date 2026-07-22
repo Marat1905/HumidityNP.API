@@ -1,13 +1,9 @@
-/**
- * Главный компонент приложения.
- * Управляет темой и маршрутизацией.
- */
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { FiSun, FiMoon } from 'react-icons/fi';
 import Layout from './components/Layout';
-import VehiclesPage from './pages/VehiclesPage';
+import MainPage from './pages/MainPage';
 import VehicleDetailsPage from './pages/VehicleDetailsPage';
 import './index.css';
 
@@ -58,7 +54,7 @@ function App() {
 
             <Layout>
                 <Routes>
-                    <Route path="/" element={<VehiclesPage />} />
+                    <Route path="/" element={<MainPage />} />
                     <Route path="/vehicles/:id" element={<VehicleDetailsPage />} />
                 </Routes>
             </Layout>
