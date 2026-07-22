@@ -101,4 +101,20 @@ public interface IMeasurementService
     /// <param name="cancellationToken">Токен отмены.</param>
     /// <returns>Статистика.</returns>
     Task<MeasurementStatisticsDto> GetStatisticsByVehicleIdAsync(Guid vehicleId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить страницу замеров в диапазоне дат.
+    /// </summary>
+    /// <param name="from">Начало диапазона (включительно).</param>
+    /// <param name="to">Конец диапазона (включительно).</param>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Страница замеров.</returns>
+    Task<PagedResult<MeasurementDto>> GetByDateRangePagedAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

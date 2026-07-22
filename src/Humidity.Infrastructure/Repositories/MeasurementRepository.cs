@@ -271,4 +271,46 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
 
         return statistics;
     }
+
+    /// <summary>
+    /// Получить страницу замеров в диапазоне дат.
+    /// </summary>
+    /// <param name="from">Начало диапазона (включительно).</param>
+    /// <param name="to">Конец диапазона (включительно).</param>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    public async Task<PagedResult<HumidityMeasurement>> GetByDateRangePagedAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100;
+
+        IQueryable<HumidityMeasurement> query = DbSet
+            .Where(m => m.Timestamp >= from && m.Timestamp <= to)
+            .Include(m => m.Vehicle);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(m => m.Timestamp)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<HumidityMeasurement>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+        };
+    }
 }

@@ -62,10 +62,24 @@ export const vehicleService = {
 
 export const measurementService = {
     /**
-  * Получить страницу всех замеров (без фильтра по машине)
-  */
+    * Получить страницу всех замеров (без фильтра по машине)
+    */
     async getAll(pageNumber = 1, pageSize = 20): Promise<PagedResult<MeasurementDto>> {
         const response = await apiClient.get('/measurements', { params: { pageNumber, pageSize } });
+        return response.data;
+    },
+    /**
+    * Получить страницу замеров в диапазоне дат
+    */
+    async getByDateRange(
+        from: string,
+        to: string,
+        pageNumber = 1,
+        pageSize = 20
+    ): Promise<PagedResult<MeasurementDto>> {
+        const response = await apiClient.get('/measurements/range', {
+            params: { from, to, pageNumber, pageSize }
+        });
         return response.data;
     },
     async getByVehicle(vehicleId: string, pageNumber = 1, pageSize = 100): Promise<PagedResult<MeasurementDto>> {

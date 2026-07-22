@@ -163,4 +163,28 @@ public class MeasurementsController : ControllerBase
         await _measurementService.DeleteAsync(id, HttpContext.RequestAborted);
         return NoContent();
     }
+
+    /// <summary>
+    /// Получить страницу замеров в диапазоне дат.
+    /// </summary>
+    /// <param name="from">Начало диапазона (включительно) в формате ISO 8601.</param>
+    /// <param name="to">Конец диапазона (включительно) в формате ISO 8601.</param>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    [HttpGet("range")]
+    [ProducesResponseType(typeof(PagedResult<MeasurementDto>), 200)]
+    public async Task<IActionResult> GetByDateRange(
+        [FromQuery] DateTimeOffset from,
+        [FromQuery] DateTimeOffset to,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
+
+        var result = await _measurementService.GetByDateRangePagedAsync(
+            from, to, pageNumber, pageSize, HttpContext.RequestAborted);
+        return Ok(result);
+    }
 }

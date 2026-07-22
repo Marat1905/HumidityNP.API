@@ -283,4 +283,33 @@ public class MeasurementService : IMeasurementService
         _logger.LogInformation("Статистика для машины {VehicleId}: Count={Count}, Avg={Average}", vehicleId, stats.Count, stats.Average);
         return stats;
     }
+
+
+    /// <summary>
+    /// Получить страницу замеров в диапазоне дат.
+    /// </summary>
+    public async Task<PagedResult<MeasurementDto>> GetByDateRangePagedAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Запрос страницы замеров в диапазоне дат с {From:O} по {To:O}: номер {PageNumber}, размер {PageSize}",
+            from, to, pageNumber, pageSize);
+
+        var pagedResult = await _repository.GetByDateRangePagedAsync(from, to, pageNumber, pageSize, cancellationToken);
+        var result = new PagedResult<MeasurementDto>
+        {
+            Items = _mapper.Map<IEnumerable<MeasurementDto>>(pagedResult.Items),
+            TotalCount = pagedResult.TotalCount,
+            PageNumber = pagedResult.PageNumber,
+            PageSize = pagedResult.PageSize,
+            TotalPages = pagedResult.TotalPages
+        };
+
+        _logger.LogInformation("Возвращено {Count} замеров из {TotalCount} в диапазоне дат",
+            result.Items.Count(), result.TotalCount);
+        return result;
+    }
 }
