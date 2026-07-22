@@ -1,24 +1,23 @@
 /**
  * Главный компонент приложения.
- * Управляет темой оформления (светлая/тёмная) и отображает глобальные уведомления.
- * Содержит кнопку переключения темы и основной компонент GreenCross.
+ * Управляет темой и маршрутизацией.
  */
 import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { FiSun, FiMoon } from 'react-icons/fi';
+import Layout from './components/Layout';
+import VehiclesPage from './pages/VehiclesPage';
+import VehicleDetailsPage from './pages/VehicleDetailsPage';
 import './index.css';
 
 function App() {
-    // Состояние темы: 'light' или 'dark'
     const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-        // При инициализации читаем сохранённую тему из localStorage
         const saved = localStorage.getItem('theme');
         if (saved === 'light' || saved === 'dark') return saved;
-        // Если сохранённой нет, используем системные настройки
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     });
 
-    // Применяем класс `dark` к корневому элементу при изменении темы
     useEffect(() => {
         const root = document.documentElement;
         if (theme === 'dark') {
@@ -29,14 +28,12 @@ function App() {
         localStorage.setItem('theme', theme);
     }, [theme]);
 
-    // Переключение темы
     const toggleTheme = () => {
         setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
     };
 
     return (
-        <>
-            {/* Глобальный контейнер для уведомлений (тостов) */}
+        <BrowserRouter>
             <Toaster
                 position="top-right"
                 toastOptions={{
@@ -47,8 +44,6 @@ function App() {
                     },
                 }}
             />
-
-            {/* Кнопка переключения темы – абсолютное позиционирование, чтобы она была всегда под рукой */}
             <button
                 onClick={toggleTheme}
                 className="fixed top-4 right-4 z-50 p-2 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg border border-gray-200 dark:border-gray-700 transition-all hover:scale-110"
@@ -61,8 +56,13 @@ function App() {
                 )}
             </button>
 
-            {/* Основное приложение */}
-        </>
+            <Layout>
+                <Routes>
+                    <Route path="/" element={<VehiclesPage />} />
+                    <Route path="/vehicles/:id" element={<VehicleDetailsPage />} />
+                </Routes>
+            </Layout>
+        </BrowserRouter>
     );
 }
 

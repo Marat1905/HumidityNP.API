@@ -1,12 +1,12 @@
 export enum MeasurementSource {
-    Auto = 0,
-    Manual = 1
+    Auto = 'Auto',
+    Manual = 'Manual'
 }
 
 export enum SignType {
-    None = 0,
-    Less = 1,
-    Greater = 2
+    None = 'None',
+    Less = 'Less',
+    Greater = 'Greater'
 }
 
 export interface VehicleDto {
