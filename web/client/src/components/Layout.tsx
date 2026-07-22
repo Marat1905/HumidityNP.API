@@ -25,10 +25,6 @@ export default function Layout({ children }: LayoutProps) {
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 {children}
             </main>
-
-            <footer className="border-t border-gray-200 dark:border-gray-700 mt-8 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                © {new Date().getFullYear()} Humidity Control. Все права защищены.
-            </footer>
         </div>
     );
 }
