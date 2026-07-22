@@ -270,4 +270,17 @@ public class MeasurementService : IMeasurementService
         _logger.LogInformation("Возвращено {Count} замеров из {TotalCount}", result.Items.Count(), result.TotalCount);
         return result;
     }
+
+    /// <summary>
+    /// Получить статистику по замерам для указанной машины.
+    /// </summary>
+    /// <param name="vehicleId">Идентификатор машины.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    public async Task<MeasurementStatisticsDto> GetStatisticsByVehicleIdAsync(Guid vehicleId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Запрос статистики замеров для машины {VehicleId}", vehicleId);
+        var stats = await _repository.GetStatisticsByVehicleIdAsync(vehicleId, cancellationToken);
+        _logger.LogInformation("Статистика для машины {VehicleId}: Count={Count}, Avg={Average}", vehicleId, stats.Count, stats.Average);
+        return stats;
+    }
 }

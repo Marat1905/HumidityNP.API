@@ -4,7 +4,9 @@ import { ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { vehicleService } from '../services/api';
 import { useMeasurements } from '../hooks/useMeasurements';
+import { useMeasurementStatistics } from '../hooks/useMeasurementStatistics';
 import MeasurementList from '../components/MeasurementList';
+import MeasurementStatistics from '../components/MeasurementStatistics';
 import Spinner from '../components/Spinner';
 
 export default function VehicleDetailsPage() {
@@ -21,6 +23,9 @@ export default function VehicleDetailsPage() {
         pageNumber,
         pageSize
     );
+
+    // Получение статистики
+    const { data: statsData, loading: loadingStats } = useMeasurementStatistics(id || null);
 
     useEffect(() => {
         if (id) {
@@ -56,6 +61,13 @@ export default function VehicleDetailsPage() {
                     <div><dt className="text-sm text-gray-500 dark:text-gray-400">Дата выезда</dt><dd className="text-gray-900 dark:text-white">{vehicle.exitDate ? new Date(vehicle.exitDate).toLocaleString() : '—'}</dd></div>
                 </dl>
             </div>
+
+            {/* Блок статистики */}
+            {loadingStats ? (
+                <div className="text-center py-4 text-gray-500 dark:text-gray-400">Загрузка статистики...</div>
+            ) : (
+                statsData && <MeasurementStatistics stats={statsData} />
+            )}
 
             {measurementsData && (
                 <MeasurementList

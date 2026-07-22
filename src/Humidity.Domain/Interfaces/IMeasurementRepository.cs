@@ -69,4 +69,12 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
     /// <param name="cancellationToken">Токен отмены.</param>
     /// <returns>Словарь, где ключ – VehicleId, значение – количество замеров.</returns>
     Task<Dictionary<Guid, int>> GetCountsByVehicleIdsAsync(IEnumerable<Guid> vehicleIds, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить статистику по замерам для указанной машины.
+    /// </summary>
+    /// <param name="vehicleId">Идентификатор машины.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Объект статистики.</returns>
+    Task<MeasurementStatisticsDto> GetStatisticsByVehicleIdAsync(Guid vehicleId, CancellationToken cancellationToken = default);
 }

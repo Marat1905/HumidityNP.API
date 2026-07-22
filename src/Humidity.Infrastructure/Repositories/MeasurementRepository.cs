@@ -1,5 +1,6 @@
 ﻿using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
+using Humidity.Domain.Enums;
 using Humidity.Domain.Interfaces;
 using Humidity.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -218,8 +219,11 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     }
 
     /// <summary>
-    /// Получить количество замеров для каждого указанного VehicleId.
+    /// Получить словарь (VehicleId → количество замеров) для переданного списка идентификаторов машин.
+    /// Выполняет один запрос к БД с группировкой.
     /// </summary>
+    /// <param name="vehicleIds">Список идентификаторов машин.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
     public async Task<Dictionary<Guid, int>> GetCountsByVehicleIdsAsync(IEnumerable<Guid> vehicleIds, CancellationToken cancellationToken = default)
     {
         var ids = vehicleIds.Distinct().ToList();
@@ -233,5 +237,38 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
             .ToDictionaryAsync(k => k.VehicleId, v => v.Count, cancellationToken);
 
         return counts;
+    }
+
+    /// <summary>
+    /// Получить статистику по замерам для указанной машины.
+    /// </summary>
+    /// <param name="vehicleId">Идентификатор машины.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    public async Task<MeasurementStatisticsDto> GetStatisticsByVehicleIdAsync(Guid vehicleId, CancellationToken cancellationToken = default)
+    {
+        var query = DbSet.Where(m => m.VehicleId == vehicleId);
+
+        var statistics = new MeasurementStatisticsDto();
+
+        // Общее количество
+        statistics.Count = await query.CountAsync(cancellationToken);
+
+        if (statistics.Count > 0)
+        {
+            // Агрегации влажности
+            statistics.Average = await query.AverageAsync(m => m.HumidityValue, cancellationToken);
+            statistics.Min = await query.MinAsync(m => m.HumidityValue, cancellationToken);
+            statistics.Max = await query.MaxAsync(m => m.HumidityValue, cancellationToken);
+
+            // Последний замер по времени
+            var last = await query.OrderByDescending(m => m.Timestamp).FirstOrDefaultAsync(cancellationToken);
+            statistics.LastMeasurementTimestamp = last?.Timestamp;
+
+            // Количество по источникам
+            statistics.ManualCount = await query.CountAsync(m => m.Source == MeasurementSource.Manual, cancellationToken);
+            statistics.AutoCount = await query.CountAsync(m => m.Source == MeasurementSource.Auto, cancellationToken);
+        }
+
+        return statistics;
     }
 }

@@ -25,7 +25,7 @@ export interface VehicleDto {
     loader: string;
     expeditor: string;
     department: string;
-    measurementsCount: number;
+    measurementsCount: number; // добавлено для отображения количества замеров в таблице
 }
 
 export interface CreateVehicleRequest {
@@ -108,4 +108,24 @@ export interface PagedResult<T> {
     pageSize: number;
     /** Общее количество страниц */
     totalPages: number;
+}
+
+/**
+ * Статистика по замерам для конкретной машины.
+ */
+export interface MeasurementStatisticsDto {
+    /** Количество замеров */
+    count: number;
+    /** Средняя влажность */
+    average: number | null;
+    /** Минимальная влажность */
+    min: number | null;
+    /** Максимальная влажность */
+    max: number | null;
+    /** Дата и время последнего замера */
+    lastMeasurementTimestamp: string | null;
+    /** Количество ручных замеров */
+    manualCount: number;
+    /** Количество автоматических замеров */
+    autoCount: number;
 }

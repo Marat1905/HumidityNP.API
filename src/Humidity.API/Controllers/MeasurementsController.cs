@@ -75,6 +75,19 @@ public class MeasurementsController : ControllerBase
     }
 
     /// <summary>
+    /// Получить статистику по замерам для указанной машины.
+    /// </summary>
+    /// <param name="vehicleId">Идентификатор машины.</param>
+    [HttpGet("vehicle/{vehicleId}/statistics")]
+    [ProducesResponseType(typeof(MeasurementStatisticsDto), 200)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> GetStatisticsByVehicle(Guid vehicleId)
+    {
+        var stats = await _measurementService.GetStatisticsByVehicleIdAsync(vehicleId, HttpContext.RequestAborted);
+        return Ok(stats);
+    }
+
+    /// <summary>
     /// Получить страницу замеров за указанную дату
     /// </summary>
     /// <param name="date">Дата в формате YYYY-MM-DD</param>

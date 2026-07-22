@@ -93,4 +93,12 @@ public interface IMeasurementService
     /// <param name="cancellationToken">Токен отмены.</param>
     /// <returns>Страница всех замеров.</returns>
     Task<PagedResult<MeasurementDto>> GetAllPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить статистику по замерам для указанной машины.
+    /// </summary>
+    /// <param name="vehicleId">Идентификатор машины.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Статистика.</returns>
+    Task<MeasurementStatisticsDto> GetStatisticsByVehicleIdAsync(Guid vehicleId, CancellationToken cancellationToken = default);
 }
