@@ -1,7 +1,17 @@
-export default function Spinner() {
+// src/components/Spinner.tsx
+interface SpinnerProps {
+    size?: 'sm' | 'md' | 'lg';
+}
+
+export default function Spinner({ size = 'md' }: SpinnerProps) {
+    const sizeClasses = {
+        sm: 'w-5 h-5 border-2',
+        md: 'w-8 h-8 border-4',
+        lg: 'w-12 h-12 border-4',
+    };
     return (
-        <div className="flex justify-center items-center py-10">
-            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="flex justify-center items-center py-4">
+            <div className={`${sizeClasses[size]} border-blue-500 border-t-transparent rounded-full animate-spin`}></div>
         </div>
     );
 }

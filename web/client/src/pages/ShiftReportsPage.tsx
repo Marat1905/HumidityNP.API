@@ -2,10 +2,13 @@
 import { useState, useEffect } from 'react';
 import { useShiftReport, type ShiftType } from '../hooks/useShiftReport';
 import ShiftReportTable from '../components/ShiftReportTable';
+import ShiftReportCardView from '../components/ShiftReportCardView';
 import Spinner from '../components/Spinner';
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, LayoutGrid, Table } from 'lucide-react';
 import { format, subDays, addDays, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
+
+type ViewMode = 'table' | 'cards';
 
 export default function ShiftReportsPage() {
     const [selectedDate, setSelectedDate] = useState<Date>(() => {
@@ -17,6 +20,8 @@ export default function ShiftReportsPage() {
         const hour = new Date().getHours();
         return (hour >= 8 && hour < 20) ? 'day' : 'night';
     });
+
+    const [viewMode, setViewMode] = useState<ViewMode>('table');
 
     const { data, loading, error, refetch } = useShiftReport(selectedDate, shiftType);
 
@@ -101,7 +106,31 @@ export default function ShiftReportsPage() {
                     </select>
                 </div>
 
-                <div className="ml-auto text-sm text-gray-500 dark:text-gray-400">
+                <div className="ml-auto flex items-center gap-2">
+                    <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">Вид:</span>
+                    <button
+                        onClick={() => setViewMode('table')}
+                        className={`p-2 rounded-lg border transition ${viewMode === 'table'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                        aria-label="Табличный вид"
+                    >
+                        <Table className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={() => setViewMode('cards')}
+                        className={`p-2 rounded-lg border transition ${viewMode === 'cards'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                        aria-label="Карточный вид"
+                    >
+                        <LayoutGrid className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div className="text-sm text-gray-500 dark:text-gray-400 ml-2">
                     {shiftLabel}
                 </div>
             </div>
@@ -115,7 +144,11 @@ export default function ShiftReportsPage() {
                     <div className="mb-2 text-sm text-gray-600 dark:text-gray-300">
                         Период: {format(data.shiftStart, 'dd MMM yyyy HH:mm', { locale: ru })} – {format(data.shiftEnd, 'dd MMM yyyy HH:mm', { locale: ru })}
                     </div>
-                    <ShiftReportTable items={data.items} summary={data.summary} />
+                    {viewMode === 'table' ? (
+                        <ShiftReportTable items={data.items} summary={data.summary} />
+                    ) : (
+                        <ShiftReportCardView items={data.items} summary={data.summary} />
+                    )}
                 </>
             ) : null}
         </div>

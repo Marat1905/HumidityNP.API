@@ -1,13 +1,16 @@
 // src/pages/ReportPeriodPage.tsx
 import { useState, useEffect, useMemo } from 'react';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAllMeasurementsByDateRange } from '../hooks/useAllMeasurementsByDateRange';
 import RangeDatePicker from '../components/RangeDatePicker';
-import PeriodReportTable from '../components/PeriodReportTable';
-import type { PeriodReportItem, PeriodSummaryStats } from '../components/PeriodReportTable';
+import PeriodReportTable, { PeriodReportItem, PeriodSummaryStats } from '../components/PeriodReportTable';
+import PeriodReportCardView from '../components/PeriodReportCardView';
 import Spinner from '../components/Spinner';
 import { MeasurementSource } from '../types';
+import { LayoutGrid, Table } from 'lucide-react';
+
+type ViewMode = 'table' | 'cards';
 
 export default function ReportPeriodPage() {
     // Состояние диапазона дат (по умолчанию последние 7 дней)
@@ -16,6 +19,8 @@ export default function ReportPeriodPage() {
         return subDays(now, 6);
     });
     const [endDate, setEndDate] = useState<Date | null>(() => new Date());
+
+    const [viewMode, setViewMode] = useState<ViewMode>('table');
 
     // Обработчик изменения диапазона из RangeDatePicker
     const handleDateRangeChange = (dates: [Date | null, Date | null]) => {
@@ -36,13 +41,12 @@ export default function ReportPeriodPage() {
         refetch();
     }, [startDate, endDate, refetch]);
 
-    // Агрегация данных по машинам
+    // Агрегация данных по машинам (такая же, как была)
     const reportData = useMemo(() => {
         if (!measurements || measurements.length === 0) {
             return { items: [] as PeriodReportItem[], summary: null as PeriodSummaryStats | null };
         }
 
-        // Группировка по vehicleId
         const vehicleMap = new Map<string, {
             measurements: typeof measurements;
             autoCount: number;
@@ -108,7 +112,6 @@ export default function ReportPeriodPage() {
             });
         }
 
-        // Сортировка по количеству замеров (по убыванию)
         items.sort((a, b) => b.measurementsCount - a.measurementsCount);
 
         const overallAverage = totalMeasurements > 0 ? sumAllHumidity / totalMeasurements : null;
@@ -143,7 +146,7 @@ export default function ReportPeriodPage() {
                 Отчёт за период
             </h2>
 
-            {/* Панель выбора периода */}
+            {/* Панель выбора периода и переключатель вида */}
             <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Период:</span>
@@ -159,19 +162,53 @@ export default function ReportPeriodPage() {
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                     {periodLabel}
                 </div>
+
+                <div className="ml-auto flex items-center gap-2">
+                    <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">Вид:</span>
+                    <button
+                        onClick={() => setViewMode('table')}
+                        className={`p-2 rounded-lg border transition ${viewMode === 'table'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                        aria-label="Табличный вид"
+                    >
+                        <Table className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={() => setViewMode('cards')}
+                        className={`p-2 rounded-lg border transition ${viewMode === 'cards'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                        aria-label="Карточный вид"
+                    >
+                        <LayoutGrid className="w-5 h-5" />
+                    </button>
+                </div>
             </div>
 
-            {/* Отображение отчёта */}
+            {/* Отображение отчёта в выбранном виде */}
             {reportData.items.length === 0 ? (
                 <div className="text-center py-10 text-gray-500 dark:text-gray-400">
                     Нет данных за выбранный период.
                 </div>
             ) : (
-                <PeriodReportTable
-                    items={reportData.items}
-                    summary={reportData.summary!}
-                    periodLabel={periodLabel}
-                />
+                <>
+                    {viewMode === 'table' ? (
+                        <PeriodReportTable
+                            items={reportData.items}
+                            summary={reportData.summary!}
+                            periodLabel={periodLabel}
+                        />
+                    ) : (
+                        <PeriodReportCardView
+                            items={reportData.items}
+                            summary={reportData.summary!}
+                            periodLabel={periodLabel}
+                        />
+                    )}
+                </>
             )}
         </div>
     );
