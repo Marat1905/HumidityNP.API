@@ -4,7 +4,7 @@ import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAllMeasurementsByDateRange } from '../hooks/useAllMeasurementsByDateRange';
 import RangeDatePicker from '../components/RangeDatePicker';
-import PeriodReportTable, { PeriodReportItem, PeriodSummaryStats } from '../components/PeriodReportTable';
+import PeriodReportTable, { type PeriodReportItem, type PeriodSummaryStats } from '../components/PeriodReportTable';
 import PeriodReportCardView from '../components/PeriodReportCardView';
 import Spinner from '../components/Spinner';
 import { MeasurementSource } from '../types';
