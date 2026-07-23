@@ -1,6 +1,5 @@
-// src/components/ShiftReportTable.tsx
+// src/components/PeriodReportTable.tsx
 import React from 'react';
-import type { ShiftReportItem, ShiftSummaryStats } from '../hooks/useShiftReport';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
@@ -13,29 +12,61 @@ import {
     TrendingDown,
 } from 'lucide-react';
 
-interface ShiftReportTableProps {
-    items: ShiftReportItem[];
-    summary: ShiftSummaryStats;
+/**
+ * Элемент отчёта для одной машины.
+ */
+export interface PeriodReportItem {
+    vehicleId: string;
+    measurementsCount: number;
+    averageHumidity: number | null;
+    minHumidity: number | null;
+    maxHumidity: number | null;
+    autoCount: number;
+    manualCount: number;
+    lastMeasurementTimestamp: string | null;
 }
 
 /**
- * Компонент отображения сводной таблицы отчёта по смене с общей статистикой,
- * улучшенным дизайном (без прогресс-баров в колонках).
- * Колонки "Мин / Макс" и "Авто / Ручные" выделены цветами для наглядности.
+ * Общая статистика по периоду.
  */
-const ShiftReportTable: React.FC<ShiftReportTableProps> = ({ items, summary }) => {
+export interface PeriodSummaryStats {
+    vehicleCount: number;
+    totalMeasurements: number;
+    overallAverageHumidity: number | null;
+    overallMinHumidity: number | null;
+    overallMaxHumidity: number | null;
+    totalAutoCount: number;
+    totalManualCount: number;
+}
+
+interface PeriodReportTableProps {
+    items: PeriodReportItem[];
+    summary: PeriodSummaryStats;
+    periodLabel: string; // например, "с 01.01.2025 по 31.01.2025"
+}
+
+/**
+ * Компонент отображения сводной таблицы отчёта за произвольный период.
+ * Дизайн аналогичен ShiftReportTable, но без привязки к смене.
+ */
+const PeriodReportTable: React.FC<PeriodReportTableProps> = ({ items, summary, periodLabel }) => {
     if (items.length === 0) {
         return (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
                 <Activity className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-                <p>За выбранную смену нет замеров.</p>
+                <p>За выбранный период нет замеров.</p>
             </div>
         );
     }
 
     return (
         <div>
-            {/* Блок общей статистики с иконками и цветами */}
+            {/* Заголовок с периодом */}
+            <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
+                Период: <span className="font-semibold">{periodLabel}</span>
+            </div>
+
+            {/* Блок общей статистики */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 shadow-sm border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center justify-between">
@@ -139,7 +170,7 @@ const ShiftReportTable: React.FC<ShiftReportTableProps> = ({ items, summary }) =
                 </div>
             </div>
 
-            {/* Таблица с улучшенным дизайном (без прогресс-баров) */}
+            {/* Таблица с данными по машинам */}
             <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700">
@@ -227,4 +258,4 @@ const ShiftReportTable: React.FC<ShiftReportTableProps> = ({ items, summary }) =
     );
 };
 
-export default ShiftReportTable;
+export default PeriodReportTable;

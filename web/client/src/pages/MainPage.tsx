@@ -3,9 +3,10 @@ import { useState } from 'react';
 import VehiclesPage from './VehiclesPage';
 import MeasurementsPage from './MeasurementsPage';
 import ShiftReportsPage from './ShiftReportsPage';
+import ReportPeriodPage from './ReportPeriodPage'; // <-- новый импорт
 
 export default function MainPage() {
-    const [activeTab, setActiveTab] = useState<'vehicles' | 'measurements' | 'reports'>('vehicles');
+    const [activeTab, setActiveTab] = useState<'vehicles' | 'measurements' | 'reports' | 'period'>('vehicles');
 
     return (
         <div>
@@ -41,12 +42,23 @@ export default function MainPage() {
                     >
                         Отчёты по сменам
                     </button>
+                    {/* Новая вкладка */}
+                    <button
+                        onClick={() => setActiveTab('period')}
+                        className={`pb-3 px-1 text-sm font-medium transition-colors ${activeTab === 'period'
+                                ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                            }`}
+                    >
+                        Отчёт за период
+                    </button>
                 </nav>
             </div>
 
             {activeTab === 'vehicles' && <VehiclesPage />}
             {activeTab === 'measurements' && <MeasurementsPage />}
             {activeTab === 'reports' && <ShiftReportsPage />}
+            {activeTab === 'period' && <ReportPeriodPage />}
         </div>
     );
 }
