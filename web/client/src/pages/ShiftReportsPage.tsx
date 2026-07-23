@@ -63,7 +63,7 @@ export default function ShiftReportsPage() {
                         className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
                         aria-label="Предыдущий день"
                     >
-                        <ChevronLeft className="w-5 h-5" />
+                        <ChevronLeft className="w-5 h-5 text-gray-700 dark:text-gray-200" />
                     </button>
                     <button
                         onClick={goToNextDay}
@@ -71,7 +71,7 @@ export default function ShiftReportsPage() {
                         className={`p-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed`}
                         aria-label="Следующий день"
                     >
-                        <ChevronRight className="w-5 h-5" />
+                        <ChevronRight className="w-5 h-5 text-gray-700 dark:text-gray-200" />
                     </button>
                 </div>
 

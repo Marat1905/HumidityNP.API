@@ -77,14 +77,14 @@ export default function Pagination({
                     disabled={currentPage === 1}
                     className="p-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-slate-700"
                 >
-                    <ChevronsLeft className="w-4 h-4" />
+                    <ChevronsLeft className="w-4 h-4 text-gray-700 dark:text-gray-300" />
                 </button>
                 <button
                     onClick={() => onPageChange(currentPage - 1)}
                     disabled={currentPage === 1}
                     className="p-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-slate-700"
                 >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-4 h-4 text-gray-700 dark:text-gray-300" />
                 </button>
 
                 {pageNumbers.map(page => (
@@ -92,8 +92,8 @@ export default function Pagination({
                         key={page}
                         onClick={() => onPageChange(page)}
                         className={`px-3 py-1 rounded-md border text-sm transition-colors ${currentPage === page
-                            ? 'bg-accent border-accent text-white'
-                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+                                ? 'bg-accent border-accent text-white'
+                                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
                             }`}
                     >
                         {page}
@@ -105,14 +105,14 @@ export default function Pagination({
                     disabled={currentPage === totalPages}
                     className="p-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-slate-700"
                 >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-4 h-4 text-gray-700 dark:text-gray-300" />
                 </button>
                 <button
                     onClick={() => onPageChange(totalPages)}
                     disabled={currentPage === totalPages}
                     className="p-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-slate-700"
                 >
-                    <ChevronsRight className="w-4 h-4" />
+                    <ChevronsRight className="w-4 h-4 text-gray-700 dark:text-gray-300" />
                 </button>
             </div>
         </div>
