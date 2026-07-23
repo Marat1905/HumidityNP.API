@@ -18,6 +18,16 @@ public class MeasurementDto
     public Guid VehicleId { get; set; }
 
     /// <summary>
+    /// Номер заявки машины (из сущности Vehicle).
+    /// </summary>
+    public string VehicleNumber { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Государственный номер машины (из сущности Vehicle).
+    /// </summary>
+    public string VehiclePlate { get; set; } = string.Empty;
+
+    /// <summary>
     /// Значение влажности (%).
     /// </summary>
     public double HumidityValue { get; set; }

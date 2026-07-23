@@ -136,7 +136,7 @@ export default function MeasurementsPage() {
                                 Время
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Машина (ID)
+                                Машина
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Влажность
@@ -162,7 +162,7 @@ export default function MeasurementsPage() {
                                     {format(new Date(m.timestamp), 'dd MMM yyyy HH:mm', { locale: ru })}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                    {m.vehicleId.slice(0, 8)}...
+                                    {m.vehicleNumber} ({m.vehiclePlate})
                                 </td>
                                 <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
                                     {m.displayValue}
@@ -207,7 +207,7 @@ export default function MeasurementsPage() {
                 totalCount={totalCount}
             />
 
-            {/* Модалка редактирования замера (создание не поддерживается на этой странице, т.к. нужен vehicleId) */}
+            {/* Модалка редактирования замера */}
             {editMeasurement && (
                 <MeasurementFormModal
                     isOpen={true}

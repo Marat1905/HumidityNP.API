@@ -38,9 +38,10 @@ public class MappingProfile : Profile
         // ==========================================
 
         // Сущность HumidityMeasurement -> DTO MeasurementDto
-        // Все поля маппятся автоматически, включая перечисления Source и Sign.
-        // DisplayValue вычисляется в самом DTO, поэтому дополнительный маппинг не требуется.
-        CreateMap<HumidityMeasurement, MeasurementDto>();
+        // Добавлены маппинги для VehicleNumber и VehiclePlate из навигационного свойства Vehicle.
+        CreateMap<HumidityMeasurement, MeasurementDto>()
+            .ForMember(dest => dest.VehicleNumber, opt => opt.MapFrom(src => src.Vehicle.Number))
+            .ForMember(dest => dest.VehiclePlate, opt => opt.MapFrom(src => src.Vehicle.VehiclePlate));
 
         // DTO CreateMeasurementRequest -> Сущность HumidityMeasurement
         CreateMap<CreateMeasurementRequest, HumidityMeasurement>();

@@ -91,6 +91,9 @@ export default function MeasurementList({
                                         Время
                                     </th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Машина
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Влажность
                                     </th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -114,12 +117,15 @@ export default function MeasurementList({
                                         <tr
                                             key={m.id}
                                             className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition ${isManual
-                                                    ? 'bg-yellow-50/50 dark:bg-yellow-900/10 border-l-4 border-yellow-400'
-                                                    : ''
+                                                ? 'bg-yellow-50/50 dark:bg-yellow-900/10 border-l-4 border-yellow-400'
+                                                : ''
                                                 }`}
                                         >
                                             <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
                                                 {format(new Date(m.timestamp), 'dd MMM yyyy HH:mm', { locale: ru })}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                                {m.vehicleNumber} ({m.vehiclePlate})
                                             </td>
                                             <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
                                                 {m.displayValue}

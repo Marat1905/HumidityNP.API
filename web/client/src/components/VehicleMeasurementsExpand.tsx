@@ -16,6 +16,7 @@ interface VehicleMeasurementsExpandProps {
 /**
  * Компонент для отображения замеров конкретной машины с пагинацией.
  * Используется внутри раскрывающихся блоков таблицы/карточек.
+ * Столбец «Машина» опущен, так как контекст уже известен.
  */
 export default function VehicleMeasurementsExpand({
     vehicleId,
@@ -31,14 +32,6 @@ export default function VehicleMeasurementsExpand({
     if (!data || data.items.length === 0) {
         return <div className="text-gray-500 dark:text-gray-400 text-sm py-2">Нет замеров</div>;
     }
-
-    const getSignSymbol = (sign: SignType) => {
-        switch (sign) {
-            case 'Less': return '<';
-            case 'Greater': return '>';
-            default: return '';
-        }
-    };
 
     const getSourceLabel = (source: MeasurementSource) => {
         return source === 'Auto' ? 'Авто' : 'Ручной';

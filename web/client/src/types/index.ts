@@ -25,7 +25,7 @@ export interface VehicleDto {
     loader: string;
     expeditor: string;
     department: string;
-    measurementsCount: number; // добавлено для отображения количества замеров в таблице
+    measurementsCount: number;
 }
 
 export interface CreateVehicleRequest {
@@ -62,6 +62,8 @@ export interface UpdateVehicleRequest {
 export interface MeasurementDto {
     id: string;
     vehicleId: string;
+    vehicleNumber: string;
+    vehiclePlate: string;  
     humidityValue: number;
     temperatureC: number;
     measurementType: string;

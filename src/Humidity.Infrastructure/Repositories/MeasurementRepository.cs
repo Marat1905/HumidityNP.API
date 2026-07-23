@@ -40,6 +40,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     {
         return await DbSet
             .Where(m => m.VehicleId == vehicleId)
+            .Include(m => m.Vehicle)
             .OrderByDescending(m => m.Timestamp)
             .ToListAsync(cancellationToken);
     }
@@ -88,6 +89,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     {
         return await DbSet
             .Where(m => m.VehicleId == vehicleId)
+            .Include(m => m.Vehicle)
             .OrderByDescending(m => m.Timestamp)
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -108,6 +110,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
 
         return await DbSet
             .Where(m => m.Timestamp >= startOfDayUtc && m.Timestamp < endOfDayUtc)
+            .Include(m => m.Vehicle)
             .OrderByDescending(m => m.Timestamp)
             .ToListAsync(cancellationToken);
     }
@@ -163,6 +166,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     {
         return await DbSet
             .Where(m => m.Timestamp >= from && m.Timestamp <= to)
+            .Include(m => m.Vehicle)
             .OrderByDescending(m => m.Timestamp)
             .ToListAsync(cancellationToken);
     }
