@@ -24,7 +24,8 @@ interface PeriodReportCardViewProps {
 
 /**
  * Карточное представление отчёта за период.
- * Каждая карточка — одна машина, при клике на «Подробнее» раскрываются замеры.
+ * Каждая карточка занимает всю ширину контейнера (одна карточка в строке).
+ * При клике на «Подробнее» раскрываются замеры для конкретной машины.
  */
 const PeriodReportCardView: React.FC<PeriodReportCardViewProps> = ({
     items,
@@ -155,8 +156,8 @@ const PeriodReportCardView: React.FC<PeriodReportCardViewProps> = ({
                 <div className="text-xs text-gray-400 dark:text-gray-500">Диапазон влажности</div>
             </div>
 
-            {/* Список карточек */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Список карточек – одна колонка на всех экранах */}
+            <div className="grid grid-cols-1 gap-4">
                 {items.map((item) => {
                     const isExpanded = expandedIds.has(item.vehicleId);
                     return (
@@ -174,7 +175,7 @@ const PeriodReportCardView: React.FC<PeriodReportCardViewProps> = ({
                                                 {item.vehicleId.slice(0, 8)}...
                                             </span>
                                         </div>
-                                        <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                        <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-sm">
                                             <div>
                                                 <span className="text-gray-500 dark:text-gray-400">Замеров:</span>
                                                 <span className="ml-1 font-medium text-gray-900 dark:text-white">
