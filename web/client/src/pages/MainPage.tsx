@@ -1,9 +1,11 @@
+// src/pages/MainPage.tsx
 import { useState } from 'react';
 import VehiclesPage from './VehiclesPage';
 import MeasurementsPage from './MeasurementsPage';
+import ShiftReportsPage from './ShiftReportsPage';
 
 export default function MainPage() {
-    const [activeTab, setActiveTab] = useState<'vehicles' | 'measurements'>('vehicles');
+    const [activeTab, setActiveTab] = useState<'vehicles' | 'measurements' | 'reports'>('vehicles');
 
     return (
         <div>
@@ -30,10 +32,21 @@ export default function MainPage() {
                     >
                         Все замеры
                     </button>
+                    <button
+                        onClick={() => setActiveTab('reports')}
+                        className={`pb-3 px-1 text-sm font-medium transition-colors ${activeTab === 'reports'
+                                ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                            }`}
+                    >
+                        Отчёты по сменам
+                    </button>
                 </nav>
             </div>
 
-            {activeTab === 'vehicles' ? <VehiclesPage /> : <MeasurementsPage />}
+            {activeTab === 'vehicles' && <VehiclesPage />}
+            {activeTab === 'measurements' && <MeasurementsPage />}
+            {activeTab === 'reports' && <ShiftReportsPage />}
         </div>
     );
 }
