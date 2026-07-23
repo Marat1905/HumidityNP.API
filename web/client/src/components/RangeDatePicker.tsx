@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useLayoutEffect } from "react";
 import { FiCalendar } from "react-icons/fi";
 import moment from "moment";
 import { DateRange } from 'react-date-range';
@@ -22,6 +22,54 @@ const RangeDatePicker: React.FC<RangeDatePickerProps> = ({ startDate, endDate, o
         endDate: endDate || undefined,
         key: 'selection'
     });
+
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    // Инициализируем позицию по умолчанию (левая привязка)
+    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({ left: 0 });
+
+    // Синхронное вычисление позиции при открытии
+    useLayoutEffect(() => {
+        if (!isOpen) {
+            // При закрытии сбрасываем стили, но оставляем left: 0 для плавности
+            setDropdownStyle({ left: 0 });
+            return;
+        }
+
+        // Даём браузеру минимальное время для рендера, но используем requestAnimationFrame только для измерения,
+        // а не для изменения стилей – изменения делаем сразу после получения размеров.
+        // Для этого используем getBoundingClientRect синхронно.
+        const buttonEl = buttonRef.current;
+        const dropdownEl = dropdownRef.current;
+        if (!buttonEl || !dropdownEl) return;
+
+        const buttonRect = buttonEl.getBoundingClientRect();
+        const dropdownWidth = dropdownEl.offsetWidth || 600; // примерная ширина, если ещё не измерена
+        const viewportWidth = window.innerWidth;
+
+        const spaceLeft = buttonRect.left;
+        const spaceRight = viewportWidth - buttonRect.right;
+
+        let newStyle: React.CSSProperties = {};
+
+        // Если справа достаточно места (и больше, чем слева), выпадаем вправо
+        if (spaceRight > spaceLeft && spaceRight > dropdownWidth) {
+            newStyle = { left: 0 };
+        }
+        // Иначе если слева достаточно места, выпадаем влево
+        else if (spaceLeft > dropdownWidth) {
+            newStyle = { right: 0 };
+        }
+        // Иначе центрируем (но это может вызвать мерцание, поэтому лучше прижать к левому краю, если места мало)
+        else {
+            // Если не хватает места ни слева, ни справа, прижимаем к левому краю экрана
+            // с учётом небольшого отступа
+            const leftOffset = Math.max(0, buttonRect.left - 20);
+            newStyle = { left: leftOffset };
+        }
+
+        setDropdownStyle(newStyle);
+    }, [isOpen]);
 
     const handleApply = () => {
         onChange([range.startDate || null, range.endDate || null]);
@@ -121,8 +169,9 @@ const RangeDatePicker: React.FC<RangeDatePickerProps> = ({ startDate, endDate, o
     };
 
     return (
-        <div className="relative">
+        <div className="relative w-full">
             <button
+                ref={buttonRef}
                 type="button"
                 className={`border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 flex items-center justify-between w-full ${getButtonPaddingClasses()}`}
                 onClick={() => setIsOpen(!isOpen)}
@@ -133,11 +182,12 @@ const RangeDatePicker: React.FC<RangeDatePickerProps> = ({ startDate, endDate, o
 
             {isOpen && (
                 <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
                     <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setIsOpen(false)}
-                    />
-                    <div className="absolute z-50 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-w-[95vw] w-full md:w-auto right-0">
+                        ref={dropdownRef}
+                        className="absolute z-50 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-w-[95vw] w-auto min-w-[300px]"
+                        style={dropdownStyle}
+                    >
                         <div className="flex flex-col md:flex-row max-h-[80vh] overflow-auto">
                             <div className="w-full md:w-48 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 p-4 flex-shrink-0">
                                 <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Быстрые диапазоны</div>
@@ -148,7 +198,7 @@ const RangeDatePicker: React.FC<RangeDatePickerProps> = ({ startDate, endDate, o
                                             type="button"
                                             className="
                                                 w-full text-left px-4 py-3.5 rounded-xl
-                                                text-sm font-medium text-gray-700 dark:text-gray-300 
+                                                text-sm font-medium text-gray-700 dark:text-gray-300
                                                 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-50/50 dark:hover:from-gray-700 dark:hover:to-gray-700/50
                                                 transition-all duration-200 ease-out
                                                 flex items-center space-x-3
