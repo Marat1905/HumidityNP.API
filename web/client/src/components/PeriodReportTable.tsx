@@ -20,6 +20,8 @@ import VehicleMeasurementsExpand from './VehicleMeasurementsExpand';
  */
 export interface PeriodReportItem {
     vehicleId: string;
+    number: string;
+    vehiclePlate: string;
     measurementsCount: number;
     averageHumidity: number | null;
     minHumidity: number | null;
@@ -82,7 +84,7 @@ const PeriodReportTable: React.FC<PeriodReportTableProps> = ({ items, summary, p
                 Период: <span className="font-semibold">{periodLabel}</span>
             </div>
 
-            {/* Блок общей статистики (аналогичен карточному) */}
+            {/* Блок общей статистики */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 shadow-sm border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center justify-between">
@@ -190,7 +192,7 @@ const PeriodReportTable: React.FC<PeriodReportTableProps> = ({ items, summary, p
                                 №
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Машина (ID)
+                                Машина
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Замеров
@@ -222,8 +224,8 @@ const PeriodReportTable: React.FC<PeriodReportTableProps> = ({ items, summary, p
                                         <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                                             {index + 1}
                                         </td>
-                                        <td className="px-4 py-3 text-sm font-mono text-gray-900 dark:text-white">
-                                            {item.vehicleId.slice(0, 8)}...
+                                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                            {item.number} ({item.vehiclePlate})
                                         </td>
                                         <td className="px-4 py-3 text-sm text-center font-medium text-gray-700 dark:text-gray-300">
                                             {item.measurementsCount}

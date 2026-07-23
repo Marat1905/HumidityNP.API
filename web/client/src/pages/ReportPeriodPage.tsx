@@ -41,13 +41,15 @@ export default function ReportPeriodPage() {
         refetch();
     }, [startDate, endDate, refetch]);
 
-    // Агрегация данных по машинам (такая же, как была)
+    // Агрегация данных по машинам
     const reportData = useMemo(() => {
         if (!measurements || measurements.length === 0) {
             return { items: [] as PeriodReportItem[], summary: null as PeriodSummaryStats | null };
         }
 
         const vehicleMap = new Map<string, {
+            number: string;
+            vehiclePlate: string;
             measurements: typeof measurements;
             autoCount: number;
             manualCount: number;
@@ -75,6 +77,8 @@ export default function ReportPeriodPage() {
             const id = m.vehicleId;
             if (!vehicleMap.has(id)) {
                 vehicleMap.set(id, {
+                    number: m.vehicleNumber || '',
+                    vehiclePlate: m.vehiclePlate || '',
                     measurements: [],
                     autoCount: 0,
                     manualCount: 0,
@@ -85,6 +89,9 @@ export default function ReportPeriodPage() {
                 });
             }
             const entry = vehicleMap.get(id)!;
+            if (!entry.number && m.vehicleNumber) entry.number = m.vehicleNumber;
+            if (!entry.vehiclePlate && m.vehiclePlate) entry.vehiclePlate = m.vehiclePlate;
+
             entry.measurements.push(m);
             if (m.source === MeasurementSource.Auto) entry.autoCount++;
             else entry.manualCount++;
@@ -102,6 +109,8 @@ export default function ReportPeriodPage() {
             const avg = count > 0 ? entry.sumHumidity / count : null;
             items.push({
                 vehicleId,
+                number: entry.number || vehicleId.slice(0, 8),
+                vehiclePlate: entry.vehiclePlate || '—',
                 measurementsCount: count,
                 averageHumidity: avg,
                 minHumidity: entry.minHumidity,

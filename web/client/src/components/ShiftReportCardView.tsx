@@ -52,7 +52,7 @@ const ShiftReportCardView: React.FC<ShiftReportCardViewProps> = ({ items, summar
 
     return (
         <div>
-            {/* Блок общей статистики (аналогичен табличному) */}
+            {/* Блок общей статистики */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 shadow-sm border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center justify-between">
@@ -151,7 +151,7 @@ const ShiftReportCardView: React.FC<ShiftReportCardViewProps> = ({ items, summar
                 <div className="text-xs text-gray-400 dark:text-gray-500">Диапазон влажности</div>
             </div>
 
-            {/* Список карточек – одна колонка на всех экранах */}
+            {/* Список карточек – одна колонка */}
             <div className="grid grid-cols-1 gap-4">
                 {items.map((item) => {
                     const isExpanded = expandedIds.has(item.vehicleId);
@@ -166,8 +166,8 @@ const ShiftReportCardView: React.FC<ShiftReportCardViewProps> = ({ items, summar
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2">
                                             <Truck className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-                                            <span className="font-mono text-sm font-semibold text-gray-900 dark:text-white">
-                                                {item.vehicleId.slice(0, 8)}...
+                                            <span className="font-medium text-sm text-gray-900 dark:text-white">
+                                                {item.number} ({item.vehiclePlate})
                                             </span>
                                         </div>
                                         <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-sm">

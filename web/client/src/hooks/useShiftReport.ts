@@ -7,8 +7,8 @@ export type ShiftType = 'day' | 'night';
 
 export interface ShiftReportItem {
     vehicleId: string;
-    number: string;
-    counterparty: string;
+    number: string;                // номер заявки
+    vehiclePlate: string;          // госномер
     measurementsCount: number;
     averageHumidity: number | null;
     minHumidity: number | null;
@@ -94,6 +94,8 @@ export const useShiftReport = (
 
             // Агрегация по машинам
             const vehicleMap = new Map<string, {
+                number: string;
+                vehiclePlate: string;
                 measurements: MeasurementDto[];
                 autoCount: number;
                 manualCount: number;
@@ -121,6 +123,8 @@ export const useShiftReport = (
                 const id = m.vehicleId;
                 if (!vehicleMap.has(id)) {
                     vehicleMap.set(id, {
+                        number: m.vehicleNumber || '',
+                        vehiclePlate: m.vehiclePlate || '',
                         measurements: [],
                         autoCount: 0,
                         manualCount: 0,
@@ -131,6 +135,10 @@ export const useShiftReport = (
                     });
                 }
                 const entry = vehicleMap.get(id)!;
+                // При первом добавлении обновляем номер и госномер, если они ещё не заданы
+                if (!entry.number && m.vehicleNumber) entry.number = m.vehicleNumber;
+                if (!entry.vehiclePlate && m.vehiclePlate) entry.vehiclePlate = m.vehiclePlate;
+
                 entry.measurements.push(m);
                 if (m.source === 'Auto') entry.autoCount++;
                 else entry.manualCount++;
@@ -148,8 +156,8 @@ export const useShiftReport = (
                 const avg = count > 0 ? entry.sumHumidity / count : null;
                 items.push({
                     vehicleId,
-                    number: '',
-                    counterparty: '',
+                    number: entry.number || vehicleId.slice(0, 8), // fallback на часть ID
+                    vehiclePlate: entry.vehiclePlate || '—',
                     measurementsCount: count,
                     averageHumidity: avg,
                     minHumidity: entry.minHumidity,

@@ -171,8 +171,8 @@ const PeriodReportCardView: React.FC<PeriodReportCardViewProps> = ({
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2">
                                             <Truck className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-                                            <span className="font-mono text-sm font-semibold text-gray-900 dark:text-white">
-                                                {item.vehicleId.slice(0, 8)}...
+                                            <span className="font-medium text-sm text-gray-900 dark:text-white">
+                                                {item.number} ({item.vehiclePlate})
                                             </span>
                                         </div>
                                         <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-sm">
