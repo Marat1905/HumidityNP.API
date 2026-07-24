@@ -13,7 +13,8 @@ import {
     Briefcase,
     Clock,
     CheckCircle,
-    XCircle
+    XCircle,
+    FileText // для ИНН
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { vehicleService } from '../services/api';
@@ -21,7 +22,7 @@ import { useMeasurements } from '../hooks/useMeasurements';
 import { useMeasurementStatistics } from '../hooks/useMeasurementStatistics';
 import MeasurementList from '../components/vehicles/MeasurementList';
 import MeasurementStatistics from '../components/vehicles/MeasurementStatistics';
-import { SkeletonDetails, SkeletonMeasurementsList } from '../components/shared/Skeleton'; // <-- импорт скелетонов
+import { SkeletonDetails, SkeletonMeasurementsList } from '../components/shared/Skeleton';
 
 export default function VehicleDetailsPage() {
     const { id } = useParams<{ id: string }>();
@@ -56,7 +57,7 @@ export default function VehicleDetailsPage() {
         }
     }, [id]);
 
-    if (loadingVehicle) return <SkeletonDetails />; // <-- замена Spinner
+    if (loadingVehicle) return <SkeletonDetails />;
     if (!vehicle) return <div className="text-center py-10 text-gray-500">Машина не найдена</div>;
 
     // Определяем статус (активна или выехала)
@@ -114,10 +115,9 @@ export default function VehicleDetailsPage() {
                         <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2">
                             <ClipboardList className="w-4 h-4" /> Основное
                         </h3>
-                        <InfoRow icon={<Calendar className="w-4 h-4" />} label="Дата создания" value={formatDate(vehicle.date)} />
-                        <InfoRow icon={<Building2 className="w-4 h-4" />} label="Контрагент" value={vehicle.counterparty} />
-                        <InfoRow icon={<Briefcase className="w-4 h-4" />} label="Вид работ" value={vehicle.workType} />
-                        <InfoRow icon={<Building2 className="w-4 h-4" />} label="Подразделение" value={vehicle.department} />
+                        <InfoRow icon={<Calendar className="w-4 h-4" />} label="Дата создания пропуска" value={formatDate(vehicle.date)} />
+                        <InfoRow icon={<Building2 className="w-4 h-4" />} label="Поставщик" value={vehicle.counterparty} />
+                        <InfoRow icon={<FileText className="w-4 h-4" />} label="ИНН поставщика" value={vehicle.inn || '—'} />
                     </div>
 
                     {/* Блок: Транспорт */}
@@ -136,13 +136,10 @@ export default function VehicleDetailsPage() {
                             <Users className="w-4 h-4" /> Персонал
                         </h3>
                         <InfoRow icon={<User className="w-4 h-4" />} label="Водитель" value={vehicle.driver} />
-                        <InfoRow icon={<User className="w-4 h-4" />} label="Грузчик" value={vehicle.loader || '—'} />
-                        <InfoRow icon={<User className="w-4 h-4" />} label="Экспедитор" value={vehicle.expeditor || '—'} />
                     </div>
 
                     {/* Блок: Даты (можно выделить отдельно) */}
-                    <div className="sm:col-span-2 lg:col-span-3 border-t border-gray-100 dark:border-gray-700 pt-4 mt-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <InfoRow icon={<Clock className="w-4 h-4" />} label="Дата приезда" value={formatDate(vehicle.arrivalDate)} />
+                    <div className="sm:col-span-2 lg:col-span-3 border-t border-gray-100 dark:border-gray-700 pt-4 mt-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <InfoRow icon={<Clock className="w-4 h-4" />} label="Дата въезда" value={formatDate(vehicle.entryDate)} />
                         <InfoRow
                             icon={<Clock className="w-4 h-4" />}
@@ -173,7 +170,7 @@ export default function VehicleDetailsPage() {
 
             {/* Список замеров */}
             {loadingMeasurements ? (
-                <SkeletonMeasurementsList /> // <-- замена Spinner
+                <SkeletonMeasurementsList />
             ) : measurementsData ? (
                 <MeasurementList
                     vehicleId={vehicle.id}

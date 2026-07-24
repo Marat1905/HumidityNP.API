@@ -11,51 +11,40 @@ export enum SignType {
 
 export interface VehicleDto {
     id: string;
-    number: string;
-    date: string;
-    arrivalDate: string;
-    entryDate: string;
-    exitDate?: string;
-    counterparty: string;
-    workType: string;
-    vehicleBrand: string;
-    vehiclePlate: string;
-    trailer: string;
-    driver: string;
-    loader: string;
-    expeditor: string;
-    department: string;
-    measurementsCount: number;
+    number: string;                 // Номер пропуска
+    date: string;                   // Дата создания пропуска
+    entryDate: string;              // Дата въезда на площадку
+    exitDate?: string;              // Дата выезда с площадки
+    counterparty: string;           // Поставщик
+    inn?: string | null;            // ИНН поставщика
+    vehicleBrand: string;           // Марка автомобиля
+    vehiclePlate: string;           // Государственный номер
+    trailer: string;                // Номер прицепа
+    driver: string;                 // ФИО водителя
+    measurementsCount: number;      // Количество замеров
 }
 
 export interface CreateVehicleRequest {
     number: string;
     date: string;
-    arrivalDate: string;
     entryDate: string;
     exitDate?: string;
     counterparty: string;
-    workType: string;
+    inn?: string | null;
     vehicleBrand: string;
     vehiclePlate: string;
     trailer: string;
     driver: string;
-    loader: string;
-    expeditor: string;
-    department: string;
 }
 
 export interface UpdateVehicleRequest {
     number?: string;
     counterparty?: string;
-    workType?: string;
+    inn?: string | null;
     vehicleBrand?: string;
     vehiclePlate?: string;
     trailer?: string;
     driver?: string;
-    loader?: string;
-    expeditor?: string;
-    department?: string;
     exitDate?: string;
 }
 
@@ -63,11 +52,11 @@ export interface MeasurementDto {
     id: string;
     vehicleId: string;
     vehicleNumber: string;
-    vehiclePlate: string;  
+    vehiclePlate: string;
     humidityValue: number;
     temperatureC: number;
-    measurementType: string | null; 
-    material: string | null; 
+    measurementType: string | null;
+    material: string | null;
     source: MeasurementSource;
     timestamp: string;
     sign: SignType;
@@ -78,7 +67,7 @@ export interface CreateMeasurementRequest {
     vehicleId: string;
     humidityValue: number;
     temperatureC: number;
-    measurementType: string | null; 
+    measurementType: string | null;
     material: string | null;
     source: MeasurementSource;
     timestamp: string;
