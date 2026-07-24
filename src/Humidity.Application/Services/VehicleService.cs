@@ -14,18 +14,18 @@ namespace Humidity.Application.Services;
 public class VehicleService : IVehicleService
 {
     private readonly IVehicleRepository _repository;
-    private readonly IMeasurementRepository _measurementRepository; // добавлено
+    private readonly IMeasurementRepository _measurementRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<VehicleService> _logger;
 
     public VehicleService(
         IVehicleRepository repository,
-        IMeasurementRepository measurementRepository, // добавлено
+        IMeasurementRepository measurementRepository,
         IMapper mapper,
         ILogger<VehicleService> logger)
     {
         _repository = repository;
-        _measurementRepository = measurementRepository; // добавлено
+        _measurementRepository = measurementRepository;
         _mapper = mapper;
         _logger = logger;
     }
@@ -119,7 +119,7 @@ public class VehicleService : IVehicleService
 
     public async Task<VehicleDto> CreateAsync(CreateVehicleRequest request, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Создание новой машины с номером заявки: {Number}", request.Number);
+        _logger.LogInformation("Создание новой машины с номером пропуска: {Number}", request.Number);
         var vehicle = _mapper.Map<Vehicle>(request);
         var created = await _repository.AddAsync(vehicle, cancellationToken);
         var result = _mapper.Map<VehicleDto>(created);

@@ -24,7 +24,6 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     /// Использует AsNoTracking для повышения производительности при чтении.
     /// Связанные измерения не загружаются, так как они не требуются в большинстве сценариев.
     /// </summary>
-    /// <param name="cancellationToken">Токен отмены операции.</param>
     public override async Task<IEnumerable<Vehicle>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Vehicles
@@ -35,10 +34,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     /// <summary>
     /// Получить машину по идентификатору.
     /// Возвращает отслеживаемую сущность для возможности последующего обновления.
-    /// Связанные измерения не загружаются, так как они не нужны для обновления.
     /// </summary>
-    /// <param name="id">Идентификатор машины.</param>
-    /// <param name="cancellationToken">Токен отмены операции.</param>
     public override async Task<Vehicle?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.Vehicles
@@ -47,10 +43,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
 
     /// <summary>
     /// Получить активные машины (те, у которых дата выезда ещё не установлена).
-    /// Только для чтения, используется AsNoTracking.
-    /// Связанные измерения не загружаются.
     /// </summary>
-    /// <param name="cancellationToken">Токен отмены операции.</param>
     public async Task<IEnumerable<Vehicle>> GetActiveVehiclesAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Vehicles
@@ -61,15 +54,9 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
 
     /// <summary>
     /// Получить страницу активных машин.
-    /// Только для чтения, используется AsNoTracking.
-    /// Связанные измерения не загружаются.
     /// </summary>
-    /// <param name="pageNumber">Номер страницы.</param>
-    /// <param name="pageSize">Размер страницы.</param>
-    /// <param name="cancellationToken">Токен отмены.</param>
     public async Task<PagedResult<Vehicle>> GetActiveVehiclesPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-        // Защита от невалидных значений
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 10;
         if (pageSize > 100) pageSize = 100;
@@ -80,10 +67,10 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
-            .OrderByDescending(v => v.CreatedAt) // сортировка по умолчанию
+            .OrderByDescending(v => v.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .AsNoTracking() // для чтения
+            .AsNoTracking()
             .ToListAsync(cancellationToken);
 
         return new PagedResult<Vehicle>
@@ -98,12 +85,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
 
     /// <summary>
     /// Поиск машин по государственному номеру (регистронезависимый, частичное совпадение).
-    /// Использует EF.Functions.ILike с символами % для поиска по подстроке.
-    /// Только для чтения, используется AsNoTracking.
-    /// Связанные измерения не загружаются.
     /// </summary>
-    /// <param name="plate">Государственный номер.</param>
-    /// <param name="cancellationToken">Токен отмены операции.</param>
     public async Task<IEnumerable<Vehicle>> GetByPlateAsync(string plate, CancellationToken cancellationToken = default)
     {
         var searchPattern = $"%{plate}%";
@@ -114,13 +96,8 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     }
 
     /// <summary>
-    /// Поиск машин по номеру заявки (регистронезависимый, частичное совпадение).
-    /// Использует EF.Functions.ILike с символами % для поиска по подстроке.
-    /// Только для чтения, используется AsNoTracking.
-    /// Связанные измерения не загружаются.
+    /// Поиск машин по номеру пропуска (регистронезависимый, частичное совпадение).
     /// </summary>
-    /// <param name="number">Номер заявки.</param>
-    /// <param name="cancellationToken">Токен отмены операции.</param>
     public async Task<IEnumerable<Vehicle>> GetByNumberAsync(string number, CancellationToken cancellationToken = default)
     {
         var searchPattern = $"%{number}%";
@@ -132,10 +109,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
 
     /// <summary>
     /// Получить множество существующих идентификаторов машин из переданного списка.
-    /// Выполняет один запрос к БД вместо N запросов.
     /// </summary>
-    /// <param name="ids">Список проверяемых идентификаторов.</param>
-    /// <param name="cancellationToken">Токен отмены операции.</param>
     public async Task<HashSet<Guid>> GetExistingIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
     {
         var idList = ids.ToList();
@@ -160,7 +134,6 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
         Func<IQueryable<Vehicle>, IOrderedQueryable<Vehicle>>? orderBy = null,
         CancellationToken cancellationToken = default)
     {
-        // Защита от невалидных значений
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 10;
         if (pageSize > 100) pageSize = 100;
@@ -180,14 +153,13 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
         }
         else
         {
-            // Сортировка по умолчанию – по CreatedAt убыванию (новые первыми)
             query = query.OrderByDescending(e => e.CreatedAt);
         }
 
         var items = await query
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .AsNoTracking() // Добавлено AsNoTracking для повышения производительности
+            .AsNoTracking()
             .ToListAsync(cancellationToken);
 
         return new PagedResult<Vehicle>

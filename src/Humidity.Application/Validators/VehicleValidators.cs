@@ -11,16 +11,16 @@ public class CreateVehicleRequestValidator : AbstractValidator<CreateVehicleRequ
 {
     public CreateVehicleRequestValidator()
     {
-        // Номер заявки: обязателен, максимум 50 символов
+        // Номер пропуска: обязателен, максимум 50 символов
         RuleFor(x => x.Number)
-            .NotEmpty().WithMessage("Номер заявки обязателен.")
-            .MaximumLength(50).WithMessage("Номер заявки не может быть длиннее 50 символов.");
+            .NotEmpty().WithMessage("Номер пропуска обязателен.")
+            .MaximumLength(50).WithMessage("Номер пропуска не может быть длиннее 50 символов.");
 
-        // Дата создания записи: обязательна, не может быть в будущем
+        // Дата создания пропуска: обязательна, не может быть в будущем
         RuleFor(x => x.Date)
-            .NotEmpty().WithMessage("Дата создания записи обязательна.")
+            .NotEmpty().WithMessage("Дата создания пропуска обязательна.")
             .LessThanOrEqualTo(DateTimeOffset.UtcNow.AddMinutes(1))
-            .WithMessage("Дата создания записи не может быть в будущем.");
+            .WithMessage("Дата создания пропуска не может быть в будущем.");
 
         // Дата въезда: обязательна, не может быть в будущем
         RuleFor(x => x.EntryDate)
@@ -35,12 +35,12 @@ public class CreateVehicleRequestValidator : AbstractValidator<CreateVehicleRequ
             .Must(exitDate => exitDate == null || exitDate <= DateTimeOffset.UtcNow.AddMinutes(1))
             .WithMessage("Дата выезда не может быть в будущем.");
 
-        // Контрагент: обязателен, максимум 100 символов
+        // Поставщик: обязателен, максимум 100 символов
         RuleFor(x => x.Counterparty)
-            .NotEmpty().WithMessage("Контрагент обязателен.")
-            .MaximumLength(100).WithMessage("Контрагент не может быть длиннее 100 символов.");
+            .NotEmpty().WithMessage("Поставщик обязателен.")
+            .MaximumLength(100).WithMessage("Поставщик не может быть длиннее 100 символов.");
 
-        // ИНН контрагента: опционально, но если указан, то должен состоять из цифр и иметь длину 10 или 12
+        // ИНН поставщика: опционально, но если указан, то должен состоять из цифр и иметь длину 10 или 12
         RuleFor(x => x.Inn)
             .Must(inn => string.IsNullOrEmpty(inn) || (inn.Length == 10 || inn.Length == 12))
             .WithMessage("ИНН должен содержать 10 или 12 цифр.")
@@ -76,15 +76,15 @@ public class UpdateVehicleRequestValidator : AbstractValidator<UpdateVehicleRequ
 {
     public UpdateVehicleRequestValidator()
     {
-        // Номер заявки: максимум 50 символов
+        // Номер пропуска: максимум 50 символов
         RuleFor(x => x.Number)
-            .MaximumLength(50).WithMessage("Номер заявки не может быть длиннее 50 символов.");
+            .MaximumLength(50).WithMessage("Номер пропуска не может быть длиннее 50 символов.");
 
-        // Контрагент: максимум 100 символов
+        // Поставщик: максимум 100 символов
         RuleFor(x => x.Counterparty)
-            .MaximumLength(100).WithMessage("Контрагент не может быть длиннее 100 символов.");
+            .MaximumLength(100).WithMessage("Поставщик не может быть длиннее 100 символов.");
 
-        // ИНН контрагента: если указан, проверяем формат
+        // ИНН поставщика: если указан, проверяем формат
         RuleFor(x => x.Inn)
             .Must(inn => string.IsNullOrEmpty(inn) || (inn.Length == 10 || inn.Length == 12))
             .WithMessage("ИНН должен содержать 10 или 12 цифр.")

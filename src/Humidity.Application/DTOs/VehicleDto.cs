@@ -11,32 +11,32 @@ public class VehicleDto
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Номер заявки.
+    /// Номер пропуска.
     /// </summary>
     public string Number { get; set; } = string.Empty;
 
     /// <summary>
-    /// Дата создания записи.
+    /// Дата создания пропуска.
     /// </summary>
     public DateTimeOffset Date { get; set; }
 
     /// <summary>
-    /// Дата въезда.
+    /// Дата въезда на площадку.
     /// </summary>
     public DateTimeOffset EntryDate { get; set; }
 
     /// <summary>
-    /// Дата выезда (может быть null).
+    /// Дата выезда с площадки (может быть null).
     /// </summary>
     public DateTimeOffset? ExitDate { get; set; }
 
     /// <summary>
-    /// Контрагент.
+    /// Поставщик.
     /// </summary>
     public string Counterparty { get; set; } = string.Empty;
 
     /// <summary>
-    /// ИНН контрагента.
+    /// ИНН поставщика.
     /// </summary>
     public string? Inn { get; set; }
 
@@ -46,7 +46,7 @@ public class VehicleDto
     public string VehicleBrand { get; set; } = string.Empty;
 
     /// <summary>
-    /// Государственный номер.
+    /// Государственный номер автомобиля.
     /// </summary>
     public string VehiclePlate { get; set; } = string.Empty;
 
@@ -71,15 +71,54 @@ public class VehicleDto
 /// </summary>
 public class CreateVehicleRequest
 {
+    /// <summary>
+    /// Номер пропуска.
+    /// </summary>
     public string Number { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Дата создания пропуска.
+    /// </summary>
     public DateTimeOffset Date { get; set; }
+
+    /// <summary>
+    /// Дата въезда на площадку.
+    /// </summary>
     public DateTimeOffset EntryDate { get; set; }
+
+    /// <summary>
+    /// Дата выезда с площадки (опционально).
+    /// </summary>
     public DateTimeOffset? ExitDate { get; set; }
+
+    /// <summary>
+    /// Поставщик.
+    /// </summary>
     public string Counterparty { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ИНН поставщика.
+    /// </summary>
     public string? Inn { get; set; }
+
+    /// <summary>
+    /// Марка автомобиля.
+    /// </summary>
     public string VehicleBrand { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Государственный номер автомобиля.
+    /// </summary>
     public string VehiclePlate { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Номер прицепа.
+    /// </summary>
     public string Trailer { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ФИО водителя.
+    /// </summary>
     public string Driver { get; set; } = string.Empty;
 }
 
@@ -88,12 +127,43 @@ public class CreateVehicleRequest
 /// </summary>
 public class UpdateVehicleRequest
 {
+    /// <summary>
+    /// Номер пропуска.
+    /// </summary>
     public string? Number { get; set; }
+
+    /// <summary>
+    /// Поставщик.
+    /// </summary>
     public string? Counterparty { get; set; }
+
+    /// <summary>
+    /// ИНН поставщика.
+    /// </summary>
     public string? Inn { get; set; }
+
+    /// <summary>
+    /// Марка автомобиля.
+    /// </summary>
     public string? VehicleBrand { get; set; }
+
+    /// <summary>
+    /// Государственный номер автомобиля.
+    /// </summary>
     public string? VehiclePlate { get; set; }
+
+    /// <summary>
+    /// Номер прицепа.
+    /// </summary>
     public string? Trailer { get; set; }
+
+    /// <summary>
+    /// ФИО водителя.
+    /// </summary>
     public string? Driver { get; set; }
+
+    /// <summary>
+    /// Дата выезда с площадки.
+    /// </summary>
     public DateTimeOffset? ExitDate { get; set; }
 }

@@ -4,17 +4,17 @@ namespace Humidity.Domain.Entities;
 
 /// <summary>
 /// Машина, въезжающая на площадку.
-/// Содержит информацию о номере, датах, контрагенте, виде работ и персонале.
+/// Содержит информацию о номере пропуска, датах, поставщике, транспортном средстве и водителе.
 /// </summary>
 public class Vehicle : BaseEntity
 {
     /// <summary>
-    /// Номер заявки (например, Я-9310099848).
+    /// Номер пропуска (например, Я-9310099848).
     /// </summary>
     public string Number { get; set; } = string.Empty;
 
     /// <summary>
-    /// Дата создания записи.
+    /// Дата создания пропуска.
     /// </summary>
     public DateTimeOffset Date { get; set; }
 
@@ -29,12 +29,12 @@ public class Vehicle : BaseEntity
     public DateTimeOffset? ExitDate { get; set; }
 
     /// <summary>
-    /// Контрагент (например, "Тандер(Сургут)").
+    /// Поставщик (например, "Тандер(Сургут)").
     /// </summary>
     public string Counterparty { get; set; } = string.Empty;
 
     /// <summary>
-    /// ИНН контрагента.
+    /// ИНН поставщика.
     /// </summary>
     public string? Inn { get; set; }
 

@@ -16,7 +16,6 @@ public static class DataSeeder
     /// </summary>
     public static async Task SeedAsync(HumidityDbContext context)
     {
-        // Если в таблице Vehicles уже есть записи, пропускаем инициализацию
         if (await context.Vehicles.AnyAsync())
         {
             return;
@@ -31,12 +30,12 @@ public static class DataSeeder
         {
             new Vehicle
             {
-                Number = "Я-9310099848",
-                Date = now.AddDays(-3),
+                Number = "Я-9310099848",          // Номер пропуска
+                Date = now.AddDays(-3),            // Дата создания пропуска
                 EntryDate = now.AddDays(-2).AddHours(-2),
-                ExitDate = null, // ещё на площадке
+                ExitDate = null,
                 Counterparty = "ООО «Вторресурс»",
-                Inn = "7701234567", // 10-значный ИНН
+                Inn = "7701234567",
                 VehicleBrand = "КАМАЗ 65115",
                 VehiclePlate = "А777ВХ 116",
                 Trailer = "ВХ 7777",
@@ -47,9 +46,9 @@ public static class DataSeeder
                 Number = "Я-9310099850",
                 Date = now.AddDays(-6),
                 EntryDate = now.AddDays(-5).AddHours(-3),
-                ExitDate = now.AddDays(-4), // уже выехал
+                ExitDate = now.AddDays(-4),
                 Counterparty = "АО «ЭкоПак»",
-                Inn = "772233445566", // 12-значный ИНН
+                Inn = "772233445566",
                 VehicleBrand = "FAW J6",
                 VehiclePlate = "О456КМ 116",
                 Trailer = "Т456ХХ 116",
