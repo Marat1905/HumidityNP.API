@@ -21,7 +21,7 @@ import { useMeasurements } from '../hooks/useMeasurements';
 import { useMeasurementStatistics } from '../hooks/useMeasurementStatistics';
 import MeasurementList from '../components/MeasurementList';
 import MeasurementStatistics from '../components/MeasurementStatistics';
-import Spinner from '../components/Spinner';
+import { SkeletonDetails, SkeletonMeasurementsList } from '../components/Skeleton'; // <-- импорт скелетонов
 
 export default function VehicleDetailsPage() {
     const { id } = useParams<{ id: string }>();
@@ -56,7 +56,7 @@ export default function VehicleDetailsPage() {
         }
     }, [id]);
 
-    if (loadingVehicle) return <Spinner />;
+    if (loadingVehicle) return <SkeletonDetails />; // <-- замена Spinner
     if (!vehicle) return <div className="text-center py-10 text-gray-500">Машина не найдена</div>;
 
     // Определяем статус (активна или выехала)
@@ -156,13 +156,25 @@ export default function VehicleDetailsPage() {
 
             {/* Блок статистики */}
             {loadingStats ? (
-                <div className="text-center py-4 text-gray-500 dark:text-gray-400">Загрузка статистики...</div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 mb-6">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                            <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-10 w-10 rounded-full" />
+                            <div>
+                                <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-3 w-24 mb-1 rounded" />
+                                <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-6 w-12 rounded" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
             ) : (
                 statsData && <MeasurementStatistics stats={statsData} />
             )}
 
             {/* Список замеров */}
-            {measurementsData && (
+            {loadingMeasurements ? (
+                <SkeletonMeasurementsList /> // <-- замена Spinner
+            ) : measurementsData ? (
                 <MeasurementList
                     vehicleId={vehicle.id}
                     measurements={measurementsData.items}
@@ -175,7 +187,7 @@ export default function VehicleDetailsPage() {
                     onRefresh={handleRefresh}
                     loading={loadingMeasurements}
                 />
-            )}
+            ) : null}
         </div>
     );
 }

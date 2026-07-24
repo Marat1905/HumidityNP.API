@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVehicles } from '../hooks/useVehicles';
 import Pagination from '../components/Pagination';
-import Spinner from '../components/Spinner';
+import { SkeletonTable } from '../components/Skeleton'; // <-- импорт скелетона
 
 export default function VehiclesPage() {
     const navigate = useNavigate();
@@ -10,7 +10,7 @@ export default function VehiclesPage() {
     const [pageSize, setPageSize] = useState(10);
     const { data, loading, error } = useVehicles(pageNumber, pageSize);
 
-    if (loading) return <Spinner />;
+    if (loading) return <SkeletonTable rows={5} columns={6} />; // <-- замена Spinner
     if (error) return <div className="text-red-500 text-center py-10">{error}</div>;
     if (!data) return null;
 

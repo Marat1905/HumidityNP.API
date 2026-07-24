@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useMeasurements } from '../hooks/useMeasurements';
 import Pagination from './Pagination';
-import Spinner from './Spinner';
+import { SkeletonMeasurementsList } from './Skeleton'; // <-- импорт скелетона
 import type { MeasurementDto, SignType, MeasurementSource } from '../types';
 
 interface VehicleMeasurementsExpandProps {
@@ -27,7 +27,7 @@ export default function VehicleMeasurementsExpand({
 
     const { data, loading, error } = useMeasurements(vehicleId, pageNumber, pageSize);
 
-    if (loading) return <Spinner size="sm" />;
+    if (loading) return <SkeletonMeasurementsList compact={compact} />; // <-- замена Spinner
     if (error) return <div className="text-red-500 text-sm">{error}</div>;
     if (!data || data.items.length === 0) {
         return <div className="text-gray-500 dark:text-gray-400 text-sm py-2">Нет замеров</div>;

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useShiftReport, type ShiftType } from '../hooks/useShiftReport';
 import ShiftReportTable from '../components/ShiftReportTable';
 import ShiftReportCardView from '../components/ShiftReportCardView';
-import Spinner from '../components/Spinner';
+import { SkeletonReport } from '../components/Skeleton'; // <-- импорт скелетона
 import { ChevronLeft, ChevronRight, Calendar, LayoutGrid, Table } from 'lucide-react';
 import { format, subDays, addDays, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -54,6 +54,8 @@ export default function ShiftReportsPage() {
 
     const dateDisplay = format(selectedDate, 'dd MMMM yyyy', { locale: ru });
     const shiftLabel = shiftType === 'day' ? 'Дневная (08:00–20:00)' : 'Ночная (20:00–08:00)';
+
+    if (loading) return <SkeletonReport />; // <-- замена Spinner
 
     return (
         <div>
@@ -135,9 +137,7 @@ export default function ShiftReportsPage() {
                 </div>
             </div>
 
-            {loading ? (
-                <Spinner />
-            ) : error ? (
+            {error ? (
                 <div className="text-red-500 text-center py-10">{error}</div>
             ) : data ? (
                 <>
