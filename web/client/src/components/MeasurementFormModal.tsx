@@ -7,6 +7,29 @@ import { type MeasurementDto, MeasurementSource, SignType, type CreateMeasuremen
 import { type MeasurementFormData, CreateMeasurementFormData } from '../schemas/measurementSchema';
 import { measurementService } from '../services/api';
 
+/**
+ * Вспомогательная функция для преобразования UTC-строки в локальное время для поля datetime-local.
+ */
+const toLocalDateTimeInput = (utcDateStr: string): string => {
+    const date = new Date(utcDateStr);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+/**
+ * Преобразует локальное время из поля datetime-local в UTC-строку для отправки на сервер.
+ */
+const toUtcIsoString = (localDateTime: string): string => {
+    const localDate = new Date(localDateTime);
+    const offsetMinutes = localDate.getTimezoneOffset();
+    const utcDate = new Date(localDate.getTime() - offsetMinutes * 60000);
+    return utcDate.toISOString();
+};
+
 interface MeasurementFormModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -37,7 +60,7 @@ export default function MeasurementFormModal({
             temperatureC: 20,
             measurementType: '',
             material: '',
-            source: 'Auto' as const,
+            source: 'Manual' as const,
             timestamp: '',
             sign: 'None' as const,
         },
@@ -45,25 +68,30 @@ export default function MeasurementFormModal({
 
     useEffect(() => {
         if (measurement) {
+            // Преобразуем UTC-время в локальное для отображения в поле datetime-local
+            const localTimestamp = toLocalDateTimeInput(measurement.timestamp);
             reset({
                 vehicleId: measurement.vehicleId,
                 humidityValue: measurement.humidityValue,
                 temperatureC: measurement.temperatureC,
-                measurementType: measurement.measurementType,
-                material: measurement.material,
+                measurementType: measurement.measurementType ?? '',
+                material: measurement.material ?? '',
                 source: measurement.source === MeasurementSource.Auto ? 'Auto' : 'Manual',
-                timestamp: measurement.timestamp.slice(0, 16),
+                timestamp: localTimestamp,
                 sign: measurement.sign === SignType.None ? 'None' : measurement.sign === SignType.Less ? 'Less' : 'Greater',
             });
         } else {
+            // Для нового замера используем текущее локальное время
+            const now = new Date();
+            const localNow = toLocalDateTimeInput(now.toISOString());
             reset({
                 vehicleId: vehicleId,
                 humidityValue: 0,
                 temperatureC: 20,
                 measurementType: '',
                 material: '',
-                source: 'Auto',
-                timestamp: new Date().toISOString().slice(0, 16),
+                source: 'Manual',
+                timestamp: localNow,
                 sign: 'None',
             });
         }
@@ -71,14 +99,25 @@ export default function MeasurementFormModal({
 
     const onSubmit = async (data: MeasurementFormData) => {
         try {
+            // Источник: при создании всегда Manual, при редактировании оставляем как есть
+            const source = isEdit
+                ? data.source === 'Auto' ? MeasurementSource.Auto : MeasurementSource.Manual
+                : MeasurementSource.Manual;
+
+            const measurementType = data.measurementType?.trim() || null;
+            const material = data.material?.trim() || null;
+
+            // Преобразуем локальное время в UTC для отправки на сервер
+            const timestampISO = toUtcIsoString(data.timestamp);
+
             const payload: CreateMeasurementRequest = {
                 vehicleId: data.vehicleId,
                 humidityValue: data.humidityValue,
                 temperatureC: data.temperatureC,
-                measurementType: data.measurementType,
-                material: data.material,
-                source: data.source === 'Auto' ? MeasurementSource.Auto : MeasurementSource.Manual,
-                timestamp: new Date(data.timestamp).toISOString(),
+                measurementType,
+                material,
+                source,
+                timestamp: timestampISO,
                 sign: data.sign === 'None' ? SignType.None : data.sign === 'Less' ? SignType.Less : SignType.Greater,
             };
 
@@ -141,7 +180,7 @@ export default function MeasurementFormModal({
                         {errors.temperatureC && <p className="text-red-500 text-xs mt-1">{errors.temperatureC.message}</p>}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Тип измерения *</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Тип измерения (необязательно)</label>
                         <input
                             {...register('measurementType')}
                             className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
@@ -149,23 +188,12 @@ export default function MeasurementFormModal({
                         {errors.measurementType && <p className="text-red-500 text-xs mt-1">{errors.measurementType.message}</p>}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Материал *</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Материал (необязательно)</label>
                         <input
                             {...register('material')}
                             className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                         />
                         {errors.material && <p className="text-red-500 text-xs mt-1">{errors.material.message}</p>}
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Источник *</label>
-                        <select
-                            {...register('source')}
-                            className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="Auto">Авто</option>
-                            <option value="Manual">Ручной</option>
-                        </select>
-                        {errors.source && <p className="text-red-500 text-xs mt-1">{errors.source.message}</p>}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Знак *</label>

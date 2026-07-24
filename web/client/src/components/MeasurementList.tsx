@@ -134,7 +134,7 @@ export default function MeasurementList({
                                                 {m.temperatureC.toFixed(1)} °C
                                             </td>
                                             <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                                {m.material}
+                                                {m.material ?? '—'}
                                             </td>
                                             <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 flex items-center gap-1">
                                                 {isManual && <PenTool className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />}

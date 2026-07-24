@@ -73,7 +73,7 @@ export default function VehicleMeasurementsExpand({
                                     {m.temperatureC.toFixed(1)} °C
                                 </td>
                                 <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
-                                    {m.material}
+                                    {m.material ?? '—'}
                                 </td>
                                 <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
                                     {getSourceLabel(m.source)}

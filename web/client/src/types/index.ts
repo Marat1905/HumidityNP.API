@@ -66,8 +66,8 @@ export interface MeasurementDto {
     vehiclePlate: string;  
     humidityValue: number;
     temperatureC: number;
-    measurementType: string;
-    material: string;
+    measurementType: string | null; 
+    material: string | null; 
     source: MeasurementSource;
     timestamp: string;
     sign: SignType;
@@ -78,8 +78,8 @@ export interface CreateMeasurementRequest {
     vehicleId: string;
     humidityValue: number;
     temperatureC: number;
-    measurementType: string;
-    material: string;
+    measurementType: string | null; 
+    material: string | null;
     source: MeasurementSource;
     timestamp: string;
     sign: SignType;
@@ -88,8 +88,8 @@ export interface CreateMeasurementRequest {
 export interface UpdateMeasurementRequest {
     humidityValue?: number;
     temperatureC?: number;
-    measurementType?: string;
-    material?: string;
+    measurementType?: string | null;
+    material?: string | null;
     source?: MeasurementSource;
     sign?: SignType;
     timestamp?: string;

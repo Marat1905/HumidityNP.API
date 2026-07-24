@@ -171,7 +171,7 @@ export default function MeasurementsPage() {
                                     {m.temperatureC.toFixed(1)} °C
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                    {m.material}
+                                    {m.material ?? '—'}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                                     {getSourceLabel(m.source)}
