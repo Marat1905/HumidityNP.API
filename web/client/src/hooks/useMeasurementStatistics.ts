@@ -10,7 +10,7 @@ import type { MeasurementStatisticsDto } from '../types';
 export const useMeasurementStatistics = (vehicleId: string | null) => {
     const [data, setData] = useState<MeasurementStatisticsDto | null>(null);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<Error | null>(null);
 
     const fetchData = useCallback(async () => {
         if (!vehicleId) {
@@ -23,7 +23,7 @@ export const useMeasurementStatistics = (vehicleId: string | null) => {
             const result = await measurementService.getStatisticsByVehicle(vehicleId);
             setData(result);
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Ошибка загрузки статистики');
+            setError(err instanceof Error ? err : new Error(err?.response?.data?.message || 'Ошибка загрузки статистики'));
         } finally {
             setLoading(false);
         }

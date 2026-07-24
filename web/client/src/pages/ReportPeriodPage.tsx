@@ -6,7 +6,7 @@ import { useAllMeasurementsByDateRange } from '../hooks/useAllMeasurementsByDate
 import RangeDatePicker from '../components/RangeDatePicker';
 import PeriodReportTable, { type PeriodReportItem, type PeriodSummaryStats } from '../components/PeriodReportTable';
 import PeriodReportCardView from '../components/PeriodReportCardView';
-import { SkeletonReport } from '../components/Skeleton'; // <-- импорт скелетона
+import { SkeletonReport } from '../components/Skeleton';
 import { MeasurementSource } from '../types';
 import { LayoutGrid, Table } from 'lucide-react';
 
@@ -146,8 +146,8 @@ export default function ReportPeriodPage() {
         return `с ${fromStr} по ${toStr}`;
     }, [startDate, endDate]);
 
-    if (loading) return <SkeletonReport />; // <-- замена Spinner
-    if (error) return <div className="text-red-500 text-center py-10">{error}</div>;
+    if (loading) return <SkeletonReport />;
+    if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
 
     return (
         <div>

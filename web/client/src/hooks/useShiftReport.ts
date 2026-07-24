@@ -55,7 +55,7 @@ export const useShiftReport = (
 ) => {
     const [data, setData] = useState<ShiftReportData | null>(null);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<Error | null>(null);
 
     const fetchReport = useCallback(async () => {
         if (!date) {
@@ -190,7 +190,7 @@ export const useShiftReport = (
                 summary,
             });
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Ошибка загрузки отчёта по смене');
+            setError(err instanceof Error ? err : new Error(err?.response?.data?.message || 'Ошибка загрузки отчёта по смене'));
         } finally {
             setLoading(false);
         }

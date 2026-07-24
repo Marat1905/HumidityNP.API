@@ -19,7 +19,7 @@ export const useMeasurementsByDateRange = (
 ) => {
     const [data, setData] = useState<PagedResult<MeasurementDto> | null>(null);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<Error | null>(null);
 
     const fetchData = useCallback(async () => {
         if (!fromDate || !toDate) {
@@ -44,7 +44,7 @@ export const useMeasurementsByDateRange = (
             const result = await measurementService.getByDateRange(fromISO, toISO, pageNumber, pageSize);
             setData(result);
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Ошибка загрузки замеров по диапазону');
+            setError(err instanceof Error ? err : new Error(err?.response?.data?.message || 'Ошибка загрузки замеров по диапазону'));
         } finally {
             setLoading(false);
         }

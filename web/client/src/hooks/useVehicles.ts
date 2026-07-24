@@ -5,7 +5,7 @@ import type { VehicleDto, PagedResult } from '../types';
 export const useVehicles = (pageNumber: number, pageSize: number) => {
     const [data, setData] = useState<PagedResult<VehicleDto> | null>(null);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<Error | null>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -14,7 +14,7 @@ export const useVehicles = (pageNumber: number, pageSize: number) => {
             const result = await vehicleService.getAll(pageNumber, pageSize);
             setData(result);
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Ошибка загрузки данных');
+            setError(err instanceof Error ? err : new Error(err?.response?.data?.message || 'Ошибка загрузки данных'));
         } finally {
             setLoading(false);
         }

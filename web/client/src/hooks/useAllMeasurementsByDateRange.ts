@@ -17,7 +17,7 @@ export const useAllMeasurementsByDateRange = (
 ) => {
     const [measurements, setMeasurements] = useState<MeasurementDto[]>([]);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<Error | null>(null);
 
     const fetchAll = useCallback(async () => {
         if (!fromDate || !toDate) {
@@ -58,7 +58,7 @@ export const useAllMeasurementsByDateRange = (
 
             setMeasurements(allItems);
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Ошибка загрузки замеров за период');
+            setError(err instanceof Error ? err : new Error(err?.response?.data?.message || 'Ошибка загрузки замеров за период'));
         } finally {
             setLoading(false);
         }

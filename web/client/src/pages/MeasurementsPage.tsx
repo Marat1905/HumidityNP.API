@@ -4,7 +4,7 @@ import { ru } from 'date-fns/locale';
 import { Pencil, Trash2, RotateCcw } from 'lucide-react';
 import { useMeasurementsByDateRange } from '../hooks/useMeasurementsByDateRange';
 import Pagination from '../components/Pagination';
-import { SkeletonTable } from '../components/Skeleton'; // <-- импорт скелетона
+import { SkeletonTable } from '../components/Skeleton';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import MeasurementFormModal from '../components/MeasurementFormModal';
 import RangeDatePicker from '../components/RangeDatePicker';
@@ -81,9 +81,8 @@ export default function MeasurementsPage() {
         return source === 'Auto' ? 'Авто' : 'Ручной';
     };
 
-    if (loading) return <SkeletonTable rows={5} columns={7} />; // <-- замена Spinner
-
-    if (error) return <div className="text-red-500 text-center py-10">{error}</div>;
+    if (loading) return <SkeletonTable rows={5} columns={7} />;
+    if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
     if (!data && !loading) {
         return (
             <div className="text-center py-10 text-gray-500 dark:text-gray-400">
