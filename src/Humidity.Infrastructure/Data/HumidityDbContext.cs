@@ -34,14 +34,11 @@ public class HumidityDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Number).IsRequired().HasMaxLength(50);
             entity.Property(e => e.Counterparty).HasMaxLength(200);
-            entity.Property(e => e.WorkType).HasMaxLength(100);
+            entity.Property(e => e.Inn).HasMaxLength(12); // ИНН может быть 10 или 12 символов
             entity.Property(e => e.VehicleBrand).HasMaxLength(100);
             entity.Property(e => e.VehiclePlate).HasMaxLength(20);
             entity.Property(e => e.Trailer).HasMaxLength(20);
             entity.Property(e => e.Driver).HasMaxLength(200);
-            entity.Property(e => e.Loader).HasMaxLength(200);
-            entity.Property(e => e.Expeditor).HasMaxLength(200);
-            entity.Property(e => e.Department).HasMaxLength(100);
 
             entity.HasMany(e => e.Measurements)
                   .WithOne(m => m.Vehicle)

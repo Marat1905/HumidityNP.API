@@ -22,19 +22,11 @@ public class CreateVehicleRequestValidator : AbstractValidator<CreateVehicleRequ
             .LessThanOrEqualTo(DateTimeOffset.UtcNow.AddMinutes(1))
             .WithMessage("Дата создания записи не может быть в будущем.");
 
-        // Дата приезда: обязательна, не может быть в будущем
-        RuleFor(x => x.ArrivalDate)
-            .NotEmpty().WithMessage("Дата приезда обязательна.")
-            .LessThanOrEqualTo(DateTimeOffset.UtcNow.AddMinutes(1))
-            .WithMessage("Дата приезда не может быть в будущем.");
-
-        // Дата въезда: обязательна, не может быть в будущем, не должна быть раньше даты приезда
+        // Дата въезда: обязательна, не может быть в будущем
         RuleFor(x => x.EntryDate)
             .NotEmpty().WithMessage("Дата въезда обязательна.")
             .LessThanOrEqualTo(DateTimeOffset.UtcNow.AddMinutes(1))
-            .WithMessage("Дата въезда не может быть в будущем.")
-            .GreaterThanOrEqualTo(x => x.ArrivalDate)
-            .WithMessage("Дата въезда не может быть раньше даты приезда.");
+            .WithMessage("Дата въезда не может быть в будущем.");
 
         // Дата выезда: опциональна, но если указана, должна быть не раньше даты въезда и не в будущем
         RuleFor(x => x.ExitDate)
@@ -48,10 +40,12 @@ public class CreateVehicleRequestValidator : AbstractValidator<CreateVehicleRequ
             .NotEmpty().WithMessage("Контрагент обязателен.")
             .MaximumLength(100).WithMessage("Контрагент не может быть длиннее 100 символов.");
 
-        // Вид работ: обязателен, максимум 50 символов
-        RuleFor(x => x.WorkType)
-            .NotEmpty().WithMessage("Вид работ обязателен.")
-            .MaximumLength(50).WithMessage("Вид работ не может быть длиннее 50 символов.");
+        // ИНН контрагента: опционально, но если указан, то должен состоять из цифр и иметь длину 10 или 12
+        RuleFor(x => x.Inn)
+            .Must(inn => string.IsNullOrEmpty(inn) || (inn.Length == 10 || inn.Length == 12))
+            .WithMessage("ИНН должен содержать 10 или 12 цифр.")
+            .Must(inn => string.IsNullOrEmpty(inn) || inn.All(char.IsDigit))
+            .WithMessage("ИНН должен состоять только из цифр.");
 
         // Марка автомобиля: обязательна, максимум 50 символов
         RuleFor(x => x.VehicleBrand)
@@ -71,19 +65,6 @@ public class CreateVehicleRequestValidator : AbstractValidator<CreateVehicleRequ
         RuleFor(x => x.Driver)
             .NotEmpty().WithMessage("ФИО водителя обязательно.")
             .MaximumLength(100).WithMessage("ФИО водителя не может быть длиннее 100 символов.");
-
-        // ФИО грузчика: опционально, максимум 100 символов
-        RuleFor(x => x.Loader)
-            .MaximumLength(100).WithMessage("ФИО грузчика не может быть длиннее 100 символов.");
-
-        // ФИО экспедитора: опционально, максимум 100 символов
-        RuleFor(x => x.Expeditor)
-            .MaximumLength(100).WithMessage("ФИО экспедитора не может быть длиннее 100 символов.");
-
-        // Подразделение: обязательно, максимум 100 символов
-        RuleFor(x => x.Department)
-            .NotEmpty().WithMessage("Подразделение обязательно.")
-            .MaximumLength(100).WithMessage("Подразделение не может быть длиннее 100 символов.");
     }
 }
 
@@ -103,9 +84,12 @@ public class UpdateVehicleRequestValidator : AbstractValidator<UpdateVehicleRequ
         RuleFor(x => x.Counterparty)
             .MaximumLength(100).WithMessage("Контрагент не может быть длиннее 100 символов.");
 
-        // Вид работ: максимум 50 символов
-        RuleFor(x => x.WorkType)
-            .MaximumLength(50).WithMessage("Вид работ не может быть длиннее 50 символов.");
+        // ИНН контрагента: если указан, проверяем формат
+        RuleFor(x => x.Inn)
+            .Must(inn => string.IsNullOrEmpty(inn) || (inn.Length == 10 || inn.Length == 12))
+            .WithMessage("ИНН должен содержать 10 или 12 цифр.")
+            .Must(inn => string.IsNullOrEmpty(inn) || inn.All(char.IsDigit))
+            .WithMessage("ИНН должен состоять только из цифр.");
 
         // Марка автомобиля: максимум 50 символов
         RuleFor(x => x.VehicleBrand)
@@ -122,18 +106,6 @@ public class UpdateVehicleRequestValidator : AbstractValidator<UpdateVehicleRequ
         // ФИО водителя: максимум 100 символов
         RuleFor(x => x.Driver)
             .MaximumLength(100).WithMessage("ФИО водителя не может быть длиннее 100 символов.");
-
-        // ФИО грузчика: максимум 100 символов
-        RuleFor(x => x.Loader)
-            .MaximumLength(100).WithMessage("ФИО грузчика не может быть длиннее 100 символов.");
-
-        // ФИО экспедитора: максимум 100 символов
-        RuleFor(x => x.Expeditor)
-            .MaximumLength(100).WithMessage("ФИО экспедитора не может быть длиннее 100 символов.");
-
-        // Подразделение: максимум 100 символов
-        RuleFor(x => x.Department)
-            .MaximumLength(100).WithMessage("Подразделение не может быть длиннее 100 символов.");
 
         // Дата выезда: если указана, не должна быть в будущем
         RuleFor(x => x.ExitDate)

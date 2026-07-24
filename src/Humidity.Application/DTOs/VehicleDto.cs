@@ -21,11 +21,6 @@ public class VehicleDto
     public DateTimeOffset Date { get; set; }
 
     /// <summary>
-    /// Дата приезда.
-    /// </summary>
-    public DateTimeOffset ArrivalDate { get; set; }
-
-    /// <summary>
     /// Дата въезда.
     /// </summary>
     public DateTimeOffset EntryDate { get; set; }
@@ -41,9 +36,9 @@ public class VehicleDto
     public string Counterparty { get; set; } = string.Empty;
 
     /// <summary>
-    /// Вид работ.
+    /// ИНН контрагента.
     /// </summary>
-    public string WorkType { get; set; } = string.Empty;
+    public string? Inn { get; set; }
 
     /// <summary>
     /// Марка автомобиля.
@@ -66,21 +61,6 @@ public class VehicleDto
     public string Driver { get; set; } = string.Empty;
 
     /// <summary>
-    /// ФИО грузчика.
-    /// </summary>
-    public string Loader { get; set; } = string.Empty;
-
-    /// <summary>
-    /// ФИО экспедитора.
-    /// </summary>
-    public string Expeditor { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Подразделение.
-    /// </summary>
-    public string Department { get; set; } = string.Empty;
-
-    /// <summary>
     /// Количество замеров влажности, выполненных для данной машины.
     /// </summary>
     public int MeasurementsCount { get; set; }
@@ -93,18 +73,14 @@ public class CreateVehicleRequest
 {
     public string Number { get; set; } = string.Empty;
     public DateTimeOffset Date { get; set; }
-    public DateTimeOffset ArrivalDate { get; set; }
     public DateTimeOffset EntryDate { get; set; }
     public DateTimeOffset? ExitDate { get; set; }
     public string Counterparty { get; set; } = string.Empty;
-    public string WorkType { get; set; } = string.Empty;
+    public string? Inn { get; set; }
     public string VehicleBrand { get; set; } = string.Empty;
     public string VehiclePlate { get; set; } = string.Empty;
     public string Trailer { get; set; } = string.Empty;
     public string Driver { get; set; } = string.Empty;
-    public string Loader { get; set; } = string.Empty;
-    public string Expeditor { get; set; } = string.Empty;
-    public string Department { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -114,13 +90,10 @@ public class UpdateVehicleRequest
 {
     public string? Number { get; set; }
     public string? Counterparty { get; set; }
-    public string? WorkType { get; set; }
+    public string? Inn { get; set; }
     public string? VehicleBrand { get; set; }
     public string? VehiclePlate { get; set; }
     public string? Trailer { get; set; }
     public string? Driver { get; set; }
-    public string? Loader { get; set; }
-    public string? Expeditor { get; set; }
-    public string? Department { get; set; }
     public DateTimeOffset? ExitDate { get; set; }
 }

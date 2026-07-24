@@ -19,11 +19,6 @@ public class Vehicle : BaseEntity
     public DateTimeOffset Date { get; set; }
 
     /// <summary>
-    /// Дата приезда машины.
-    /// </summary>
-    public DateTimeOffset ArrivalDate { get; set; }
-
-    /// <summary>
     /// Дата въезда на площадку.
     /// </summary>
     public DateTimeOffset EntryDate { get; set; }
@@ -39,9 +34,9 @@ public class Vehicle : BaseEntity
     public string Counterparty { get; set; } = string.Empty;
 
     /// <summary>
-    /// Вид работ (например, "Разгрузка").
+    /// ИНН контрагента.
     /// </summary>
-    public string WorkType { get; set; } = string.Empty;
+    public string? Inn { get; set; }
 
     /// <summary>
     /// Марка автомобиля (например, "FAW", "KAMAZ").
@@ -62,21 +57,6 @@ public class Vehicle : BaseEntity
     /// ФИО водителя.
     /// </summary>
     public string Driver { get; set; } = string.Empty;
-
-    /// <summary>
-    /// ФИО грузчика.
-    /// </summary>
-    public string Loader { get; set; } = string.Empty;
-
-    /// <summary>
-    /// ФИО экспедитора.
-    /// </summary>
-    public string Expeditor { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Подразделение.
-    /// </summary>
-    public string Department { get; set; } = string.Empty;
 
     /// <summary>
     /// Коллекция замеров влажности, привязанных к данной машине.
