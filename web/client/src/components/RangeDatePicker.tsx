@@ -1,11 +1,11 @@
 import React, { useState, useRef, useLayoutEffect } from "react";
 import { FiCalendar } from "react-icons/fi";
-import moment from "moment";
+import { format, subDays, subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { ru } from "date-fns/locale";
 import { DateRange } from 'react-date-range';
 import type { Range, RangeKeyDict } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
-import { ru } from 'date-fns/locale';
 
 interface RangeDatePickerProps {
     startDate: Date | null;
@@ -89,7 +89,7 @@ const RangeDatePicker: React.FC<RangeDatePickerProps> = ({ startDate, endDate, o
         if (!startDate || !endDate) {
             return "Выберите диапазон дат";
         }
-        return `${moment(startDate).format("DD.MM.YYYY")} - ${moment(endDate).format("DD.MM.YYYY")}`;
+        return `${format(startDate, "dd.MM.yyyy")} - ${format(endDate, "dd.MM.yyyy")}`;
     };
 
     // Определяем классы для кнопки в зависимости от размера
@@ -109,7 +109,7 @@ const RangeDatePicker: React.FC<RangeDatePickerProps> = ({ startDate, endDate, o
             label: "Сегодня",
             icon: "🕐",
             getDates: () => {
-                const today = moment().toDate();
+                const today = new Date();
                 return [today, today] as [Date, Date];
             }
         },
@@ -117,7 +117,7 @@ const RangeDatePicker: React.FC<RangeDatePickerProps> = ({ startDate, endDate, o
             label: "Вчера",
             icon: "📅",
             getDates: () => {
-                const yesterday = moment().subtract(1, 'day').toDate();
+                const yesterday = subDays(new Date(), 1);
                 return [yesterday, yesterday] as [Date, Date];
             }
         },
@@ -125,8 +125,8 @@ const RangeDatePicker: React.FC<RangeDatePickerProps> = ({ startDate, endDate, o
             label: "Последние 7 дней",
             icon: "📆",
             getDates: () => {
-                const end = moment().toDate();
-                const start = moment().subtract(6, 'days').toDate();
+                const end = new Date();
+                const start = subDays(end, 6);
                 return [start, end] as [Date, Date];
             }
         },
@@ -134,8 +134,8 @@ const RangeDatePicker: React.FC<RangeDatePickerProps> = ({ startDate, endDate, o
             label: "Последние 30 дней",
             icon: "📊",
             getDates: () => {
-                const end = moment().toDate();
-                const start = moment().subtract(29, 'days').toDate();
+                const end = new Date();
+                const start = subDays(end, 29);
                 return [start, end] as [Date, Date];
             }
         },
@@ -143,8 +143,8 @@ const RangeDatePicker: React.FC<RangeDatePickerProps> = ({ startDate, endDate, o
             label: "Текущий месяц",
             icon: "🗓️",
             getDates: () => {
-                const start = moment().startOf('month').toDate();
-                const end = moment().endOf('month').toDate();
+                const start = startOfMonth(new Date());
+                const end = endOfMonth(new Date());
                 return [start, end] as [Date, Date];
             }
         },
@@ -152,8 +152,9 @@ const RangeDatePicker: React.FC<RangeDatePickerProps> = ({ startDate, endDate, o
             label: "Прошлый месяц",
             icon: "⏮️",
             getDates: () => {
-                const start = moment().subtract(1, 'month').startOf('month').toDate();
-                const end = moment().subtract(1, 'month').endOf('month').toDate();
+                const date = new Date();
+                const start = startOfMonth(subMonths(date, 1));
+                const end = endOfMonth(subMonths(date, 1));
                 return [start, end] as [Date, Date];
             }
         }
@@ -235,7 +236,7 @@ const RangeDatePicker: React.FC<RangeDatePickerProps> = ({ startDate, endDate, o
                         <div className="flex justify-between items-center p-6 border-t border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
                             <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
                                 {range.startDate && range.endDate && (
-                                    <>Выбрано: <span className="font-semibold text-gray-900 dark:text-white">{moment(range.startDate).format("DD.MM.YYYY")} - {moment(range.endDate).format("DD.MM.YYYY")}</span></>
+                                    <>Выбрано: <span className="font-semibold text-gray-900 dark:text-white">{format(range.startDate, "dd.MM.yyyy")} - {format(range.endDate, "dd.MM.yyyy")}</span></>
                                 )}
                             </div>
                             <div className="flex space-x-3">
