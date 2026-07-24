@@ -19,9 +19,9 @@ import toast from 'react-hot-toast';
 import { vehicleService } from '../services/api';
 import { useMeasurements } from '../hooks/useMeasurements';
 import { useMeasurementStatistics } from '../hooks/useMeasurementStatistics';
-import MeasurementList from '../components/MeasurementList';
-import MeasurementStatistics from '../components/MeasurementStatistics';
-import { SkeletonDetails, SkeletonMeasurementsList } from '../components/Skeleton'; // <-- импорт скелетонов
+import MeasurementList from '../components/vehicles/MeasurementList';
+import MeasurementStatistics from '../components/vehicles/MeasurementStatistics';
+import { SkeletonDetails, SkeletonMeasurementsList } from '../components/shared/Skeleton'; // <-- импорт скелетонов
 
 export default function VehicleDetailsPage() {
     const { id } = useParams<{ id: string }>();

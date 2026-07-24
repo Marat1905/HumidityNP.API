@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { FiSun, FiMoon } from 'react-icons/fi';
-import Layout from './components/Layout';
+import Layout from './components/vehicles/Layout';
 import MainPage from './pages/MainPage';
 import VehicleDetailsPage from './pages/VehicleDetailsPage';
 import './index.css';

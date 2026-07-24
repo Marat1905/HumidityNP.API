@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVehicles } from '../hooks/useVehicles';
-import Pagination from '../components/Pagination';
-import { SkeletonTable } from '../components/Skeleton';
+import Pagination from '../components/shared/Pagination';
+import { SkeletonTable } from '../components/shared/Skeleton';
 
 export default function VehiclesPage() {
     const navigate = useNavigate();

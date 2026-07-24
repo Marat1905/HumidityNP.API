@@ -1,6 +1,5 @@
-// src/components/ShiftReportCardView.tsx
 import React, { useState } from 'react';
-import type { ShiftReportItem, ShiftSummaryStats } from '../hooks/useShiftReport';
+import type { ShiftReportItem, ShiftSummaryStats } from '../../hooks/useShiftReport';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {

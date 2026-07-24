@@ -3,10 +3,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAllMeasurementsByDateRange } from '../hooks/useAllMeasurementsByDateRange';
-import RangeDatePicker from '../components/RangeDatePicker';
-import PeriodReportTable, { type PeriodReportItem, type PeriodSummaryStats } from '../components/PeriodReportTable';
-import PeriodReportCardView from '../components/PeriodReportCardView';
-import { SkeletonReport } from '../components/Skeleton';
+import RangeDatePicker from '../components/shared/RangeDatePicker';
+import PeriodReportTable, { type PeriodReportItem, type PeriodSummaryStats } from '../components/vehicles/PeriodReportTable';
+import PeriodReportCardView from '../components/vehicles/PeriodReportCardView';
+import { SkeletonReport } from '../components/shared/Skeleton';
 import { MeasurementSource } from '../types';
 import { LayoutGrid, Table } from 'lucide-react';
 

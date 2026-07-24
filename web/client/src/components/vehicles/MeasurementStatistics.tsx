@@ -1,5 +1,5 @@
 import { Calendar, Activity, Thermometer, Droplet, BarChart, Zap, PenTool, Clock } from 'lucide-react';
-import type { MeasurementStatisticsDto } from '../types';
+import type { MeasurementStatisticsDto } from '../../types';
 
 interface MeasurementStatisticsProps {
     stats: MeasurementStatisticsDto;

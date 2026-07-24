@@ -1,9 +1,9 @@
 // src/pages/ShiftReportsPage.tsx
 import { useState, useEffect } from 'react';
 import { useShiftReport, type ShiftType } from '../hooks/useShiftReport';
-import ShiftReportTable from '../components/ShiftReportTable';
-import ShiftReportCardView from '../components/ShiftReportCardView';
-import { SkeletonReport } from '../components/Skeleton';
+import ShiftReportTable from '../components/vehicles/ShiftReportTable';
+import ShiftReportCardView from '../components/vehicles/ShiftReportCardView';
+import { SkeletonReport } from '../components/shared/Skeleton';
 import { ChevronLeft, ChevronRight, Calendar, LayoutGrid, Table } from 'lucide-react';
 import { format, subDays, addDays, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';

@@ -1,9 +1,8 @@
-// src/pages/MainPage.tsx
 import { useState } from 'react';
 import VehiclesPage from './VehiclesPage';
 import MeasurementsPage from './MeasurementsPage';
 import ShiftReportsPage from './ShiftReportsPage';
-import ReportPeriodPage from './ReportPeriodPage'; // <-- новый импорт
+import ReportPeriodPage from './ReportPeriodPage';
 
 export default function MainPage() {
     const [activeTab, setActiveTab] = useState<'vehicles' | 'measurements' | 'reports' | 'period'>('vehicles');

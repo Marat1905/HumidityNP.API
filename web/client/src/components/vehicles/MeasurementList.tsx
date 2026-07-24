@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Pencil, Trash2, PenTool } from 'lucide-react';
-import { type MeasurementDto, SignType, MeasurementSource } from '../types';
-import Pagination from './Pagination';
+import { type MeasurementDto, SignType, MeasurementSource } from '../../types';
+import Pagination from '../shared/Pagination';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import MeasurementFormModal from './MeasurementFormModal';
-import { measurementService } from '../services/api';
+import { measurementService } from '../../services/api';
 import toast from 'react-hot-toast';
 
 interface MeasurementListProps {

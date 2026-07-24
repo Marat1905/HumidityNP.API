@@ -1,6 +1,4 @@
-// src/components/ShiftReportTable.tsx
 import React, { useState } from 'react';
-import type { ShiftReportItem, ShiftSummaryStats } from '../hooks/useShiftReport';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
@@ -16,15 +14,45 @@ import {
 } from 'lucide-react';
 import VehicleMeasurementsExpand from './VehicleMeasurementsExpand';
 
-interface ShiftReportTableProps {
-    items: ShiftReportItem[];
-    summary: ShiftSummaryStats;
+/**
+ * Элемент отчёта для одной машины.
+ */
+export interface PeriodReportItem {
+    vehicleId: string;
+    number: string;
+    vehiclePlate: string;
+    measurementsCount: number;
+    averageHumidity: number | null;
+    minHumidity: number | null;
+    maxHumidity: number | null;
+    autoCount: number;
+    manualCount: number;
+    lastMeasurementTimestamp: string | null;
 }
 
 /**
- * Табличное представление отчёта по смене с возможностью раскрытия замеров по машине.
+ * Общая статистика по периоду.
  */
-const ShiftReportTable: React.FC<ShiftReportTableProps> = ({ items, summary }) => {
+export interface PeriodSummaryStats {
+    vehicleCount: number;
+    totalMeasurements: number;
+    overallAverageHumidity: number | null;
+    overallMinHumidity: number | null;
+    overallMaxHumidity: number | null;
+    totalAutoCount: number;
+    totalManualCount: number;
+}
+
+interface PeriodReportTableProps {
+    items: PeriodReportItem[];
+    summary: PeriodSummaryStats;
+    periodLabel: string;
+}
+
+/**
+ * Табличное представление отчёта за период с возможностью раскрытия замеров по машине.
+ */
+const PeriodReportTable: React.FC<PeriodReportTableProps> = ({ items, summary, periodLabel }) => {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
     const toggleExpand = (vehicleId: string) => {
@@ -43,13 +71,18 @@ const ShiftReportTable: React.FC<ShiftReportTableProps> = ({ items, summary }) =
         return (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
                 <Activity className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-                <p>За выбранную смену нет замеров.</p>
+                <p>За выбранный период нет замеров.</p>
             </div>
         );
     }
 
     return (
         <div>
+            {/* Заголовок с периодом */}
+            <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
+                Период: <span className="font-semibold">{periodLabel}</span>
+            </div>
+
             {/* Блок общей статистики */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 shadow-sm border border-blue-200 dark:border-blue-800">
@@ -270,4 +303,4 @@ const ShiftReportTable: React.FC<ShiftReportTableProps> = ({ items, summary }) =
     );
 };
 
-export default ShiftReportTable;
+export default PeriodReportTable;

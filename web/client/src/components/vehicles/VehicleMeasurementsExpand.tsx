@@ -1,11 +1,10 @@
-// src/components/VehicleMeasurementsExpand.tsx
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { useMeasurements } from '../hooks/useMeasurements';
-import Pagination from './Pagination';
-import { SkeletonMeasurementsList } from './Skeleton';
-import type { MeasurementDto, SignType, MeasurementSource } from '../types';
+import { useMeasurements } from '../../hooks/useMeasurements';
+import Pagination from '../shared/Pagination';
+import { SkeletonMeasurementsList } from '../shared/Skeleton';
+import type { MeasurementDto, SignType, MeasurementSource } from '../../types';
 
 interface VehicleMeasurementsExpandProps {
     vehicleId: string;
