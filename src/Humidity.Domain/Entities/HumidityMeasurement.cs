@@ -29,14 +29,14 @@ public class HumidityMeasurement : BaseEntity
     public double TemperatureC { get; set; }
 
     /// <summary>
-    /// Тип измерения (из BLE-протокола).
+    /// Тип измерения (из BLE-протокола). Может быть null, если не указан.
     /// </summary>
-    public string MeasurementType { get; set; } = string.Empty;
+    public string? MeasurementType { get; set; }
 
     /// <summary>
-    /// Материал, для которого выполнен замер.
+    /// Материал, для которого выполнен замер. Может быть null, если не указан.
     /// </summary>
-    public string Material { get; set; } = string.Empty;
+    public string? Material { get; set; }
 
     /// <summary>
     /// Источник данных: Auto (датчик) или Manual (вручную).
@@ -49,7 +49,7 @@ public class HumidityMeasurement : BaseEntity
     public DateTimeOffset Timestamp { get; set; }
 
     /// <summary>
-    /// Знак для BLE-данных (Less/Greater/None).
+    /// Знак для BLE-данных (Less/Greater/None). По умолчанию None.
     /// </summary>
-    public SignType Sign { get; set; }
+    public SignType Sign { get; set; } = SignType.None;
 }

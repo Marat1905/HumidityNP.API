@@ -38,14 +38,14 @@ public class MeasurementDto
     public double TemperatureC { get; set; }
 
     /// <summary>
-    /// Тип измерения.
+    /// Тип измерения. Может быть null.
     /// </summary>
-    public string MeasurementType { get; set; } = string.Empty;
+    public string? MeasurementType { get; set; }
 
     /// <summary>
-    /// Материал.
+    /// Материал. Может быть null.
     /// </summary>
-    public string Material { get; set; } = string.Empty;
+    public string? Material { get; set; }
 
     /// <summary>
     /// Источник данных (Auto/Manual).
@@ -83,11 +83,11 @@ public class CreateMeasurementRequest
     public Guid VehicleId { get; set; }
     public double HumidityValue { get; set; }
     public double TemperatureC { get; set; }
-    public string MeasurementType { get; set; } = string.Empty;
-    public string Material { get; set; } = string.Empty;
+    public string? MeasurementType { get; set; }
+    public string? Material { get; set; }
     public MeasurementSource Source { get; set; }
     public DateTimeOffset Timestamp { get; set; }
-    public SignType Sign { get; set; }
+    public SignType Sign { get; set; } = SignType.None; // явное значение по умолчанию
 }
 
 /// <summary>

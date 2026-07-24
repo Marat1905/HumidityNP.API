@@ -7,6 +7,7 @@ namespace Humidity.Application.Validators;
 /// <summary>
 /// Валидатор для запроса на создание замера влажности (CreateMeasurementRequest).
 /// Проверяет обязательность полей, диапазоны числовых значений, корректность даты и допустимость перечислений.
+/// MeasurementType и Material теперь необязательны (могут быть null).
 /// </summary>
 public class CreateMeasurementRequestValidator : AbstractValidator<CreateMeasurementRequest>
 {
@@ -26,14 +27,12 @@ public class CreateMeasurementRequestValidator : AbstractValidator<CreateMeasure
             .InclusiveBetween(-50, 100)
             .WithMessage("Температура должна быть в диапазоне от -50 до +100 °C.");
 
-        // Тип измерения: обязателен, максимум 50 символов
+        // Тип измерения: необязателен, но если указан, максимум 50 символов
         RuleFor(x => x.MeasurementType)
-            .NotEmpty().WithMessage("Тип измерения обязателен.")
             .MaximumLength(50).WithMessage("Тип измерения не может быть длиннее 50 символов.");
 
-        // Материал: обязателен, максимум 100 символов
+        // Материал: необязателен, но если указан, максимум 100 символов
         RuleFor(x => x.Material)
-            .NotEmpty().WithMessage("Материал обязателен.")
             .MaximumLength(100).WithMessage("Материал не может быть длиннее 100 символов.");
 
         // Источник данных: проверяем, что переданное значение определено в перечислении
@@ -70,11 +69,11 @@ public class UpdateMeasurementRequestValidator : AbstractValidator<UpdateMeasure
             .InclusiveBetween(-50, 100)
             .WithMessage("Температура должна быть в диапазоне от -50 до +100 °C.");
 
-        // Тип измерения: максимум 50 символов
+        // Тип измерения: максимум 50 символов (если указан)
         RuleFor(x => x.MeasurementType)
             .MaximumLength(50).WithMessage("Тип измерения не может быть длиннее 50 символов.");
 
-        // Материал: максимум 100 символов
+        // Материал: максимум 100 символов (если указан)
         RuleFor(x => x.Material)
             .MaximumLength(100).WithMessage("Материал не может быть длиннее 100 символов.");
 
