@@ -3,7 +3,6 @@ using Humidity.Application.Interfaces;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
 using Microsoft.Extensions.Options;
-using Serilog;
 
 namespace Humidity.API.BackgroundServices;
 
@@ -19,19 +18,13 @@ public class OneCSyncBackgroundService : BackgroundService
     private readonly OneCIntegrationSettings _settings;
 
     public OneCSyncBackgroundService(
-     ILogger<OneCSyncBackgroundService> logger,
-     IServiceProvider serviceProvider,
-     IOptions<OneCIntegrationSettings> options)
+        ILogger<OneCSyncBackgroundService> logger,
+        IServiceProvider serviceProvider,
+        IOptions<OneCIntegrationSettings> options)
     {
         _logger = logger;
         _serviceProvider = serviceProvider;
         _settings = options.Value;
-
-        // Лог в конструкторе – проверит, работает ли внедрённый логгер
-        _logger.LogInformation("Конструктор OneCSyncBackgroundService вызван");
-
-        // Статический Serilog – проверит, работает ли глобальный логгер
-        Log.Information("Статический Serilog: конструктор OneCSyncBackgroundService");
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
