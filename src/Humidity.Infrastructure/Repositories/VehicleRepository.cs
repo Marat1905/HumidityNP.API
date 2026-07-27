@@ -1,4 +1,5 @@
-﻿using Humidity.Domain.Common;
+﻿// Infrastructure/Repositories/VehicleRepository.cs
+using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
 using Humidity.Infrastructure.Data;
@@ -122,6 +123,20 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
             .ToListAsync(cancellationToken);
 
         return new HashSet<Guid>(existingIds);
+    }
+
+    /// <summary>
+    /// Найти машину по номеру пропуска и дате создания пропуска.
+    /// Используется для синхронизации с 1С для однозначной идентификации записи.
+    /// </summary>
+    /// <param name="number">Номер пропуска.</param>
+    /// <param name="date">Дата создания пропуска.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Сущность Vehicle или null, если не найдена.</returns>
+    public async Task<Vehicle?> GetByNumberAndDateAsync(string number, DateTimeOffset date, CancellationToken cancellationToken = default)
+    {
+        return await _context.Vehicles
+            .FirstOrDefaultAsync(v => v.Number == number && v.Date == date, cancellationToken);
     }
 
     /// <summary>

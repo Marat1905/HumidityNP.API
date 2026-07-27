@@ -1,17 +1,24 @@
 using Asp.Versioning;
-using AspNetCoreRateLimit; 
+using AspNetCoreRateLimit;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using HealthChecks.NpgSql;
+using Humidity.API.BackgroundServices;
 using Humidity.API.Middleware;
 using Humidity.Application;
+using Humidity.Application.Interfaces;
+using Humidity.Application.Services;
 using Humidity.Application.Validators;
 using Humidity.Infrastructure;
 using Humidity.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
+using Polly;
+using Polly.Extensions.Http;
 using Serilog;
 using Swashbuckle.AspNetCore.SwaggerGen;
+using System.Text;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -94,19 +101,60 @@ builder.Services.AddCors(options =>
     });
 });
 
-// ========== НОВОЕ: РЕГИСТРАЦИЯ RATE LIMITING ==========
+// ========== НАСТРОЙКА RATE LIMITING ==========
 builder.Services.AddMemoryCache();
 builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
 builder.Services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
 builder.Services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounterStore>();
 builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
-builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrategy>(); // или AspNetCoreRateLimit
-// Если используется AspNetCoreRateLimit 5.0, IProcessingStrategy регистрируется автоматически, 
-// но для явности оставляем.
+builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrategy>();
 
-// Add layers
+// ========== РЕГИСТРАЦИЯ СЛОЁВ ==========
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// ========== НАСТРОЙКА ИНТЕГРАЦИИ С 1С ==========
+// Регистрация настроек
+builder.Services.Configure<OneCIntegrationSettings>(
+    builder.Configuration.GetSection("OneCIntegration"));
+
+// Регистрация HTTP-клиента для 1С с политикой повторных попыток
+builder.Services.AddHttpClient<IOneCClient, OneCClient>((serviceProvider, client) =>
+{
+    var settings = serviceProvider.GetRequiredService<IOptions<OneCIntegrationSettings>>().Value;
+    client.BaseAddress = new Uri(settings.ServiceUrl);
+
+    // Базовая аутентификация
+    var byteArray = Encoding.ASCII.GetBytes($"{settings.Username}:{settings.Password}");
+    client.DefaultRequestHeaders.Authorization =
+        new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(byteArray));
+})
+.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+        ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
+})
+.AddPolicyHandler((serviceProvider, request) =>
+{
+    var settings = serviceProvider.GetRequiredService<IOptions<OneCIntegrationSettings>>().Value;
+    var logger = serviceProvider.GetRequiredService<ILogger<OneCClient>>();
+
+    return HttpPolicyExtensions
+        .HandleTransientHttpError() // обрабатывает HTTP 5xx, 408, HttpRequestException
+        .OrResult(r => !r.IsSuccessStatusCode && (int)r.StatusCode >= 500) // явно серверные ошибки
+        .WaitAndRetryAsync(
+            settings.RetryCount,
+            retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt) * settings.RetryBaseDelaySeconds),
+            onRetry: (outcome, timespan, retryCount, context) =>
+            {
+                logger.LogWarning("Попытка {RetryCount} вызова 1С не удалась, повтор через {Delay:F0} мс. Ошибка: {Error}",
+                    retryCount,
+                    timespan.TotalMilliseconds,
+                    outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString());
+            });
+});
+
+// Регистрация фонового сервиса синхронизации
+builder.Services.AddHostedService<OneCSyncBackgroundService>();
 
 // Logging - уже настроен Serilog, дополнительная регистрация не требуется
 
@@ -120,7 +168,7 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
-// ========== НОВОЕ: ДОБАВЛЯЕМ ПРОМЕЖУТОЧНОЕ ПО RATE LIMITING ==========
+// ========== ДОБАВЛЯЕМ ПРОМЕЖУТОЧНОЕ ПО RATE LIMITING ==========
 // Должно быть добавлено до других middleware, но после использования CORS.
 app.UseIpRateLimiting();
 

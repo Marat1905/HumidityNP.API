@@ -1,4 +1,5 @@
-﻿using Humidity.Domain.Common;
+﻿// Domain/Interfaces/IVehicleRepository.cs
+using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
 
 namespace Humidity.Domain.Interfaces;
@@ -49,4 +50,14 @@ public interface IVehicleRepository : IRepository<Vehicle>
     /// <param name="cancellationToken">Токен отмены операции.</param>
     /// <returns>HashSet существующих идентификаторов для быстрого поиска.</returns>
     Task<HashSet<Guid>> GetExistingIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Найти машину по номеру пропуска и дате создания пропуска.
+    /// Используется для синхронизации с 1С, чтобы однозначно идентифицировать запись.
+    /// </summary>
+    /// <param name="number">Номер пропуска.</param>
+    /// <param name="date">Дата создания пропуска.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Сущность Vehicle или null, если не найдена.</returns>
+    Task<Vehicle?> GetByNumberAndDateAsync(string number, DateTimeOffset date, CancellationToken cancellationToken = default);
 }
