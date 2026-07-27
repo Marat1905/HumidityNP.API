@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import {
     ArrowLeft,
     Truck,
@@ -14,7 +14,7 @@ import {
     Clock,
     CheckCircle,
     XCircle,
-    FileText // для ИНН
+    FileText
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { vehicleService } from '../services/api';
@@ -26,6 +26,7 @@ import { SkeletonDetails, SkeletonMeasurementsList } from '../components/shared/
 
 export default function VehicleDetailsPage() {
     const { id } = useParams<{ id: string }>();
+    const [searchParams] = useSearchParams();
     const [vehicle, setVehicle] = useState<any>(null);
     const [loadingVehicle, setLoadingVehicle] = useState(true);
 
@@ -77,11 +78,16 @@ export default function VehicleDetailsPage() {
         });
     };
 
+    // Формируем путь для ссылки «Главная» с сохранением параметров пагинации
+    const mainPagePath = searchParams.toString() ? `/?${searchParams.toString()}` : '/';
+
     return (
         <div>
             {/* Хлебные крошки */}
             <nav className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-4">
-                <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-400 transition">Главная</Link>
+                <Link to={mainPagePath} className="hover:text-blue-600 dark:hover:text-blue-400 transition">
+                    Главная
+                </Link>
                 <span>/</span>
                 <span className="text-gray-700 dark:text-gray-300 font-medium">{vehicle.number}</span>
             </nav>
