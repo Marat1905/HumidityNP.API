@@ -2,7 +2,6 @@ using Asp.Versioning;
 using AspNetCoreRateLimit;
 using FluentValidation;
 using FluentValidation.AspNetCore;
-using HealthChecks.NpgSql;
 using Humidity.API.BackgroundServices;
 using Humidity.API.Middleware;
 using Humidity.Application;
@@ -23,15 +22,14 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. НАСТРОЙКА SERILOG
-Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration)
-    .Enrich.FromLogContext()
-    .Enrich.WithMachineName()
-    .Enrich.WithThreadId()
-    .CreateLogger();
-
-builder.Host.UseSerilog();
+// 1. НАСТРОЙКА SERILOG (Исправленный и безопасный паттерн)
+builder.Host.UseSerilog((context, configuration) =>
+{
+    configuration.ReadFrom.Configuration(context.Configuration)
+                 .Enrich.FromLogContext()
+                 .Enrich.WithMachineName()
+                 .Enrich.WithThreadId();
+});
 
 // 2. РЕГИСТРАЦИЯ FLUENT VALIDATION
 // Автоматически находит все классы, наследующие AbstractValidator, в указанной сборке
@@ -131,7 +129,7 @@ builder.Services.AddHttpClient<IOneCClient, OneCClient>((serviceProvider, client
 })
 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
 {
-        ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
+    ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
 })
 .AddPolicyHandler((serviceProvider, request) =>
 {
@@ -167,6 +165,8 @@ builder.Services.AddHealthChecks()
         tags: new[] { "db", "postgresql" });
 
 var app = builder.Build();
+
+// ========== MIDDLEWARE PIPELINE ==========
 
 // ========== ДОБАВЛЯЕМ ПРОМЕЖУТОЧНОЕ ПО RATE LIMITING ==========
 // Должно быть добавлено до других middleware, но после использования CORS.
@@ -212,9 +212,10 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
     }
 });
 
+// ========== ИНИЦИАЛИЗАЦИЯ И ЗАПУСК (ИСПРАВЛЕНО) ==========
 try
 {
-    // Initialize database
+    // 1. Инициализируем базу данных
     using (var scope = app.Services.CreateScope())
     {
         var context = scope.ServiceProvider.GetRequiredService<HumidityDbContext>();
@@ -231,19 +232,25 @@ try
             context.Database.Migrate();
         }
     }
+
+    // 2. Логируем успешный запуск (теперь этот лог ГАРАНТИРОВАННО запишется)
+    app.Logger.LogInformation("=== ПРИЛОЖЕНИЕ УСПЕШНО ЗАПУЩЕНО И ГОТОВО К РАБОТЕ ===");
+
+    // 3. Запускаем веб-сервер (блокирует выполнение до остановки приложения)
+    await app.RunAsync();
 }
 catch (Exception ex)
 {
-    // Используем Serilog для логирования фатальной ошибки
-    Log.Fatal(ex, "Database initialization failed");
+    // Логируем фатальную ошибку, если приложение не смогло запуститься
+    Log.Fatal(ex, "Application startup or database initialization failed");
 }
 finally
 {
-    // Обеспечиваем корректное завершение работы логгера
+    // 4. Закрываем логгер ТОЛЬКО при реальном завершении работы приложения (например, по Ctrl+C)
     Log.CloseAndFlush();
 }
 
-app.Run();
+// ========== ВСПОМОГАТЕЛЬНЫЕ КЛАССЫ ==========
 
 /// <summary>
 /// Фильтр для Swagger, который заменяет {version} в пути на актуальное значение версии.

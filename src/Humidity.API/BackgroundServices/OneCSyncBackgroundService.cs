@@ -31,6 +31,22 @@ public class OneCSyncBackgroundService : BackgroundService
     {
         _logger.LogInformation("Сервис синхронизации с 1С запущен.");
 
+        // ========== ВАРИАНТ 1: Запускаем полную синхронизацию сразу при старте ==========
+        // Выполняем полную синхронизацию один раз до запуска фоновых циклов,
+        // чтобы данные были актуальны с самого начала работы приложения.
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            var from = now.AddDays(-_settings.FullSyncFetchDays);
+            var to = now;
+            _logger.LogInformation("Запуск первоначальной полной синхронизации за период с {From} по {To}", from, to);
+            await SyncVehiclesAsync(from, to, stoppingToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Ошибка при первоначальной полной синхронизации.");
+        }
+
         // Запускаем две независимые задачи: инкрементальную и полную синхронизацию
         var incrementalTask = RunIncrementalSync(stoppingToken);
         var fullSyncTask = RunFullSync(stoppingToken);
@@ -74,6 +90,7 @@ public class OneCSyncBackgroundService : BackgroundService
         {
             try
             {
+                // Ждём интервал перед следующим запуском (12 часов по умолчанию)
                 await Task.Delay(TimeSpan.FromHours(_settings.FullSyncIntervalHours), stoppingToken);
 
                 var now = DateTimeOffset.UtcNow;

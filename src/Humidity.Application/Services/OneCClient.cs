@@ -74,6 +74,7 @@ public class OneCClient : IOneCClient
     /// <summary>
     /// Парсит XML-ответ 1С и извлекает таблицу с данными машин.
     /// Формат ответа представляет собой JSON-подобную структуру, вложенную в XML-элемент return.
+    /// ВНИМАНИЕ: Исправлена ошибка KeyNotFoundException путём безопасного получения свойств через TryGetProperty.
     /// </summary>
     private IEnumerable<OneCVehicleDto> ParseVehicles(string xmlContent)
     {
@@ -85,31 +86,69 @@ public class OneCClient : IOneCClient
         var returnElement = doc.Descendants(ns + "return").FirstOrDefault();
         if (returnElement == null)
         {
+            _logger.LogError("В ответе 1С не найден элемент return. XML: {XmlContent}", xmlContent);
             throw new InvalidOperationException("В ответе 1С не найден элемент return.");
         }
 
         // Извлекаем JSON-текст из элемента return
         var jsonText = returnElement.Value.Trim();
 
+        // Проверяем, не пустой ли JSON
+        if (string.IsNullOrEmpty(jsonText))
+        {
+            _logger.LogError("Элемент return пуст. XML: {XmlContent}", xmlContent);
+            throw new InvalidOperationException("Элемент return пуст.");
+        }
+
         // Десериализуем JSON в промежуточную структуру
         using var document = JsonDocument.Parse(jsonText);
         var root = document.RootElement;
-        var valueElement = root.GetProperty("#value");
+
+        // Безопасно получаем свойство "#value" (используем TryGetProperty вместо GetProperty)
+        if (!root.TryGetProperty("#value", out var valueElement))
+        {
+            _logger.LogError("В JSON-ответе отсутствует свойство #value. JSON: {JsonText}", jsonText);
+            throw new InvalidOperationException("Некорректный формат ответа от 1С: отсутствует #value.");
+        }
 
         // Получаем список колонок и их имена
-        var columnElement = valueElement.GetProperty("column");
+        if (!valueElement.TryGetProperty("column", out var columnElement))
+        {
+            _logger.LogError("В JSON-ответе отсутствует свойство column. JSON: {JsonText}", jsonText);
+            throw new InvalidOperationException("Некорректный формат ответа от 1С: отсутствует column.");
+        }
+
         var columnNames = new List<string>();
         foreach (var col in columnElement.EnumerateArray())
         {
-            var nameProp = col.GetProperty("Name");
-            var name = nameProp.GetProperty("#value").GetString();
-            columnNames.Add(name!);
+            // Безопасно получаем имя колонки
+            if (col.TryGetProperty("Name", out var nameProp) &&
+                nameProp.TryGetProperty("#value", out var nameValue))
+            {
+                columnNames.Add(nameValue.GetString() ?? string.Empty);
+            }
+            else
+            {
+                _logger.LogWarning("Пропущена колонка без имени: {Col}", col);
+            }
+        }
+
+        // Если не удалось получить имена колонок – возвращаем пустой результат
+        if (columnNames.Count == 0)
+        {
+            _logger.LogWarning("Не найдено ни одной колонки в ответе 1С.");
+            return Enumerable.Empty<OneCVehicleDto>();
         }
 
         // Получаем строки данных
-        var rowElement = valueElement.GetProperty("row");
-        var rows = rowElement.EnumerateArray();
+        if (!valueElement.TryGetProperty("row", out var rowElement))
+        {
+            // Если строк нет – это не ошибка, просто возвращаем пустой список
+            _logger.LogInformation("В ответе 1С нет строк (row).");
+            return Enumerable.Empty<OneCVehicleDto>();
+        }
 
+        var rows = rowElement.EnumerateArray();
         var result = new List<OneCVehicleDto>();
 
         foreach (var row in rows)
@@ -135,23 +174,21 @@ public class OneCClient : IOneCClient
                 dict[columnNames[i]] = val;
             }
 
-            // Извлекаем значения
-            var number = dict["НомерПропуска"] ?? string.Empty;
-            var date = ParseDateTimeOffset(dict["ДатаПропуска"]);
-            var entryDate = ParseDateTimeOffset(dict["ДатаВъезда"]);
-            var exitDate = ParseDateTimeOffset(dict["ДатаВыезда"]);
-            var vehicleBrand = dict["ТранспортМарка"] ?? string.Empty;
-            var vehiclePlate = dict["ТранспортГосНомер"] ?? string.Empty;
-            var trailer = dict["Прицеп"] ?? string.Empty;
-            var counterparty = dict["Поставщик"] ?? string.Empty;
-            var inn = dict["ИННПоставщика"];
-            var driver = dict["Водитель"] ?? string.Empty;
-
-            // Проверяем обязательные поля
-            if (string.IsNullOrEmpty(number) || date == null || entryDate == null)
+            // Извлекаем значения с проверкой наличия ключей (используем GetValueOrDefault)
+            // Номер пропуска обязателен
+            if (!dict.TryGetValue("НомерПропуска", out var number) || string.IsNullOrEmpty(number))
             {
-                _logger.LogWarning("Пропущена запись с некорректными данными: Номер={Number}, Дата={Date}",
-                    number, date);
+                _logger.LogWarning("Пропущена строка без номера пропуска.");
+                continue;
+            }
+
+            var date = ParseDateTimeOffset(dict.GetValueOrDefault("ДатаПропуска"));
+            var entryDate = ParseDateTimeOffset(dict.GetValueOrDefault("ДатаВъезда"));
+
+            // Дата пропуска и дата въезда обязательны
+            if (date == null || entryDate == null)
+            {
+                _logger.LogWarning("Пропущена строка с некорректной датой: Номер={Number}", number);
                 continue;
             }
 
@@ -160,13 +197,13 @@ public class OneCClient : IOneCClient
                 Number = number,
                 Date = date.Value,
                 EntryDate = entryDate.Value,
-                ExitDate = exitDate, // если дата = 0001-01-01, то вернётся null
-                VehicleBrand = vehicleBrand,
-                VehiclePlate = vehiclePlate,
-                Trailer = trailer,
-                Counterparty = counterparty,
-                Inn = inn,
-                Driver = driver
+                ExitDate = ParseDateTimeOffset(dict.GetValueOrDefault("ДатаВыезда")),
+                VehicleBrand = dict.GetValueOrDefault("ТранспортМарка") ?? string.Empty,
+                VehiclePlate = dict.GetValueOrDefault("ТранспортГосНомер") ?? string.Empty,
+                Trailer = dict.GetValueOrDefault("Прицеп") ?? string.Empty,
+                Counterparty = dict.GetValueOrDefault("Поставщик") ?? string.Empty,
+                Inn = dict.GetValueOrDefault("ИННПоставщика"),
+                Driver = dict.GetValueOrDefault("Водитель") ?? string.Empty
             };
 
             result.Add(dto);
@@ -196,5 +233,21 @@ public class OneCClient : IOneCClient
         }
 
         return null;
+    }
+}
+
+/// <summary>
+/// Вспомогательные методы расширения для безопасной работы со словарём.
+/// </summary>
+internal static class DictionaryExtensions
+{
+    /// <summary>
+    /// Безопасно получает значение из словаря по ключу; если ключ отсутствует, возвращает default (null для ссылочных типов).
+    /// </summary>
+    public static TValue? GetValueOrDefault<TKey, TValue>(this Dictionary<TKey, TValue> dict, TKey key)
+        where TKey : notnull
+    {
+        dict.TryGetValue(key, out var value);
+        return value;
     }
 }
