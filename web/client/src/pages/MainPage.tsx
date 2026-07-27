@@ -3,9 +3,10 @@ import VehiclesPage from './VehiclesPage';
 import MeasurementsPage from './MeasurementsPage';
 import ShiftReportsPage from './ShiftReportsPage';
 import ReportPeriodPage from './ReportPeriodPage';
+import SuppliersPage from './SuppliersPage'; // импорт
 
 export default function MainPage() {
-    const [activeTab, setActiveTab] = useState<'vehicles' | 'measurements' | 'reports' | 'period'>('vehicles');
+    const [activeTab, setActiveTab] = useState<'vehicles' | 'measurements' | 'reports' | 'period' | 'suppliers'>('vehicles');
 
     return (
         <div>
@@ -13,7 +14,7 @@ export default function MainPage() {
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
                     Контроль влажности макулатуры
                 </h1>
-                <nav className="flex gap-6">
+                <nav className="flex gap-6 flex-wrap">
                     <button
                         onClick={() => setActiveTab('vehicles')}
                         className={`pb-3 px-1 text-sm font-medium transition-colors ${activeTab === 'vehicles'
@@ -41,7 +42,6 @@ export default function MainPage() {
                     >
                         Отчёты по сменам
                     </button>
-                    {/* Новая вкладка */}
                     <button
                         onClick={() => setActiveTab('period')}
                         className={`pb-3 px-1 text-sm font-medium transition-colors ${activeTab === 'period'
@@ -51,6 +51,15 @@ export default function MainPage() {
                     >
                         Отчёт за период
                     </button>
+                    <button
+                        onClick={() => setActiveTab('suppliers')}
+                        className={`pb-3 px-1 text-sm font-medium transition-colors ${activeTab === 'suppliers'
+                                ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                            }`}
+                    >
+                        Поставщики
+                    </button>
                 </nav>
             </div>
 
@@ -58,6 +67,7 @@ export default function MainPage() {
             {activeTab === 'measurements' && <MeasurementsPage />}
             {activeTab === 'reports' && <ShiftReportsPage />}
             {activeTab === 'period' && <ReportPeriodPage />}
+            {activeTab === 'suppliers' && <SuppliersPage />}
         </div>
     );
 }

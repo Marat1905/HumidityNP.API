@@ -93,4 +93,23 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить сводку по поставщикам (группировка по ИНН) за период с пагинацией.
+    /// </summary>
+    Task<PagedResult<SupplierDto>> GetSuppliersSummaryAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить детальную информацию по поставщику (ИНН) за период.
+    /// </summary>
+    Task<SupplierDetailsDto> GetSupplierDetailsAsync(
+        string inn,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default);
 }

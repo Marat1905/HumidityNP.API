@@ -120,3 +120,37 @@ export interface MeasurementStatisticsDto {
     /** Количество автоматических замеров */
     autoCount: number;
 }
+
+// ===== Поставщики =====
+
+export interface SupplierDto {
+    inn: string;
+    counterparty: string;
+    vehiclesCount: number;
+    totalMeasurements: number;
+    averageHumidity: number | null;
+    minHumidity: number | null;
+    maxHumidity: number | null;
+}
+
+export interface SupplierVehicleSummaryDto {
+    vehicleId: string;
+    number: string;
+    vehiclePlate: string;
+    entryDate: string;
+    exitDate?: string;
+    measurementsCount: number;
+    averageHumidity: number | null;
+    minHumidity: number | null;
+    maxHumidity: number | null;
+    autoCount: number;
+    manualCount: number;
+    lastMeasurementTimestamp: string | null;
+}
+
+export interface SupplierDetailsDto {
+    inn: string;
+    counterparty: string;
+    vehicles: SupplierVehicleSummaryDto[];
+    overallStatistics: MeasurementStatisticsDto;
+}

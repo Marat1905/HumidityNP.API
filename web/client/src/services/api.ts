@@ -2,7 +2,9 @@ import axios from 'axios';
 import type {
     VehicleDto, CreateVehicleRequest, UpdateVehicleRequest,
     MeasurementDto, CreateMeasurementRequest, UpdateMeasurementRequest,
-    PagedResult, MeasurementStatisticsDto
+    PagedResult, MeasurementStatisticsDto,
+    SupplierDetailsDto,
+    SupplierDto
 } from '../types';
 
 const API_BASE_URL = '/api/v1';
@@ -110,6 +112,37 @@ export const measurementService = {
      */
     async getStatisticsByVehicle(vehicleId: string): Promise<MeasurementStatisticsDto> {
         const response = await apiClient.get(`/measurements/vehicle/${vehicleId}/statistics`);
+        return response.data;
+    }
+};
+
+export const supplierService = {
+    /**
+     * Получить список поставщиков с агрегацией за период.
+     */
+    async getSuppliers(
+        from: string,
+        to: string,
+        pageNumber = 1,
+        pageSize = 20
+    ): Promise<PagedResult<SupplierDto>> {
+        const response = await apiClient.get('/suppliers', {
+            params: { from, to, pageNumber, pageSize }
+        });
+        return response.data;
+    },
+
+    /**
+     * Получить детальную информацию по поставщику за период.
+     */
+    async getSupplierDetails(
+        inn: string,
+        from: string,
+        to: string
+    ): Promise<SupplierDetailsDto> {
+        const response = await apiClient.get(`/suppliers/${inn}/details`, {
+            params: { from, to }
+        });
         return response.data;
     }
 };

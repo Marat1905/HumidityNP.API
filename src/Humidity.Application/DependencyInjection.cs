@@ -24,6 +24,7 @@ public static class DependencyInjection
         // Регистрация бизнес-сервисов
         services.AddScoped<IVehicleService, VehicleService>();
         services.AddScoped<IMeasurementService, MeasurementService>();
+        services.AddScoped<ISupplierService, SupplierService>();
 
         return services;
     }
