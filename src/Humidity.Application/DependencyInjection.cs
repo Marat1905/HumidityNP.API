@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<IVehicleService, VehicleService>();
         services.AddScoped<IMeasurementService, MeasurementService>();
         services.AddScoped<ISupplierService, SupplierService>();
+        services.AddSingleton<IOneCHealthStatusService, OneCHealthStatusService>();
 
         return services;
     }
