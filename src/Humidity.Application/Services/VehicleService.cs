@@ -77,6 +77,51 @@ public class VehicleService : IVehicleService
         return result;
     }
 
+    // НОВЫЙ МЕТОД С ФИЛЬТРАМИ
+    public async Task<PagedResult<VehicleDto>> GetFilteredPagedAsync(
+        int pageNumber,
+        int pageSize,
+        string? counterparty,
+        bool? isActive,
+        string? plate,
+        string? driver,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Запрос отфильтрованной страницы машин: номер {PageNumber}, размер {PageSize}, " +
+            "поставщик='{Counterparty}', статус={IsActive}, госномер='{Plate}', водитель='{Driver}'",
+            pageNumber, pageSize, counterparty, isActive, plate, driver);
+
+        // Получаем данные из репозитория с фильтрами
+        var pagedResult = await _repository.GetFilteredPagedAsync(
+            pageNumber, pageSize, counterparty, isActive, plate, driver, cancellationToken);
+
+        var items = _mapper.Map<IEnumerable<VehicleDto>>(pagedResult.Items).ToList();
+
+        // Подсчёт количества замеров для каждой машины
+        if (items.Any())
+        {
+            var vehicleIds = items.Select(v => v.Id).Distinct().ToList();
+            var measurementsCounts = await _measurementRepository.GetCountsByVehicleIdsAsync(vehicleIds, cancellationToken);
+            foreach (var dto in items)
+            {
+                dto.MeasurementsCount = measurementsCounts.TryGetValue(dto.Id, out var count) ? count : 0;
+            }
+        }
+
+        var result = new PagedResult<VehicleDto>
+        {
+            Items = items,
+            TotalCount = pagedResult.TotalCount,
+            PageNumber = pagedResult.PageNumber,
+            PageSize = pagedResult.PageSize,
+            TotalPages = pagedResult.TotalPages
+        };
+
+        _logger.LogInformation("Возвращено {Count} машин из {TotalCount} после фильтрации",
+            result.Items.Count(), result.TotalCount);
+        return result;
+    }
+
     public async Task<VehicleDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Запрос машины по id: {VehicleId}", id);

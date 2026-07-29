@@ -154,3 +154,13 @@ export interface SupplierDetailsDto {
     vehicles: SupplierVehicleSummaryDto[];
     overallStatistics: MeasurementStatisticsDto;
 }
+
+// НОВЫЙ ИНТЕРФЕЙС ДЛЯ ПАРАМЕТРОВ ЗАПРОСА
+export interface VehiclesQueryParams {
+    pageNumber?: number;
+    pageSize?: number;
+    counterparty?: string;
+    status?: 'active' | 'exited' | 'all';
+    plate?: string;
+    driver?: string;
+}

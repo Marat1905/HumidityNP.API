@@ -4,7 +4,8 @@ import type {
     MeasurementDto, CreateMeasurementRequest, UpdateMeasurementRequest,
     PagedResult, MeasurementStatisticsDto,
     SupplierDetailsDto,
-    SupplierDto
+    SupplierDto,
+    VehiclesQueryParams
 } from '../types';
 
 const API_BASE_URL = '/api/v1';
@@ -37,8 +38,9 @@ apiClient.interceptors.response.use(
 );
 
 export const vehicleService = {
-    async getAll(pageNumber = 1, pageSize = 100): Promise<PagedResult<VehicleDto>> {
-        const response = await apiClient.get('/vehicles', { params: { pageNumber, pageSize } });
+    // Изменяем метод getAll, добавляем параметры фильтрации
+    async getAll(params: VehiclesQueryParams = {}): Promise<PagedResult<VehicleDto>> {
+        const response = await apiClient.get('/vehicles', { params });
         return response.data;
     },
     async GetActive(pageNumber = 1, pageSize = 100): Promise<PagedResult<VehicleDto>> {

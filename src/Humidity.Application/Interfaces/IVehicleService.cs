@@ -24,6 +24,27 @@ public interface IVehicleService
     /// <returns>Страница машин.</returns>
     Task<PagedResult<VehicleDto>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 
+    // НОВЫЙ МЕТОД для фильтрации
+    /// <summary>
+    /// Получить страницу машин с применением фильтров.
+    /// </summary>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="counterparty">Фильтр по поставщику (частичное совпадение).</param>
+    /// <param name="isActive">Фильтр по статусу: true – активные, false – выехавшие, null – все.</param>
+    /// <param name="plate">Фильтр по госномеру (частичное совпадение).</param>
+    /// <param name="driver">Фильтр по водителю (частичное совпадение).</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Страница машин, соответствующих фильтрам.</returns>
+    Task<PagedResult<VehicleDto>> GetFilteredPagedAsync(
+        int pageNumber,
+        int pageSize,
+        string? counterparty,
+        bool? isActive,
+        string? plate,
+        string? driver,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Получить машину по идентификатору.
     /// </summary>

@@ -60,4 +60,26 @@ public interface IVehicleRepository : IRepository<Vehicle>
     /// <param name="cancellationToken">Токен отмены операции.</param>
     /// <returns>Сущность Vehicle или null, если не найдена.</returns>
     Task<Vehicle?> GetByNumberAndDateAsync(string number, DateTimeOffset date, CancellationToken cancellationToken = default);
+
+    // НОВЫЙ МЕТОД для фильтрации с пагинацией
+    /// <summary>
+    /// Получить страницу машин с применением фильтров по поставщику, статусу, госномеру и водителю.
+    /// Фильтрация выполняется на стороне базы данных.
+    /// </summary>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="counterparty">Частичное совпадение с наименованием поставщика (регистронезависимо).</param>
+    /// <param name="isActive">true – только активные (ExitDate == null), false – только выехавшие, null – все.</param>
+    /// <param name="plate">Частичное совпадение с госномером (регистронезависимо).</param>
+    /// <param name="driver">Частичное совпадение с ФИО водителя (регистронезависимо).</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Страница машин, соответствующих фильтрам.</returns>
+    Task<PagedResult<Vehicle>> GetFilteredPagedAsync(
+        int pageNumber,
+        int pageSize,
+        string? counterparty,
+        bool? isActive,
+        string? plate,
+        string? driver,
+        CancellationToken cancellationToken = default);
 }

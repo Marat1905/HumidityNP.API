@@ -22,19 +22,49 @@ public class VehiclesController : ControllerBase
     }
 
     /// <summary>
-    /// Получить страницу всех машин
+    /// Получить страницу всех машин с возможностью фильтрации
     /// </summary>
     /// <param name="pageNumber">Номер страницы (начиная с 1).</param>
     /// <param name="pageSize">Количество записей на странице (макс. 100).</param>
+    /// <param name="counterparty">Фильтр по поставщику (частичное совпадение).</param>
+    /// <param name="status">Фильтр по статусу: active, exited, all (по умолчанию active).</param>
+    /// <param name="plate">Фильтр по госномеру (частичное совпадение).</param>
+    /// <param name="driver">Фильтр по водителю (частичное совпадение).</param>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<VehicleDto>), 200)]
-    public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? counterparty = null,
+        [FromQuery] string? status = "active",
+        [FromQuery] string? plate = null,
+        [FromQuery] string? driver = null)
     {
+        // Нормализация пагинации
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 20;
         if (pageSize > 100) pageSize = 100;
 
-        var result = await _vehicleService.GetPagedAsync(pageNumber, pageSize, HttpContext.RequestAborted);
+        // Преобразуем статус в bool? 
+        bool? isActive = null;
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (status.Equals("active", StringComparison.OrdinalIgnoreCase))
+                isActive = true;
+            else if (status.Equals("exited", StringComparison.OrdinalIgnoreCase))
+                isActive = false;
+            // "all" или любое другое значение оставляем null
+        }
+
+        var result = await _vehicleService.GetFilteredPagedAsync(
+            pageNumber,
+            pageSize,
+            counterparty,
+            isActive,
+            plate,
+            driver,
+            HttpContext.RequestAborted);
+
         return Ok(result);
     }
 

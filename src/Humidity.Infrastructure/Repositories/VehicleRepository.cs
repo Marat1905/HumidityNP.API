@@ -186,4 +186,70 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
             TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
         };
     }
+
+    // НОВАЯ РЕАЛИЗАЦИЯ МЕТОДА С ФИЛЬТРАМИ
+    /// <summary>
+    /// Получить страницу машин с применением фильтров по поставщику, статусу, госномеру и водителю.
+    /// </summary>
+    public async Task<PagedResult<Vehicle>> GetFilteredPagedAsync(
+        int pageNumber,
+        int pageSize,
+        string? counterparty,
+        bool? isActive,
+        string? plate,
+        string? driver,
+        CancellationToken cancellationToken = default)
+    {
+        // Нормализация параметров пагинации
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100;
+
+        IQueryable<Vehicle> query = _context.Vehicles.AsNoTracking();
+
+        // Применяем фильтры, если они заданы
+        if (!string.IsNullOrWhiteSpace(counterparty))
+        {
+            // Регистронезависимый поиск по частичному совпадению
+            query = query.Where(v => EF.Functions.ILike(v.Counterparty, $"%{counterparty}%"));
+        }
+
+        if (isActive.HasValue)
+        {
+            // true – только активные (ExitDate == null), false – только выехавшие
+            if (isActive.Value)
+                query = query.Where(v => v.ExitDate == null);
+            else
+                query = query.Where(v => v.ExitDate != null);
+        }
+
+        if (!string.IsNullOrWhiteSpace(plate))
+        {
+            query = query.Where(v => EF.Functions.ILike(v.VehiclePlate, $"%{plate}%"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(driver))
+        {
+            query = query.Where(v => EF.Functions.ILike(v.Driver, $"%{driver}%"));
+        }
+
+        // Подсчёт общего количества записей с учётом фильтров
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // Сортировка по умолчанию – по дате создания (новые первыми)
+        var items = await query
+            .OrderByDescending(v => v.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<Vehicle>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+        };
+    }
 }
