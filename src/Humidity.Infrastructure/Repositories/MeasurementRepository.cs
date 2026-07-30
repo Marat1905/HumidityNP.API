@@ -502,4 +502,67 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
             OverallStatistics = overallStats
         };
     }
+    /// <summary>
+    /// Получить топ-N поставщиков по средней влажности за период.
+    /// </summary>
+    public async Task<IEnumerable<SupplierDto>> GetTopSuppliersAsync(
+        int top,
+        bool ascending,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default)
+    {
+        var fromUtc = from.ToUniversalTime();
+        var toUtc = to.ToUniversalTime();
+
+        var query = from vehicle in Context.Vehicles
+                    join measurement in Context.Measurements
+                        on new { VehicleId = vehicle.Id, TimestampRange = true }
+                        equals new { VehicleId = measurement.VehicleId, TimestampRange = measurement.Timestamp >= fromUtc && measurement.Timestamp <= toUtc }
+                        into measurementsGroup
+                    from measurement in measurementsGroup.DefaultIfEmpty()
+                    where vehicle.EntryDate >= fromUtc && vehicle.EntryDate <= toUtc
+                          && vehicle.Inn != null && vehicle.Inn != string.Empty
+                    group new { vehicle, measurement } by vehicle.Inn into g
+                    select new
+                    {
+                        Inn = g.Key,
+                        LastCounterparty = g.OrderByDescending(x => x.vehicle.Date)
+                                            .Select(x => x.vehicle.Counterparty)
+                                            .FirstOrDefault(),
+                        VehiclesCount = g.Select(x => x.vehicle.Id).Distinct().Count(),
+                        TotalMeasurements = g.Count(x => x.measurement != null),
+                        AverageHumidity = g.Where(x => x.measurement != null)
+                                           .Average(x => x.measurement!.HumidityValue),
+                        MinHumidity = g.Where(x => x.measurement != null)
+                                       .Min(x => x.measurement!.HumidityValue),
+                        MaxHumidity = g.Where(x => x.measurement != null)
+                                       .Max(x => x.measurement!.HumidityValue)
+                    };
+
+        // Исключаем поставщиков, у которых нет замеров за период
+        query = query.Where(x => x.TotalMeasurements > 0);
+
+        // Сортировка по средней влажности
+        if (ascending)
+            query = query.OrderBy(x => x.AverageHumidity);
+        else
+            query = query.OrderByDescending(x => x.AverageHumidity);
+
+        var items = await query
+            .Take(top)
+            .Select(x => new SupplierDto
+            {
+                Inn = x.Inn,
+                Counterparty = x.LastCounterparty ?? x.Inn,
+                VehiclesCount = x.VehiclesCount,
+                TotalMeasurements = x.TotalMeasurements,
+                AverageHumidity = x.AverageHumidity,
+                MinHumidity = x.MinHumidity,
+                MaxHumidity = x.MaxHumidity
+            })
+            .ToListAsync(cancellationToken);
+
+        return items;
+    }
 }

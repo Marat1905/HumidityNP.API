@@ -26,4 +26,20 @@ public interface ISupplierService
         DateTimeOffset from,
         DateTimeOffset to,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить топ-N поставщиков по средней влажности за период.
+    /// </summary>
+    /// <param name="top">Количество записей.</param>
+    /// <param name="ascending">true — хорошие (низкая влажность), false — плохие (высокая).</param>
+    /// <param name="from">Начало периода.</param>
+    /// <param name="to">Конец периода.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Список DTO поставщиков.</returns>
+    Task<IEnumerable<SupplierDto>> GetTopSuppliersAsync(
+        int top,
+        bool ascending,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default);
 }

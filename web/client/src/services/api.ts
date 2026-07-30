@@ -146,6 +146,24 @@ export const supplierService = {
             params: { from, to }
         });
         return response.data;
+    },
+    /**
+     * Получить топ-N поставщиков по средней влажности за период.
+     * @param from Начало периода (ISO-строка).
+     * @param to Конец периода (ISO-строка).
+     * @param top Количество записей.
+     * @param order 'asc' — хорошие (низкая влажность), 'desc' — плохие (высокая).
+     */
+    async getTopSuppliers(
+        from: string,
+        to: string,
+        top = 10,
+        order: 'asc' | 'desc' = 'asc'
+    ): Promise<SupplierDto[]> {
+        const response = await apiClient.get('/suppliers/top', {
+            params: { from, to, top, order }
+        });
+        return response.data;
     }
 };
 

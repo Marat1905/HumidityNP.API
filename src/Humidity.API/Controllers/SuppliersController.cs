@@ -24,10 +24,6 @@ public class SuppliersController : ControllerBase
     /// <summary>
     /// Получить список поставщиков с агрегированными данными за период (пагинированный).
     /// </summary>
-    /// <param name="from">Начало периода (включительно) в формате ISO 8601.</param>
-    /// <param name="to">Конец периода (включительно) в формате ISO 8601.</param>
-    /// <param name="pageNumber">Номер страницы (начиная с 1).</param>
-    /// <param name="pageSize">Размер страницы (макс. 100).</param>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<SupplierDto>), 200)]
     public async Task<IActionResult> GetSuppliers(
@@ -47,9 +43,6 @@ public class SuppliersController : ControllerBase
     /// <summary>
     /// Получить детальную информацию по поставщику (ИНН) за период.
     /// </summary>
-    /// <param name="inn">ИНН поставщика.</param>
-    /// <param name="from">Начало периода (включительно).</param>
-    /// <param name="to">Конец периода (включительно).</param>
     [HttpGet("{inn}/details")]
     [ProducesResponseType(typeof(SupplierDetailsDto), 200)]
     [ProducesResponseType(404)]
@@ -64,5 +57,28 @@ public class SuppliersController : ControllerBase
             return NotFound($"Поставщик с ИНН {inn} не найден за указанный период");
         }
         return Ok(details);
+    }
+
+    /// <summary>
+    /// Получить топ-N поставщиков по средней влажности за период.
+    /// </summary>
+    /// <param name="from">Начало периода (включительно).</param>
+    /// <param name="to">Конец периода (включительно).</param>
+    /// <param name="top">Количество поставщиков в топе (по умолчанию 10).</param>
+    /// <param name="order">Порядок сортировки: 'asc' — хорошие (низкая влажность), 'desc' — плохие (высокая).</param>
+    [HttpGet("top")]
+    [ProducesResponseType(typeof(IEnumerable<SupplierDto>), 200)]
+    public async Task<IActionResult> GetTopSuppliers(
+        [FromQuery] DateTimeOffset from,
+        [FromQuery] DateTimeOffset to,
+        [FromQuery] int top = 10,
+        [FromQuery] string order = "asc")
+    {
+        if (top < 1) top = 1;
+        if (top > 100) top = 100;
+
+        bool ascending = order?.ToLower() == "asc";
+        var result = await _supplierService.GetTopSuppliersAsync(top, ascending, from, to, HttpContext.RequestAborted);
+        return Ok(result);
     }
 }

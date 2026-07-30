@@ -112,4 +112,20 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
         DateTimeOffset from,
         DateTimeOffset to,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить топ-N поставщиков по средней влажности за период.
+    /// </summary>
+    /// <param name="top">Количество записей в топе.</param>
+    /// <param name="ascending">true — наименьшая влажность (хорошие), false — наибольшая (плохие).</param>
+    /// <param name="from">Начало периода (включительно).</param>
+    /// <param name="to">Конец периода (включительно).</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Список DTO поставщиков с агрегированными данными.</returns>
+    Task<IEnumerable<SupplierDto>> GetTopSuppliersAsync(
+        int top,
+        bool ascending,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default);
 }
