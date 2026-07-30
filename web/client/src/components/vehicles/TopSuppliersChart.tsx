@@ -12,7 +12,7 @@ import {
     Cell,
 } from 'recharts';
 import type { SupplierDto } from '../../types';
-import { Truck, Droplet, TrendingDown, TrendingUp, Activity } from 'lucide-react';
+import { Droplet, Activity, Truck } from 'lucide-react';
 
 interface TopSuppliersChartProps {
     suppliers: SupplierDto[];
@@ -78,8 +78,8 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
                         </div>
                     </div>
                     <div className={`px-2 py-1 rounded-full text-xs font-semibold ${rankType === 'good'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                         }`}>
                         {rankType === 'good' ? 'Лучший' : 'Худший'}
                     </div>
@@ -122,20 +122,6 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-all hover:shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-                <h4 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2">
-                    {rankType === 'good' ? (
-                        <TrendingDown className="w-6 h-6 text-green-500" />
-                    ) : (
-                        <TrendingUp className="w-6 h-6 text-red-500" />
-                    )}
-                    {rankType === 'good' ? 'Лучшие' : 'Худшие'} поставщики
-                </h4>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {chartData.length} из {suppliers.length}
-                </span>
-            </div>
-
             <ResponsiveContainer width="100%" height={400}>
                 <ComposedChart
                     data={chartData}
@@ -150,17 +136,18 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
                     />
                     <XAxis
                         dataKey="shortName"
-                        angle={-30}
+                        angle={-45}
                         textAnchor="end"
                         interval={0}
-                        height={70}
-                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        height={80}
+                        tick={{ fontSize: 11, fill: '#6b7280' }}
                         className="dark:fill-gray-400"
                     />
                     <YAxis
                         domain={[Math.max(0, minValue - 5), maxValue + 5]}
                         tick={{ fontSize: 12, fill: '#6b7280' }}
                         unit="%"
+                        tickFormatter={(value) => Number(value).toFixed(0)}
                         className="dark:fill-gray-400"
                     />
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
