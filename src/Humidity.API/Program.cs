@@ -224,7 +224,7 @@ try
         {
             // Только для разработки - пересоздание БД
             context.Database.EnsureCreated();
-            await DataSeeder.SeedAsync(context);
+            //await DataSeeder.SeedAsync(context);
         }
         else
         {

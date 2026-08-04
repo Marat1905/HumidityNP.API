@@ -16,6 +16,7 @@ public class OneCClient : IOneCClient
     private readonly HttpClient _httpClient;
     private readonly ILogger<OneCClient> _logger;
     private readonly OneCIntegrationSettings _settings;
+    private readonly TimeZoneInfo _timeZoneInfo; // Часовой пояс для взаимодействия с 1С
 
     public OneCClient(
         HttpClient httpClient,
@@ -25,6 +26,22 @@ public class OneCClient : IOneCClient
         _httpClient = httpClient;
         _logger = logger;
         _settings = options.Value;
+
+        // Инициализируем часовой пояс из настроек
+        try
+        {
+            _timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById(_settings.TimeZoneId);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            _logger.LogError("Часовой пояс '{TimeZoneId}' не найден. Используется UTC.", _settings.TimeZoneId);
+            _timeZoneInfo = TimeZoneInfo.Utc;
+        }
+        catch (InvalidTimeZoneException)
+        {
+            _logger.LogError("Некорректный идентификатор часового пояса '{TimeZoneId}'. Используется UTC.", _settings.TimeZoneId);
+            _timeZoneInfo = TimeZoneInfo.Utc;
+        }
     }
 
     /// <summary>
@@ -35,8 +52,12 @@ public class OneCClient : IOneCClient
         DateTimeOffset to,
         CancellationToken cancellationToken = default)
     {
-        // Формируем SOAP-запрос с переданными датами
-        var soapRequest = BuildSoapRequest(from, to);
+        // Преобразуем переданные UTC-даты в локальное время 1С для формирования запроса
+        var localFrom = TimeZoneInfo.ConvertTime(from, _timeZoneInfo);
+        var localTo = TimeZoneInfo.ConvertTime(to, _timeZoneInfo);
+
+        // Формируем SOAP-запрос с локальными датами
+        var soapRequest = BuildSoapRequest(localFrom, localTo);
 
         using var content = new StringContent(soapRequest, Encoding.UTF8, "text/xml");
 
@@ -46,10 +67,10 @@ public class OneCClient : IOneCClient
 
         var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        // Парсим ответ
-        var vehicles = ParseVehicles(responseContent);
+        // Парсим ответ (с учётом часового пояса 1С для преобразования дат в UTC)
+        var vehicles = ParseVehicles(responseContent, _timeZoneInfo);
 
-        _logger.LogInformation("Из 1С получено {Count} записей за период с {From} по {To}",
+        _logger.LogInformation("Из 1С получено {Count} записей за период с {From} по {To} (UTC)",
             vehicles.Count(), from, to);
 
         return vehicles;
@@ -57,15 +78,17 @@ public class OneCClient : IOneCClient
 
     /// <summary>
     /// Формирует SOAP-конверт для метода ПолучитьСписокАвто.
+    /// Принимает даты уже в локальном времени 1С.
     /// </summary>
-    private static string BuildSoapRequest(DateTimeOffset from, DateTimeOffset to)
+    private static string BuildSoapRequest(DateTimeOffset localFrom, DateTimeOffset localTo)
     {
+        // Форматируем без смещения, так как 1С ожидает локальное время
         return $@"<soapenv:Envelope xmlns:soapenv=""http://schemas.xmlsoap.org/soap/envelope/"" xmlns:tns=""http://localhost/WS/Delmhorst"">
    <soapenv:Header/>
    <soapenv:Body>
       <tns:ПолучитьСписокАвто>
-         <tns:ДатаС>{from:yyyy-MM-ddTHH:mm:ss}</tns:ДатаС>
-         <tns:ДатаПо>{to:yyyy-MM-ddTHH:mm:ss}</tns:ДатаПо>
+         <tns:ДатаС>{localFrom:yyyy-MM-ddTHH:mm:ss}</tns:ДатаС>
+         <tns:ДатаПо>{localTo:yyyy-MM-ddTHH:mm:ss}</tns:ДатаПо>
       </tns:ПолучитьСписокАвто>
    </soapenv:Body>
 </soapenv:Envelope>";
@@ -75,8 +98,9 @@ public class OneCClient : IOneCClient
     /// Парсит XML-ответ 1С и извлекает таблицу с данными машин.
     /// Формат ответа представляет собой JSON-подобную структуру, вложенную в XML-элемент return.
     /// ВНИМАНИЕ: Исправлена ошибка KeyNotFoundException путём безопасного получения свойств через TryGetProperty.
+    /// Дата-время из ответа интерпретируются как локальное время 1С и преобразуются в UTC с использованием переданного TimeZoneInfo.
     /// </summary>
-    private IEnumerable<OneCVehicleDto> ParseVehicles(string xmlContent)
+    private IEnumerable<OneCVehicleDto> ParseVehicles(string xmlContent, TimeZoneInfo tz)
     {
         // Загружаем XML
         var doc = XDocument.Parse(xmlContent);
@@ -182,8 +206,9 @@ public class OneCClient : IOneCClient
                 continue;
             }
 
-            var date = ParseDateTimeOffset(dict.GetValueOrDefault("ДатаПропуска"));
-            var entryDate = ParseDateTimeOffset(dict.GetValueOrDefault("ДатаВъезда"));
+            // Парсим даты с преобразованием из локального времени 1С в UTC
+            var date = ParseDateTimeOffset(dict.GetValueOrDefault("ДатаПропуска"), tz);
+            var entryDate = ParseDateTimeOffset(dict.GetValueOrDefault("ДатаВъезда"), tz);
 
             // Дата пропуска и дата въезда обязательны
             if (date == null || entryDate == null)
@@ -197,7 +222,7 @@ public class OneCClient : IOneCClient
                 Number = number,
                 Date = date.Value,
                 EntryDate = entryDate.Value,
-                ExitDate = ParseDateTimeOffset(dict.GetValueOrDefault("ДатаВыезда")),
+                ExitDate = ParseDateTimeOffset(dict.GetValueOrDefault("ДатаВыезда"), tz),
                 VehicleBrand = dict.GetValueOrDefault("ТранспортМарка") ?? string.Empty,
                 VehiclePlate = dict.GetValueOrDefault("ТранспортГосНомер") ?? string.Empty,
                 Trailer = dict.GetValueOrDefault("Прицеп") ?? string.Empty,
@@ -213,10 +238,10 @@ public class OneCClient : IOneCClient
     }
 
     /// <summary>
-    /// Преобразует строку даты в DateTimeOffset с предположением UTC.
+    /// Преобразует строку даты (предположительно в локальном времени 1С) в DateTimeOffset (UTC).
     /// Если строка пуста или равна "0001-01-01...", возвращает null.
     /// </summary>
-    private static DateTimeOffset? ParseDateTimeOffset(string? value)
+    private static DateTimeOffset? ParseDateTimeOffset(string? value, TimeZoneInfo tz)
     {
         if (string.IsNullOrEmpty(value))
             return null;
@@ -225,11 +250,13 @@ public class OneCClient : IOneCClient
         if (value.StartsWith("0001-01-01"))
             return null;
 
-        // Парсим как DateTime и явно указываем Kind = Utc
+        // Парсим как DateTime (без смещения, Kind = Unspecified)
         if (DateTime.TryParse(value, out var dt))
         {
-            var utc = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
-            return new DateTimeOffset(utc, TimeSpan.Zero);
+            // Предполагаем, что это локальное время в часовом поясе tz
+            // Преобразуем в UTC
+            var utcDateTime = TimeZoneInfo.ConvertTimeToUtc(dt, tz);
+            return new DateTimeOffset(utcDateTime, TimeSpan.Zero);
         }
 
         return null;

@@ -47,4 +47,11 @@ public class OneCIntegrationSettings
     /// Глубина полной синхронизации (в днях) – сколько дней данных запрашивать.
     /// </summary>
     public int FullSyncFetchDays { get; set; } = 30;
+
+    /// <summary>
+    /// Идентификатор часового пояса, используемого сервером 1С (например, "Russian Standard Time" для Windows или "Europe/Moscow" для Linux).
+    /// Будет использован для преобразования UTC-времени приложения в локальное время 1С при формировании запроса,
+    /// а также для преобразования локальных дат из ответа 1С обратно в UTC.
+    /// </summary>
+    public string TimeZoneId { get; set; } = "Russian Standard Time";
 }
