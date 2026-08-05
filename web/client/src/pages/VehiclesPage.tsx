@@ -15,6 +15,9 @@ import {
     Filter,
     ChevronDown,
     ChevronUp,
+    Package,          // иконка тюков
+    Weight,           // иконка веса
+    Hash,             // иконка номера штабеля
 } from 'lucide-react';
 
 export default function VehiclesPage() {
@@ -135,12 +138,11 @@ export default function VehiclesPage() {
         });
     };
 
-    // Переключение свёрнутости (вызывается по клику на заголовок)
     const toggleFilters = () => {
         setFiltersCollapsed(prev => !prev);
     };
 
-    if (loading) return <SkeletonTable rows={5} columns={6} />;
+    if (loading) return <SkeletonTable rows={5} columns={10} />; // Увеличиваем количество столбцов для скелетона
     if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
     if (!data) return null;
 
@@ -154,9 +156,8 @@ export default function VehiclesPage() {
 
     return (
         <div>
-            {/* Блок фильтров со сворачиванием по клику на весь заголовок */}
+            {/* Блок фильтров со сворачиванием */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 mb-6 transition-all">
-                {/* Заголовок фильтров – клик по всей области переключает состояние */}
                 <div
                     className="flex items-center justify-between cursor-pointer select-none"
                     onClick={toggleFilters}
@@ -200,7 +201,6 @@ export default function VehiclesPage() {
                     </div>
                 </div>
 
-                {/* Содержимое фильтров */}
                 {!filtersCollapsed && (
                     <div className="mt-4 space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -382,6 +382,31 @@ export default function VehiclesPage() {
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Статус
                             </th>
+                            {/* ===== НОВЫЕ ЗАГОЛОВКИ ДЛЯ РАЗГРУЗКИ ===== */}
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                <div className="flex items-center gap-1">
+                                    <Package className="w-3 h-3" />
+                                    Тюки
+                                </div>
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                <div className="flex items-center gap-1">
+                                    <Package className="w-3 h-3" />
+                                    Порванные
+                                </div>
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                <div className="flex items-center gap-1">
+                                    <Weight className="w-3 h-3" />
+                                    Вес (кг)
+                                </div>
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                <div className="flex items-center gap-1">
+                                    <Hash className="w-3 h-3" />
+                                    Штабель
+                                </div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -423,6 +448,19 @@ export default function VehiclesPage() {
                                     >
                                         {vehicle.exitDate ? 'Выехал' : 'На площадке'}
                                     </span>
+                                </td>
+                                {/* ===== НОВЫЕ ЯЧЕЙКИ ДЛЯ РАЗГРУЗКИ ===== */}
+                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                    {vehicle.baleCount != null ? vehicle.baleCount : '—'}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                    {vehicle.damagedBaleCount != null ? vehicle.damagedBaleCount : '—'}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                    {vehicle.weightKg != null ? vehicle.weightKg : '—'}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                    {vehicle.stackNumber || '—'}
                                 </td>
                             </tr>
                         ))}

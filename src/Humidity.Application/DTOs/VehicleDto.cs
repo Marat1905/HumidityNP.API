@@ -64,6 +64,26 @@ public class VehicleDto
     /// Количество замеров влажности, выполненных для данной машины.
     /// </summary>
     public int MeasurementsCount { get; set; }
+
+    /// <summary>
+    /// Количество тюков, выгруженных из машины.
+    /// </summary>
+    public int? BaleCount { get; set; }
+
+    /// <summary>
+    /// Количество порванных тюков.
+    /// </summary>
+    public int? DamagedBaleCount { get; set; }
+
+    /// <summary>
+    /// Вес выгруженного груза в килограммах.
+    /// </summary>
+    public double? WeightKg { get; set; }
+
+    /// <summary>
+    /// Номер штабеля, куда выгружена машина.
+    /// </summary>
+    public string? StackNumber { get; set; }
 }
 
 /// <summary>
@@ -166,4 +186,30 @@ public class UpdateVehicleRequest
     /// Дата выезда с площадки.
     /// </summary>
     public DateTimeOffset? ExitDate { get; set; }
+}
+
+/// <summary>
+/// Запрос на фиксацию разгрузки машины.
+/// </summary>
+public class UnloadVehicleRequest
+{
+    /// <summary>
+    /// Количество тюков.
+    /// </summary>
+    public int BaleCount { get; set; }
+
+    /// <summary>
+    /// Количество порванных тюков.
+    /// </summary>
+    public int DamagedBaleCount { get; set; }
+
+    /// <summary>
+    /// Вес в килограммах.
+    /// </summary>
+    public double WeightKg { get; set; }
+
+    /// <summary>
+    /// Номер штабеля.
+    /// </summary>
+    public string StackNumber { get; set; } = string.Empty;
 }

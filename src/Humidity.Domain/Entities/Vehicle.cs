@@ -59,6 +59,26 @@ public class Vehicle : BaseEntity
     public string Driver { get; set; } = string.Empty;
 
     /// <summary>
+    /// Количество тюков, выгруженных из машины.
+    /// </summary>
+    public int? BaleCount { get; set; }
+
+    /// <summary>
+    /// Количество порванных тюков.
+    /// </summary>
+    public int? DamagedBaleCount { get; set; }
+
+    /// <summary>
+    /// Вес выгруженного груза в килограммах.
+    /// </summary>
+    public double? WeightKg { get; set; }
+
+    /// <summary>
+    /// Номер штабеля, куда выгружена машина.
+    /// </summary>
+    public string? StackNumber { get; set; }
+
+    /// <summary>
     /// Коллекция замеров влажности, привязанных к данной машине.
     /// Отношение "один ко многим": одна машина может иметь несколько замеров.
     /// При удалении машины все связанные замеры удаляются каскадно.

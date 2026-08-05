@@ -158,4 +158,21 @@ public class VehiclesController : ControllerBase
         await _vehicleService.DeleteAsync(id, HttpContext.RequestAborted);
         return NoContent();
     }
+
+    /// <summary>
+    /// Зафиксировать разгрузку машины: количество тюков, порванных тюков, вес и номер штабеля.
+    /// </summary>
+    /// <param name="id">Идентификатор машины.</param>
+    /// <param name="request">Данные разгрузки.</param>
+    [HttpPost("{id}/unload")]
+    [ProducesResponseType(typeof(VehicleDto), 200)]
+    [ProducesResponseType(404)]
+    [ProducesResponseType(400)]
+    public async Task<IActionResult> Unload(Guid id, [FromBody] UnloadVehicleRequest request)
+    {
+        // Валидация выполняется автоматически через FluentValidation.
+        // Исключение KeyNotFoundException будет обработано глобальным middleware.
+        var updated = await _vehicleService.UnloadAsync(id, request, HttpContext.RequestAborted);
+        return Ok(updated);
+    }
 }

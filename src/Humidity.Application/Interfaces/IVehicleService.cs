@@ -1,10 +1,11 @@
-﻿using Humidity.Application.DTOs;
+﻿// Application/Interfaces/IVehicleService.cs
+using Humidity.Application.DTOs;
 using Humidity.Domain.Common;
 
 namespace Humidity.Application.Interfaces;
 
 /// <summary>
-/// Сервис для управления записями о машинах (CRUD, фильтрация).
+/// Сервис для управления записями о машинах (CRUD, фильтрация, разгрузка).
 /// </summary>
 public interface IVehicleService
 {
@@ -24,7 +25,6 @@ public interface IVehicleService
     /// <returns>Страница машин.</returns>
     Task<PagedResult<VehicleDto>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 
-    // НОВЫЙ МЕТОД для фильтрации
     /// <summary>
     /// Получить страницу машин с применением фильтров.
     /// </summary>
@@ -92,4 +92,14 @@ public interface IVehicleService
     /// <param name="id">Идентификатор машины.</param>
     /// <param name="cancellationToken">Токен отмены операции.</param>
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Зафиксировать разгрузку машины: количество тюков, порванных тюков, вес и номер штабеля.
+    /// </summary>
+    /// <param name="id">Идентификатор машины.</param>
+    /// <param name="request">Данные разгрузки.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Обновлённый DTO машины.</returns>
+    /// <exception cref="KeyNotFoundException">Если машина не найдена.</exception>
+    Task<VehicleDto> UnloadAsync(Guid id, UnloadVehicleRequest request, CancellationToken cancellationToken = default);
 }

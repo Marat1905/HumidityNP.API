@@ -22,6 +22,14 @@ export interface VehicleDto {
     trailer: string;                // Номер прицепа
     driver: string;                 // ФИО водителя
     measurementsCount: number;      // Количество замеров
+    /** Количество тюков, выгруженных из машины */
+    baleCount?: number | null;
+    /** Количество порванных тюков */
+    damagedBaleCount?: number | null;
+    /** Вес выгруженного груза в килограммах */
+    weightKg?: number | null;
+    /** Номер штабеля, куда выгружена машина */
+    stackNumber?: string | null;
 }
 
 export interface CreateVehicleRequest {
@@ -155,7 +163,6 @@ export interface SupplierDetailsDto {
     overallStatistics: MeasurementStatisticsDto;
 }
 
-// НОВЫЙ ИНТЕРФЕЙС ДЛЯ ПАРАМЕТРОВ ЗАПРОСА
 export interface VehiclesQueryParams {
     pageNumber?: number;
     pageSize?: number;

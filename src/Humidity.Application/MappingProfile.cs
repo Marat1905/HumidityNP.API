@@ -33,6 +33,10 @@ public class MappingProfile : Profile
         CreateMap<UpdateVehicleRequest, Vehicle>()
             .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
 
+        // DTO UnloadVehicleRequest -> Сущность Vehicle
+        // Маппинг для фиксации разгрузки (все поля обязательны, поэтому Condition не требуется)
+        CreateMap<UnloadVehicleRequest, Vehicle>();
+
         // ==========================================
         // Маппинг для HumidityMeasurement
         // ==========================================

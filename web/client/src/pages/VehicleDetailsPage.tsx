@@ -14,7 +14,10 @@ import {
     Clock,
     CheckCircle,
     XCircle,
-    FileText
+    FileText,
+    Package,          // иконка для тюков
+    Weight,           // иконка для веса
+    Hash,             // иконка для номера штабеля
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { vehicleService } from '../services/api';
@@ -153,6 +156,35 @@ export default function VehicleDetailsPage() {
                             value={vehicle.exitDate ? formatDate(vehicle.exitDate) : '—'}
                             valueClassName={!vehicle.exitDate ? 'text-gray-400 dark:text-gray-500' : ''}
                         />
+                    </div>
+
+                    {/* ===== НОВЫЙ БЛОК: Разгрузка ===== */}
+                    <div className="sm:col-span-2 lg:col-span-3 border-t border-gray-100 dark:border-gray-700 pt-4 mt-2">
+                        <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
+                            <Package className="w-4 h-4" /> Разгрузка
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <InfoRow
+                                icon={<Package className="w-4 h-4" />}
+                                label="Количество тюков"
+                                value={vehicle.baleCount != null ? String(vehicle.baleCount) : '—'}
+                            />
+                            <InfoRow
+                                icon={<Package className="w-4 h-4" />}
+                                label="Порванных тюков"
+                                value={vehicle.damagedBaleCount != null ? String(vehicle.damagedBaleCount) : '—'}
+                            />
+                            <InfoRow
+                                icon={<Weight className="w-4 h-4" />}
+                                label="Вес (кг)"
+                                value={vehicle.weightKg != null ? String(vehicle.weightKg) : '—'}
+                            />
+                            <InfoRow
+                                icon={<Hash className="w-4 h-4" />}
+                                label="Номер штабеля"
+                                value={vehicle.stackNumber || '—'}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>

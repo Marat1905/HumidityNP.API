@@ -225,4 +225,35 @@ public class VehicleService : IVehicleService
         await _repository.DeleteAsync(existing, cancellationToken);
         _logger.LogInformation("Машина с id {VehicleId} успешно удалена", id);
     }
+
+    /// <summary>
+    /// Зафиксировать разгрузку машины: количество тюков, порванных тюков, вес и номер штабеля.
+    /// </summary>
+    public async Task<VehicleDto> UnloadAsync(Guid id, UnloadVehicleRequest request, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Фиксация разгрузки для машины {VehicleId}", id);
+
+        // 1. Получаем машину
+        var vehicle = await _repository.GetByIdAsync(id, cancellationToken);
+        if (vehicle == null)
+        {
+            _logger.LogWarning("Машина с id {VehicleId} не найдена для фиксации разгрузки", id);
+            throw new KeyNotFoundException($"Машина с id {id} не найдена.");
+        }
+
+        // 2. Обновляем поля разгрузки (без проверки ExitDate – оператор может вносить данные в любое время)
+        vehicle.BaleCount = request.BaleCount;
+        vehicle.DamagedBaleCount = request.DamagedBaleCount;
+        vehicle.WeightKg = request.WeightKg;
+        vehicle.StackNumber = request.StackNumber;
+
+        // 3. Сохраняем изменения
+        var updated = await _repository.UpdateAsync(vehicle, cancellationToken);
+        var result = _mapper.Map<VehicleDto>(updated);
+
+        _logger.LogInformation("Разгрузка для машины {VehicleId} успешно зафиксирована: тюков {BaleCount}, порванных {DamagedBaleCount}, вес {WeightKg} кг, штабель {StackNumber}",
+            id, request.BaleCount, request.DamagedBaleCount, request.WeightKg, request.StackNumber);
+
+        return result;
+    }
 }

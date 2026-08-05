@@ -40,6 +40,9 @@ public class HumidityDbContext : DbContext
             entity.Property(e => e.Trailer).HasMaxLength(20);
             entity.Property(e => e.Driver).HasMaxLength(200);
 
+            // Новые поля для разгрузки
+            entity.Property(e => e.StackNumber).HasMaxLength(50);
+
             entity.HasMany(e => e.Measurements)
                   .WithOne(m => m.Vehicle)
                   .HasForeignKey(m => m.VehicleId)
@@ -47,6 +50,8 @@ public class HumidityDbContext : DbContext
 
             entity.HasIndex(e => e.Number);
             entity.HasIndex(e => e.VehiclePlate);
+            // Индекс для StackNumber (опционально)
+            entity.HasIndex(e => e.StackNumber);
         });
 
         // Конфигурация HumidityMeasurement

@@ -1,5 +1,4 @@
-﻿// Infrastructure/Repositories/VehicleRepository.cs
-using Humidity.Domain.Common;
+﻿using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
 using Humidity.Infrastructure.Data;
@@ -21,13 +20,13 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     }
 
     /// <summary>
-    /// Получить все машины.
+    /// Получить все машины, отсортированные по дате въезда (новые первыми).
     /// Использует AsNoTracking для повышения производительности при чтении.
-    /// Связанные измерения не загружаются, так как они не требуются в большинстве сценариев.
     /// </summary>
     public override async Task<IEnumerable<Vehicle>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Vehicles
+            .OrderByDescending(v => v.EntryDate) // Сортировка по дате въезда
             .AsNoTracking()
             .ToListAsync(cancellationToken);
     }
@@ -43,18 +42,20 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     }
 
     /// <summary>
-    /// Получить активные машины (те, у которых дата выезда ещё не установлена).
+    /// Получить активные машины (те, у которых дата выезда ещё не установлена),
+    /// отсортированные по дате въезда (новые первыми).
     /// </summary>
     public async Task<IEnumerable<Vehicle>> GetActiveVehiclesAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Vehicles
             .Where(v => v.ExitDate == null)
+            .OrderByDescending(v => v.EntryDate) // Сортировка по дате въезда
             .AsNoTracking()
             .ToListAsync(cancellationToken);
     }
 
     /// <summary>
-    /// Получить страницу активных машин.
+    /// Получить страницу активных машин, отсортированных по дате въезда (новые первыми).
     /// </summary>
     public async Task<PagedResult<Vehicle>> GetActiveVehiclesPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
@@ -63,12 +64,12 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
         if (pageSize > 100) pageSize = 100;
 
         IQueryable<Vehicle> query = _context.Vehicles
-            .Where(v => v.ExitDate == null);
+            .Where(v => v.ExitDate == null)
+            .OrderByDescending(v => v.EntryDate); // Сортировка по дате въезда
 
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
-            .OrderByDescending(v => v.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .AsNoTracking()
@@ -93,6 +94,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
         return await _context.Vehicles
             .AsNoTracking()
             .Where(v => EF.Functions.ILike(v.VehiclePlate, searchPattern))
+            .OrderByDescending(v => v.EntryDate) // Добавлена сортировка
             .ToListAsync(cancellationToken);
     }
 
@@ -105,6 +107,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
         return await _context.Vehicles
             .AsNoTracking()
             .Where(v => EF.Functions.ILike(v.Number, searchPattern))
+            .OrderByDescending(v => v.EntryDate) // Добавлена сортировка
             .ToListAsync(cancellationToken);
     }
 
@@ -140,7 +143,8 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     }
 
     /// <summary>
-    /// Переопределение метода GetPagedAsync с использованием AsNoTracking() для read‑only запросов.
+    /// Переопределение метода GetPagedAsync с сортировкой по EntryDate (новые первыми)
+    /// и использованием AsNoTracking() для read‑only запросов.
     /// </summary>
     public override async Task<PagedResult<Vehicle>> GetPagedAsync(
         int pageNumber,
@@ -168,7 +172,8 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
         }
         else
         {
-            query = query.OrderByDescending(e => e.CreatedAt);
+            // Сортировка по дате въезда (новые первыми)
+            query = query.OrderByDescending(v => v.EntryDate);
         }
 
         var items = await query
@@ -187,9 +192,9 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
         };
     }
 
-    // НОВАЯ РЕАЛИЗАЦИЯ МЕТОДА С ФИЛЬТРАМИ
     /// <summary>
-    /// Получить страницу машин с применением фильтров по поставщику, статусу, госномеру и водителю.
+    /// Получить страницу машин с применением фильтров по поставщику, статусу, госномеру и водителю,
+    /// отсортированных по дате въезда (новые первыми).
     /// </summary>
     public async Task<PagedResult<Vehicle>> GetFilteredPagedAsync(
         int pageNumber,
@@ -236,9 +241,9 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
         // Подсчёт общего количества записей с учётом фильтров
         var totalCount = await query.CountAsync(cancellationToken);
 
-        // Сортировка по умолчанию – по дате создания (новые первыми)
+        // Сортировка по дате въезда (новые первыми)
         var items = await query
-            .OrderByDescending(v => v.CreatedAt)
+            .OrderByDescending(v => v.EntryDate)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
