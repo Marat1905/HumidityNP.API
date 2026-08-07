@@ -3,7 +3,7 @@ import { useVehicles } from '../hooks/useVehicles';
 import Pagination from '../components/shared/Pagination';
 import { SkeletonTable } from '../components/shared/Skeleton';
 import { useState, useEffect, useMemo } from 'react';
-import type { VehiclesQueryParams } from '../types';
+import type { VehiclesQueryParams, VehicleDto } from '../types';
 import {
     Search,
     X,
@@ -15,10 +15,239 @@ import {
     Filter,
     ChevronDown,
     ChevronUp,
-    Package,          // иконка тюков
-    Weight,           // иконка веса
-    Hash,             // иконка номера штабеля
+    Package,
+    Weight,
+    Hash,
+    Droplet,
+    Table as TableIcon,
+    LayoutGrid,
+    Calendar,
+    Car,
+    Gauge,
+    Users,
+    FileText,
+    Box,
+    BarChart3,
+    TrendingUp,
+    TrendingDown,
 } from 'lucide-react';
+import { measurementService } from '../services/api';
+import toast from 'react-hot-toast';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
+
+// Улучшенный компонент карточки для одной машины
+function VehicleCard({ vehicle, averageHumidity, isLoadingAvg }: {
+    vehicle: VehicleDto;
+    averageHumidity: number | null | undefined;
+    isLoadingAvg: boolean;
+}) {
+    const navigate = useNavigate();
+    const handleClick = () => {
+        navigate(`/vehicles/${vehicle.id}`);
+    };
+
+    const isActive = !vehicle.exitDate;
+
+    // Форматирование дат для отображения
+    const formatDate = (dateStr: string) => {
+        return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: ru });
+    };
+
+    // Определяем цвет для средней влажности
+    const getHumidityColor = (value: number | null | undefined) => {
+        if (value === null || value === undefined) return 'text-gray-400';
+        if (value < 10) return 'text-green-600 dark:text-green-400';
+        if (value < 15) return 'text-yellow-600 dark:text-yellow-400';
+        return 'text-red-600 dark:text-red-400';
+    };
+
+    // Иконка статуса
+    const StatusIcon = isActive ? Clock : BadgeCheck;
+    const statusColor = isActive
+        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+        : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+
+    return (
+        <div
+            onClick={handleClick}
+            className="group bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 p-6 hover:shadow-2xl transition-all duration-300 cursor-pointer hover:border-blue-400 dark:hover:border-blue-600 hover:-translate-y-1"
+        >
+            {/* Шапка карточки: номер + статус */}
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl shadow-md">
+                        <Truck className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                        <div className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            {vehicle.number}
+                            <span className="text-sm font-normal text-gray-400 dark:text-gray-500">
+                                {vehicle.vehiclePlate}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                            <Building2 className="w-4 h-4" />
+                            <span>{vehicle.counterparty}</span>
+                            {vehicle.inn && (
+                                <>
+                                    <span className="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></span>
+                                    <span className="text-xs">ИНН: {vehicle.inn}</span>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${statusColor}`}
+                    >
+                        <StatusIcon className="w-3.5 h-3.5" />
+                        {isActive ? 'На площадке' : 'Выехал'}
+                    </span>
+                </div>
+            </div>
+
+            {/* Основная информация — 3 колонки */}
+            <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
+                {/* Левая колонка: Транспорт и водитель */}
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                        <Car className="w-4 h-4 text-blue-500" />
+                        <span className="font-medium">Марка:</span>
+                        <span>{vehicle.vehicleBrand}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                        <Gauge className="w-4 h-4 text-blue-500" />
+                        <span className="font-medium">Прицеп:</span>
+                        <span>{vehicle.trailer || '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                        <User className="w-4 h-4 text-blue-500" />
+                        <span className="font-medium">Водитель:</span>
+                        <span>{vehicle.driver}</span>
+                    </div>
+                </div>
+
+                {/* Средняя колонка: Даты въезда/выезда */}
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                        <Calendar className="w-4 h-4 text-green-500" />
+                        <span className="font-medium">Въезд:</span>
+                        <span>{formatDate(vehicle.entryDate)}</span>
+                    </div>
+                    {vehicle.exitDate && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                            <Calendar className="w-4 h-4 text-red-500" />
+                            <span className="font-medium">Выезд:</span>
+                            <span>{formatDate(vehicle.exitDate)}</span>
+                        </div>
+                    )}
+                    {!vehicle.exitDate && (
+                        <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
+                            <Clock className="w-4 h-4" />
+                            <span>Выезд не зафиксирован</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Правая колонка: Статистика замеров */}
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                        <BarChart3 className="w-4 h-4 text-purple-500" />
+                        <span className="font-medium">Замеров:</span>
+                        <span className="font-bold text-gray-900 dark:text-white">{vehicle.measurementsCount}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                        <Droplet className="w-4 h-4 text-blue-500" />
+                        <span className="font-medium">Средняя влажность:</span>
+                        {isLoadingAvg ? (
+                            <span className="inline-block w-16 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></span>
+                        ) : averageHumidity !== undefined && averageHumidity !== null ? (
+                            <span className={`font-bold ${getHumidityColor(averageHumidity)}`}>
+                                {averageHumidity.toFixed(1)}%
+                            </span>
+                        ) : (
+                            <span className="text-gray-400">—</span>
+                        )}
+                    </div>
+                    {/* Добавим индикатор тренда, если есть данные */}
+                    {averageHumidity !== undefined && averageHumidity !== null && (
+                        <div className="flex items-center gap-2 text-xs">
+                            {averageHumidity < 10 ? (
+                                <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                                    <TrendingDown className="w-3.5 h-3.5" />
+                                    <span>Низкая влажность</span>
+                                </span>
+                            ) : averageHumidity < 15 ? (
+                                <span className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
+                                    <TrendingUp className="w-3.5 h-3.5" />
+                                    <span>Средняя влажность</span>
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                                    <TrendingUp className="w-3.5 h-3.5" />
+                                    <span>Высокая влажность</span>
+                                </span>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Блок разгрузки — отдельная секция с иконками */}
+            <div className="mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-2 mb-2 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                    <Package className="w-4 h-4" />
+                    <span>Данные разгрузки</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="flex items-center gap-2 text-sm bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2">
+                        <Package className="w-4 h-4 text-indigo-500" />
+                        <div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Тюки</div>
+                            <div className="font-semibold text-gray-900 dark:text-white">
+                                {vehicle.baleCount != null ? vehicle.baleCount : '—'}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2">
+                        <Package className="w-4 h-4 text-red-500" />
+                        <div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Порванные</div>
+                            <div className="font-semibold text-gray-900 dark:text-white">
+                                {vehicle.damagedBaleCount != null ? vehicle.damagedBaleCount : '—'}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2">
+                        <Weight className="w-4 h-4 text-green-500" />
+                        <div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Вес (кг)</div>
+                            <div className="font-semibold text-gray-900 dark:text-white">
+                                {vehicle.weightKg != null ? vehicle.weightKg : '—'}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2">
+                        <Hash className="w-4 h-4 text-purple-500" />
+                        <div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Штабель</div>
+                            <div className="font-semibold text-gray-900 dark:text-white">
+                                {vehicle.stackNumber || '—'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Подсказка при наведении */}
+            <div className="mt-3 text-xs text-gray-400 dark:text-gray-500 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                Нажмите для просмотра деталей →
+            </div>
+        </div>
+    );
+}
 
 export default function VehiclesPage() {
     const navigate = useNavigate();
@@ -41,6 +270,14 @@ export default function VehiclesPage() {
         return saved ? JSON.parse(saved) : false;
     });
 
+    const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => {
+        const saved = localStorage.getItem('vehicles_view_mode');
+        return (saved === 'cards' || saved === 'table') ? saved : 'table';
+    });
+
+    const [averageHumidityMap, setAverageHumidityMap] = useState<Record<string, number | null>>({});
+    const [loadingStats, setLoadingStats] = useState<Record<string, boolean>>({});
+
     useEffect(() => {
         setLocalCounterparty(counterparty);
         setLocalStatus(status);
@@ -51,6 +288,10 @@ export default function VehiclesPage() {
     useEffect(() => {
         localStorage.setItem('vehicles_filters_collapsed', JSON.stringify(filtersCollapsed));
     }, [filtersCollapsed]);
+
+    useEffect(() => {
+        localStorage.setItem('vehicles_view_mode', viewMode);
+    }, [viewMode]);
 
     const queryParams: VehiclesQueryParams = useMemo(
         () => ({
@@ -64,7 +305,54 @@ export default function VehiclesPage() {
         [page, size, counterparty, status, plate, driver]
     );
 
-    const { data, loading, error } = useVehicles(queryParams);
+    const { data, loading, error, refetch } = useVehicles(queryParams);
+
+    useEffect(() => {
+        if (!data || !data.items.length) {
+            setAverageHumidityMap({});
+            setLoadingStats({});
+            return;
+        }
+
+        const vehicleIds = data.items.map(v => v.id);
+        const newLoadingStats: Record<string, boolean> = {};
+        vehicleIds.forEach(id => {
+            if (!(id in averageHumidityMap)) {
+                newLoadingStats[id] = true;
+            }
+        });
+
+        setLoadingStats(prev => ({ ...prev, ...newLoadingStats }));
+
+        vehicleIds.forEach(id => {
+            if (id in averageHumidityMap) return;
+
+            measurementService.getStatisticsByVehicle(id)
+                .then(stats => {
+                    setAverageHumidityMap(prev => ({
+                        ...prev,
+                        [id]: stats.average,
+                    }));
+                    setLoadingStats(prev => {
+                        const newState = { ...prev };
+                        delete newState[id];
+                        return newState;
+                    });
+                })
+                .catch(err => {
+                    console.error(`Ошибка загрузки статистики для машины ${id}`, err);
+                    setAverageHumidityMap(prev => ({
+                        ...prev,
+                        [id]: null,
+                    }));
+                    setLoadingStats(prev => {
+                        const newState = { ...prev };
+                        delete newState[id];
+                        return newState;
+                    });
+                });
+        });
+    }, [data, averageHumidityMap]);
 
     const activeFilters = [];
     if (counterparty) activeFilters.push({ key: 'counterparty', label: `Поставщик: ${counterparty}`, value: counterparty });
@@ -142,7 +430,7 @@ export default function VehiclesPage() {
         setFiltersCollapsed(prev => !prev);
     };
 
-    if (loading) return <SkeletonTable rows={5} columns={10} />; // Увеличиваем количество столбцов для скелетона
+    if (loading) return <SkeletonTable rows={5} columns={11} />;
     if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
     if (!data) return null;
 
@@ -358,115 +646,174 @@ export default function VehiclesPage() {
                         ({totalCount} записей)
                     </span>
                 </h2>
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">Вид:</span>
+                    <button
+                        onClick={() => setViewMode('table')}
+                        className={`p-2 rounded-lg border transition ${viewMode === 'table'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                        aria-label="Табличный вид"
+                    >
+                        <TableIcon className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={() => setViewMode('cards')}
+                        className={`p-2 rounded-lg border transition ${viewMode === 'cards'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                        aria-label="Карточный вид"
+                    >
+                        <LayoutGrid className="w-5 h-5" />
+                    </button>
+                </div>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-800">
-                        <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Номер пропуска
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Поставщик
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Гос. номер
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Водитель
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Замеры
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Статус
-                            </th>
-                            {/* ===== НОВЫЕ ЗАГОЛОВКИ ДЛЯ РАЗГРУЗКИ ===== */}
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                <div className="flex items-center gap-1">
-                                    <Package className="w-3 h-3" />
-                                    Тюки
-                                </div>
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                <div className="flex items-center gap-1">
-                                    <Package className="w-3 h-3" />
-                                    Порванные
-                                </div>
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                <div className="flex items-center gap-1">
-                                    <Weight className="w-3 h-3" />
-                                    Вес (кг)
-                                </div>
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                <div className="flex items-center gap-1">
-                                    <Hash className="w-3 h-3" />
-                                    Штабель
-                                </div>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                        {items.map((vehicle) => (
-                            <tr
-                                key={vehicle.id}
-                                onClick={() => handleRowClick(vehicle.id)}
-                                className="hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer"
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault();
-                                        handleRowClick(vehicle.id);
-                                    }
-                                }}
-                            >
-                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                    {vehicle.number}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                    {vehicle.counterparty}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                    {vehicle.vehiclePlate}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                    {vehicle.driver}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
-                                    {vehicle.measurementsCount}
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                    <span
-                                        className={`px-2 py-1 rounded-full text-xs font-medium ${vehicle.exitDate
-                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                                            }`}
-                                    >
-                                        {vehicle.exitDate ? 'Выехал' : 'На площадке'}
-                                    </span>
-                                </td>
-                                {/* ===== НОВЫЕ ЯЧЕЙКИ ДЛЯ РАЗГРУЗКИ ===== */}
-                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
-                                    {vehicle.baleCount != null ? vehicle.baleCount : '—'}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
-                                    {vehicle.damagedBaleCount != null ? vehicle.damagedBaleCount : '—'}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
-                                    {vehicle.weightKg != null ? vehicle.weightKg : '—'}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
-                                    {vehicle.stackNumber || '—'}
-                                </td>
+            {viewMode === 'table' ? (
+                <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-800">
+                            <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Номер пропуска
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Поставщик
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Гос. номер
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Водитель
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Замеры
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <div className="flex items-center gap-1">
+                                        <Droplet className="w-3 h-3" />
+                                        Средняя влажность
+                                    </div>
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Статус
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <div className="flex items-center gap-1">
+                                        <Package className="w-3 h-3" />
+                                        Тюки
+                                    </div>
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <div className="flex items-center gap-1">
+                                        <Package className="w-3 h-3" />
+                                        Порванные
+                                    </div>
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <div className="flex items-center gap-1">
+                                        <Weight className="w-3 h-3" />
+                                        Вес (кг)
+                                    </div>
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <div className="flex items-center gap-1">
+                                        <Hash className="w-3 h-3" />
+                                        Штабель
+                                    </div>
+                                </th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                            {items.map((vehicle) => {
+                                const avg = averageHumidityMap[vehicle.id];
+                                const isAvgLoading = loadingStats[vehicle.id];
+                                return (
+                                    <tr
+                                        key={vehicle.id}
+                                        onClick={() => handleRowClick(vehicle.id)}
+                                        className="hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer"
+                                        role="button"
+                                        tabIndex={0}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                handleRowClick(vehicle.id);
+                                            }
+                                        }}
+                                    >
+                                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                            {vehicle.number}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                            {vehicle.counterparty}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                            {vehicle.vehiclePlate}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                            {vehicle.driver}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                            {vehicle.measurementsCount}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                            {isAvgLoading ? (
+                                                <div className="animate-pulse h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded mx-auto"></div>
+                                            ) : avg !== undefined && avg !== null ? (
+                                                <span className="font-medium text-blue-600 dark:text-blue-400">
+                                                    {avg.toFixed(1)}%
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400 dark:text-gray-500">—</span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm">
+                                            <span
+                                                className={`px-2 py-1 rounded-full text-xs font-medium ${vehicle.exitDate
+                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                                    }`}
+                                            >
+                                                {vehicle.exitDate ? 'Выехал' : 'На площадке'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                            {vehicle.baleCount != null ? vehicle.baleCount : '—'}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                            {vehicle.damagedBaleCount != null ? vehicle.damagedBaleCount : '—'}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                            {vehicle.weightKg != null ? vehicle.weightKg : '—'}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                            {vehicle.stackNumber || '—'}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 gap-6">
+                    {items.map((vehicle) => {
+                        const avg = averageHumidityMap[vehicle.id];
+                        const isAvgLoading = loadingStats[vehicle.id];
+                        return (
+                            <VehicleCard
+                                key={vehicle.id}
+                                vehicle={vehicle}
+                                averageHumidity={avg}
+                                isLoadingAvg={isAvgLoading}
+                            />
+                        );
+                    })}
+                </div>
+            )}
 
             <Pagination
                 currentPage={page}
