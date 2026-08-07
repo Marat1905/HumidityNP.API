@@ -20,11 +20,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Repositories\" />
-    <Folder Include="Services\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\..\src\Humidity.Application\Humidity.Application.csproj" />
     <ProjectReference Include="..\..\src\Humidity.Infrastructure\Humidity.Infrastructure.csproj" />
   </ItemGroup>
