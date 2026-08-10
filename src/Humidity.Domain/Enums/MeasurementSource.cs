@@ -1,8 +1,11 @@
-﻿namespace Humidity.Domain.Enums;
+﻿using System.Text.Json.Serialization;
+
+namespace Humidity.Domain.Enums;
 
 /// <summary>
 /// Источник данных замера влажности.
 /// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum MeasurementSource
 {
     /// <summary>

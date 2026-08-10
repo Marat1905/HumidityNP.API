@@ -13,10 +13,10 @@ public abstract class BaseEntity
     /// <summary>
     /// Дата и время создания записи (UTC).
     /// </summary>
-    public DateTime CreatedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 
     /// <summary>
     /// Дата и время последнего обновления записи (UTC).
     /// </summary>
-    public DateTime? UpdatedAt { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
 }
