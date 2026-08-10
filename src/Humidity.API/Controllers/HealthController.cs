@@ -1,4 +1,5 @@
 ﻿using Humidity.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Humidity.API.Controllers;
@@ -8,6 +9,7 @@ namespace Humidity.API.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Policy = "TCXPolicy")]
 public class HealthController : ControllerBase
 {
     private readonly IOneCHealthStatusService _healthStatus;

@@ -2,6 +2,7 @@ using Asp.Versioning;
 using AspNetCoreRateLimit;
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Humidity.API.Auth;
 using Humidity.API.BackgroundServices;
 using Humidity.API.Middleware;
 using Humidity.Application;
@@ -10,6 +11,7 @@ using Humidity.Application.Services;
 using Humidity.Application.Validators;
 using Humidity.Infrastructure;
 using Humidity.Infrastructure.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
@@ -110,6 +112,7 @@ builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrateg
 // ========== РЕГИСТРАЦИЯ СЛОЁВ ==========
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, DynamicAuthorizationPolicyProvider>();
 
 // ========== НАСТРОЙКА ИНТЕГРАЦИИ С 1С ==========
 // Регистрация настроек
@@ -164,6 +167,8 @@ builder.Services.AddHealthChecks()
         failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy,
         tags: new[] { "db", "postgresql" });
 
+builder.Services.AddCustomJWTAuthentification();
+
 var app = builder.Build();
 
 // ========== MIDDLEWARE PIPELINE ==========
@@ -187,6 +192,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
