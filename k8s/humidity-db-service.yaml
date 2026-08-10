@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: humidity-db
+  name: humidity-db
+spec:
+  type: NodePort
+  ports:
+    - name: "tcp-db"
+      nodePort: 30154
+      port: 5432
+      targetPort: 5432
+  selector:
+    io.kompose.service: humidity-db

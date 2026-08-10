@@ -25,6 +25,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Humidity.UnitTests", "tests
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Humidity.IntegrationTests", "tests\Humidity.IntegrationTests\Humidity.IntegrationTests.csproj", "{1FBFEE06-D524-4A2A-B890-2C0DF9C1854E}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "k8s", "k8s", "{DFF34247-70EB-4666-AC9D-60CD0D3AE373}"
+	ProjectSection(SolutionItems) = preProject
+		humidity-api-deployment.yaml = humidity-api-deployment.yaml
+		humidity-api-service.yaml = humidity-api-service.yaml
+		humidity-db-data-persistentvolumeclaim.yaml = humidity-db-data-persistentvolumeclaim.yaml
+		humidity-db-deployment.yaml = humidity-db-deployment.yaml
+		humidity-db-service.yaml = humidity-db-service.yaml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

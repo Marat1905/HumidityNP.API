@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: humidity-api
+  name: humidity-api
+  annotations:
+    # Включаем автоматическое обновление
+    keel.sh/policy: force
+    # Keel будет проверять реестр ghcr.io каждые 10 минут
+    keel.sh/trigger: poll
+    keel.sh/pollSchedule: "@every 10m"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: humidity-api
+  template:
+    metadata:
+      labels:
+        io.kompose.service: humidity-api
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Production
+            - name: ASPNETCORE_HTTP_PORTS
+              value: "8080"
+            - name: ConnectionStrings__DefaultConnection
+              value: Host=humidity-db;Port=5432;Database=HumidityDB;Username=postgres;Password=postgres
+          image: ghcr.io/marat1905/humiditynp-api:latest
+          name: humidity-api
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+      restartPolicy: Always
