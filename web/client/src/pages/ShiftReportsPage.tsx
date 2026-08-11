@@ -1,10 +1,12 @@
 // src/pages/ShiftReportsPage.tsx
+
 import { useState, useEffect } from 'react';
 import { useShiftReport, type ShiftType } from '../hooks/useShiftReport';
 import ShiftReportTable from '../components/vehicles/ShiftReportTable';
 import ShiftReportCardView from '../components/vehicles/ShiftReportCardView';
+import DatePicker from '../components/shared/DatePicker';
 import { SkeletonReport } from '../components/shared/Skeleton';
-import { ChevronLeft, ChevronRight, Calendar, LayoutGrid, Table } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutGrid, Table } from 'lucide-react';
 import { format, subDays, addDays, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
@@ -40,13 +42,6 @@ export default function ShiftReportsPage() {
         }
     };
 
-    const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newDate = new Date(e.target.value);
-        if (!isNaN(newDate.getTime())) {
-            setSelectedDate(startOfDay(newDate));
-        }
-    };
-
     const canGoNext = (() => {
         const tomorrow = addDays(selectedDate, 1);
         return tomorrow <= startOfDay(new Date());
@@ -56,6 +51,7 @@ export default function ShiftReportsPage() {
     const shiftLabel = shiftType === 'day' ? 'Дневная (08:00–20:00)' : 'Ночная (20:00–08:00)';
 
     if (loading) return <SkeletonReport />;
+
     if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
 
     return (
@@ -84,14 +80,14 @@ export default function ShiftReportsPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    <input
-                        type="date"
-                        value={format(selectedDate, 'yyyy-MM-dd')}
-                        onChange={handleDateChange}
-                        max={format(new Date(), 'yyyy-MM-dd')}
-                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                    />
+                    <div className="w-48">
+                        <DatePicker
+                            date={selectedDate}
+                            onChange={(newDate) => setSelectedDate(startOfDay(newDate))}
+                            maxDate={startOfDay(new Date())}
+                            size="md"
+                        />
+                    </div>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         {dateDisplay}
                     </span>
@@ -114,8 +110,8 @@ export default function ShiftReportsPage() {
                     <button
                         onClick={() => setViewMode('table')}
                         className={`p-2 rounded-lg border transition ${viewMode === 'table'
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                             }`}
                         aria-label="Табличный вид"
                     >
@@ -124,8 +120,8 @@ export default function ShiftReportsPage() {
                     <button
                         onClick={() => setViewMode('cards')}
                         className={`p-2 rounded-lg border transition ${viewMode === 'cards'
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                             }`}
                         aria-label="Карточный вид"
                     >
@@ -143,6 +139,7 @@ export default function ShiftReportsPage() {
                     <div className="mb-2 text-sm text-gray-600 dark:text-gray-300">
                         Период: {format(data.shiftStart, 'dd MMM yyyy HH:mm', { locale: ru })} – {format(data.shiftEnd, 'dd MMM yyyy HH:mm', { locale: ru })}
                     </div>
+
                     {viewMode === 'table' ? (
                         <ShiftReportTable items={data.items} summary={data.summary} />
                     ) : (
