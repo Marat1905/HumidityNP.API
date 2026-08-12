@@ -9,7 +9,7 @@ namespace Humidity.API.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = "TCXPolicy")]
+//[Authorize(Policy = "TCXPolicy")]
 public class HealthController : ControllerBase
 {
     private readonly IOneCHealthStatusService _healthStatus;
