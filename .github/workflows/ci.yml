@@ -3,7 +3,7 @@ name: Build, Test and Push Docker Images
 on:
   push:
     branches: [ master, develop ]
-    tags: [ 'v*' ]                 # добавлен триггер на теги
+    tags: [ 'v*' ]                     # триггер на теги
   pull_request:
     branches: [ master, develop ]
   workflow_dispatch:
@@ -41,23 +41,22 @@ jobs:
           # Замените 'k8s/' на путь к вашей папке с манифестами, если она другая
           kubeconform -strict -summary -kubernetes-version 1.29.0 k8s/ || echo "⚠️ Манифесты не найдены или есть ошибки"
 
-  # 3. Сборка и публикация образа (только при push)
+  # 3. Сборка, публикация образа и обновление манифеста
   build-and-push:
     runs-on: ubuntu-latest
     needs: test
-    if: github.event_name == 'push'   # теперь срабатывает и на push тегов, и на push веток
+    if: github.event_name == 'push'
     permissions:
-      contents: read
+      contents: write    # нужно для коммита и пуша изменённого манифеста
       packages: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        # Для получения всех тегов (если нужно использовать git describe) можно добавить:
-        # with:
-        #   fetch-depth: 0
+        with:
+          fetch-depth: 0   # чтобы получить все теги (рекомендуется)
 
-      # Преобразуем OWNER в нижний регистр и сохраняем в переменную окружения
+      # Преобразуем владельца в нижний регистр (для GHCR)
       - name: Set lowercase owner
         run: |
           OWNER_LC="${{ github.repository_owner }}"
@@ -72,7 +71,7 @@ jobs:
             echo "VERSION=$VERSION" >> $GITHUB_ENV
             echo "version=$VERSION" >> $GITHUB_OUTPUT
           else
-            # Для веток можно использовать что-то другое, например, имя ветки
+            # Для веток (не тегов) можно использовать "snapshot" или оставить пустым
             echo "VERSION=snapshot" >> $GITHUB_ENV
           fi
 
@@ -88,7 +87,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # API
+      # Сборка и публикация образа API
       - name: Build and push HumidityNP API
         uses: docker/build-push-action@v6
         with:
@@ -102,7 +101,29 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 2. Client (если нужен, сейчас Dockerfile отсутствует)
+      # Обновление манифеста Kubernetes с новым тегом (только при пуше тега)
+      - name: Update Kubernetes manifest with new tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${{ env.VERSION }}"
+          MANIFEST="k8s/humidity-api-deployment.yaml"
+          
+          # Меняем строку image: ... на новую версию
+          sed -i "s|image: ghcr.io/${{ env.OWNER_LC }}/humiditynp-api:.*|image: ghcr.io/${{ env.OWNER_LC }}/humiditynp-api:$VERSION|" $MANIFEST
+          
+          # Убедимся, что imagePullPolicy присутствует (если её нет – добавим)
+          if ! grep -q "imagePullPolicy:" $MANIFEST; then
+            sed -i "/image: ghcr.io\/${{ env.OWNER_LC }}\/humiditynp-api:$VERSION/a \          imagePullPolicy: IfNotPresent" $MANIFEST
+          fi
+          
+          # Коммитим и пушим изменение (с [skip ci] чтобы не запускать новый ран)
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add $MANIFEST
+          git commit -m "Update API image tag to $VERSION [skip ci]" || echo "No changes to commit"
+          git push
+
+             # 2. Client (если нужен, сейчас Dockerfile отсутствует)
       # - name: Build and push HumidityNP Client
       #   uses: docker/build-push-action@v6
       #   with:
