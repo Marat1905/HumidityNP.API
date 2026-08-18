@@ -3,7 +3,7 @@ name: Build, Test and Push Docker Images
 on:
   push:
     branches: [ master, develop ]
-    tags: [ 'v*' ]                     # триггер на теги
+    tags: [ 'v*' ]                      # триггер на теги
   pull_request:
     branches: [ master, develop ]
   workflow_dispatch:
@@ -38,7 +38,7 @@ jobs:
           sudo mv kubeconform /usr/local/bin/
       - name: Validate Kubernetes manifests
         run: |
-          # Замените 'k8s/' на путь к вашей папке с манифестами, если она другая
+         # Замените 'k8s/' на путь к вашей папке с манифестами, если она другая
           kubeconform -strict -summary -kubernetes-version 1.29.0 k8s/ || echo "⚠️ Манифесты не найдены или есть ошибки"
 
   # 3. Сборка, публикация образа и обновление манифеста
@@ -47,14 +47,14 @@ jobs:
     needs: test
     if: github.event_name == 'push'
     permissions:
-      contents: write    # нужно для коммита и пуша изменённого манифеста
+      contents: write    # необходимо для коммита и пуша
       packages: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # чтобы получить все теги (рекомендуется)
+          fetch-depth: 0    # нужно для получения всех веток и тегов
 
       # Преобразуем владельца в нижний регистр (для GHCR)
       - name: Set lowercase owner
@@ -101,28 +101,37 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Обновление манифеста Kubernetes с новым тегом (только при пуше тега)
+      # Обновление манифеста и автоматический коммит/пуш
       - name: Update Kubernetes manifest with new tag
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           VERSION="${{ env.VERSION }}"
           MANIFEST="k8s/humidity-api-deployment.yaml"
-          
-          # Меняем строку image: ... на новую версию
+
+          # Определяем ветку, на которой был создан тег
+          BRANCH=$(git branch -r --contains ${{ github.sha }} | grep -v HEAD | head -n1 | sed 's/origin\///')
+          if [ -z "$BRANCH" ]; then
+            echo "❌ Не удалось определить ветку для коммита, пропускаем пуш манифеста"
+            exit 0
+          fi
+          echo "✅ Обновляем манифест в ветке $BRANCH"
+
+          # Обновляем образ в манифесте
           sed -i "s|image: ghcr.io/${{ env.OWNER_LC }}/humiditynp-api:.*|image: ghcr.io/${{ env.OWNER_LC }}/humiditynp-api:$VERSION|" $MANIFEST
-          
-          # Убедимся, что imagePullPolicy присутствует (если её нет – добавим)
+
+          # Добавляем imagePullPolicy, если её нет
           if ! grep -q "imagePullPolicy:" $MANIFEST; then
             sed -i "/image: ghcr.io\/${{ env.OWNER_LC }}\/humiditynp-api:$VERSION/a \          imagePullPolicy: IfNotPresent" $MANIFEST
           fi
-          
-          # Коммитим и пушим изменение (с [skip ci] чтобы не запускать новый ран)
+
+          # Коммитим и пушим
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add $MANIFEST
-          git commit -m "Update API image tag to $VERSION [skip ci]" || echo "No changes to commit"
-          git push
+          git commit -m "Update API image tag to $VERSION [skip ci]" || echo "✅ Изменений нет, коммит не требуется"
+          git push origin HEAD:$BRANCH
 
+            
              # 2. Client (если нужен, сейчас Dockerfile отсутствует)
       # - name: Build and push HumidityNP Client
       #   uses: docker/build-push-action@v6
