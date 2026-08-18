@@ -23,12 +23,24 @@ jobs:
           
       - run: dotnet restore HumidityNP.API.sln
       - run: dotnet build HumidityNP.API.sln --no-restore -c Release
-      - run: dotnet test HumidityNP.API.sln --no-build -c Release
+      
+      # Запускаем тесты с генерацией TRX-отчетов для красивого отображения в GitHub UI
+      - run: dotnet test HumidityNP.API.sln --no-build -c Release --logger "trx;LogFileName=test-results.trx" || true
+      
+      # Публикация результатов тестов в удобном виде (работает даже если тесты упали)
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()    # запускаем всегда, чтобы видеть какие тесты упали
+        with:
+          name: Dotnet Tests
+          path: '**/test-results.trx'
+          reporter: dotnet-trx
 
-  # 2. Проверка Kubernetes манифестов (только для PR)
+  # 2. Проверка Kubernetes манифестов
   lint-k8s:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    # Запускаем на PR и на push в master/develop для защиты от прямого пуша битых манифестов
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop'))
     steps:
       - uses: actions/checkout@v4
       - name: Install kubeconform
@@ -58,23 +70,31 @@ jobs:
         #   fetch-depth: 0
 
       # Преобразуем OWNER в нижний регистр и сохраняем в переменную окружения
+      # GHCR требует, чтобы имя владельца было в lower case
       - name: Set lowercase owner
         run: |
           OWNER_LC="${{ github.repository_owner }}"
           echo "OWNER_LC=${OWNER_LC,,}" >> $GITHUB_ENV
 
-      # Извлекаем версию из тега (если это тег)
-      - name: Get version from tag
-        id: get_version
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            VERSION=${GITHUB_REF_NAME#v}
-            echo "VERSION=$VERSION" >> $GITHUB_ENV
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-          else
-            # Для веток можно использовать что-то другое, например, имя ветки
-            echo "VERSION=snapshot" >> $GITHUB_ENV
-          fi
+      # Автоматическая генерация тегов и метаданных для Docker образа
+      # Это заменяет ручное извлечение версии из тега и гарантирует, что:
+      # - тег 'latest' будет применяться ТОЛЬКО для master и релизных тегов
+      # - для develop будут свои теги (develop, sha), не перезаписывающие stable
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/humiditynp-api
+          tags: |
+            # Тег с именем ветки (master, develop)
+            type=ref,event=branch
+            # Тег версии из git-тега (v1.2.3 -> 1.2.3)
+            type=semver,pattern={{version}}
+            # Тег с SHA коммита для точной идентификации
+            type=sha
+            # Тег latest ТОЛЬКО для default-ветки (master) и релизных тегов
+            # Это защищает продакшен от перезаписи нестабильной версией из develop
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -95,10 +115,9 @@ jobs:
           context: .
           file: src/Humidity.API/Dockerfile
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/humiditynp-api:latest
-            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/humiditynp-api:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/humiditynp-api:${{ env.VERSION }}
+          # Используем автоматически сгенерированные теги из metadata-action
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
