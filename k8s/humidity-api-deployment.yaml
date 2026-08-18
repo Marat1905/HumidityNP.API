@@ -9,7 +9,7 @@ metadata:
     keel.sh/policy: force
     # Keel будет проверять реестр ghcr.io каждые 10 минут
     keel.sh/trigger: poll
-    keel.sh/pollSchedule: "@every 10m"
+    keel.sh/pollSchedule: "@every 20m"
 spec:
   replicas: 1
   selector:
@@ -30,7 +30,10 @@ spec:
               value: "8080"
             - name: ConnectionStrings__DefaultConnection
               value: Host=humidity-db;Port=5432;Database=HumidityDB;Username=postgres;Password=postgres
-          image: ghcr.io/marat1905/humiditynp-api:latest
+          # Изменено: указываем конкретную версию (v1.2.0) вместо latest
+          image: ghcr.io/marat1905/humiditynp-api:v1.2.0
+          # Добавлено: политика вытягивания
+          imagePullPolicy: IfNotPresent
           name: humidity-api
           ports:
             - containerPort: 8080
