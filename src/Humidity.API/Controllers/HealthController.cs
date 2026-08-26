@@ -8,7 +8,7 @@ namespace Humidity.API.Controllers;
 /// Контроллер для мониторинга здоровья интеграции с 1С.
 /// </summary>
 [ApiController]
-[Route("api/v{version:apiVersion}/[controller]")]
+[Route("humidity/api/v{version:apiVersion}/[controller]")]
 //[Authorize(Policy = "TCXPolicy")]
 public class HealthController : ControllerBase
 {

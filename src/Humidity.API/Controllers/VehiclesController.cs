@@ -11,7 +11,7 @@ namespace Humidity.API.Controllers;
 /// </summary>
 [ApiController]
 [ApiVersion("1.0")]
-[Route("api/v{version:apiVersion}/[controller]")]
+[Route("humidity/api/v{version:apiVersion}/[controller]")]
 public class VehiclesController : ControllerBase
 {
     private readonly IVehicleService _vehicleService;
