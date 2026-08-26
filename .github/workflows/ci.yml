@@ -120,6 +120,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            APP_VERSION=${{ steps.meta.outputs.version }}
 
       # 2. Client (если нужен, сейчас Dockerfile отсутствует)
       # - name: Build and push HumidityNP Client

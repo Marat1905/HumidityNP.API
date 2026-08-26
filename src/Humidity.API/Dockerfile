@@ -1,5 +1,11 @@
 # Этап 1: Базовый образ для запуска (ASP.NET Core Runtime)
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+
+ARG GIT_COMMIT=unknown
+ARG APP_VERSION=1.0.0
+ENV GIT_COMMIT=${GIT_COMMIT}
+ENV APP_VERSION=${APP_VERSION}
+
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081

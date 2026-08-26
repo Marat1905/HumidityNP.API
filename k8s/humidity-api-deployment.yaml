@@ -1,18 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: humidity-api
+  namespace: uchaly
   labels:
     io.kompose.service: humidity-api
-  name: humidity-api
   annotations:
     # Политика: обновлять на любой новый тег
     keel.sh/policy: force
     # Триггер: опрос реестра
     keel.sh/trigger: poll
     keel.sh/pollSchedule: "@every 20m"
-    # Рекомендовано для чёткого определения версии (особенно для semver)
+    # Чёткое определение версии для SemVer (без префикса "v")
     keel.sh/match-tag: "true"
-    keel.sh/match-tag-regexp: "v(?P<version>.+)"
+    keel.sh/match-tag-regexp: "^(?P<version>[0-9]+\\.[0-9]+\\.[0-9]+)$"
 spec:
   replicas: 1
   selector:
@@ -26,17 +27,18 @@ spec:
       imagePullSecrets:
         - name: ghcr-secret
       containers:
-        - env:
+        - name: humidity-api
+          # Исправлено на валидный тег без буквы "v"
+          image: ghcr.io/marat1905/humiditynp-api:1.2.4
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env:
             - name: ASPNETCORE_ENVIRONMENT
               value: Production
             - name: ASPNETCORE_HTTP_PORTS
               value: "8080"
             - name: ConnectionStrings__DefaultConnection
               value: Host=humidity-db;Port=5432;Database=HumidityDB;Username=postgres;Password=postgres
-          image: ghcr.io/marat1905/humiditynp-api:v1.2.0
-          imagePullPolicy: Always   # лучше Always
-          name: humidity-api
-          ports:
-            - containerPort: 8080
-              protocol: TCP
       restartPolicy: Always
