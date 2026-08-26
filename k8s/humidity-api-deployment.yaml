@@ -6,14 +6,12 @@ metadata:
   labels:
     io.kompose.service: humidity-api
   annotations:
-    # Политика: обновлять на любой новый тег
-    keel.sh/policy: force
-    # Триггер: опрос реестра
+    # 1. Задаем политику через регулярное выражение прямо здесь
+    keel.sh/policy: "regexp:^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+    # 2. Включаем опрос реестра
     keel.sh/trigger: poll
+    # 3. Интервал опроса (каждые 20 минут)
     keel.sh/pollSchedule: "@every 20m"
-    # Чёткое определение версии для SemVer (без префикса "v")
-    keel.sh/match-tag: "true"
-    keel.sh/match-tag-regexp: "^(?P<version>[0-9]+\\.[0-9]+\\.[0-9]+)$"
 spec:
   replicas: 1
   selector:
@@ -28,7 +26,6 @@ spec:
         - name: ghcr-secret
       containers:
         - name: humidity-api
-          # Исправлено на валидный тег без буквы "v"
           image: ghcr.io/marat1905/humiditynp-api:1.2.4
           imagePullPolicy: Always
           ports:
