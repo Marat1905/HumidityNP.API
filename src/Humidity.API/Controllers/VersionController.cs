@@ -3,6 +3,7 @@ using System.Reflection;
 
 namespace Humidity.API.Controllers;
 
+
 /// <summary>
 /// Контроллер для получения информации о версии запущенного приложения.
 /// </summary>

@@ -1,5 +1,4 @@
 ﻿using Humidity.Application.Interfaces;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Humidity.API.Controllers;
@@ -28,4 +27,5 @@ public class HealthController : ControllerBase
     {
         return Ok(_healthStatus.GetStatus());
     }
+
 }
