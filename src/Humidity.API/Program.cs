@@ -28,9 +28,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((context, configuration) =>
 {
     configuration.ReadFrom.Configuration(context.Configuration)
-                 .Enrich.FromLogContext()
-                 .Enrich.WithMachineName()
-                 .Enrich.WithThreadId();
+        .Enrich.FromLogContext()
+        .Enrich.WithMachineName()
+        .Enrich.WithThreadId();
 });
 
 // 2. РЕГИСТРАЦИЯ FLUENT VALIDATION
@@ -75,10 +75,8 @@ builder.Services.AddSwaggerGen(c =>
 
 // 5. НАСТРОЙКА CORS
 // Читаем настройки CORS из конфигурации
-
 var corsSettings = builder.Configuration.GetSection("CorsSettings").Get<CorsSettings>()
-                   ?? new CorsSettings();
-
+    ?? new CorsSettings();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins", policy =>
@@ -141,6 +139,7 @@ builder.Services.AddHttpClient<IOneCClient, OneCClient>((serviceProvider, client
 
     return HttpPolicyExtensions
         .HandleTransientHttpError() // обрабатывает HTTP 5xx, 408, HttpRequestException
+        .Or<TaskCanceledException>() // ДОБАВЛЕНО: перехватывает TaskCanceledException, который выбрасывается при таймауте HttpClient
         .OrResult(r => !r.IsSuccessStatusCode && (int)r.StatusCode >= 500) // явно серверные ошибки
         .WaitAndRetryAsync(
             settings.RetryCount,
@@ -228,14 +227,14 @@ try
         context.Database.Migrate();
         //if (app.Environment.IsDevelopment())
         //{
-        //    // Только для разработки - пересоздание БД
-        //    context.Database.EnsureCreated();
-        //    //await DataSeeder.SeedAsync(context);
+        // // Только для разработки - пересоздание БД
+        // context.Database.EnsureCreated();
+        // //await DataSeeder.SeedAsync(context);
         //}
         //else
         //{
-        //    // Для production - применяем миграции
-        //    context.Database.Migrate();
+        // // Для production - применяем миграции
+        // context.Database.Migrate();
         //}
     }
 

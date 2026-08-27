@@ -1,4 +1,5 @@
 ﻿// API/BackgroundServices/OneCSyncBackgroundService.cs
+
 using Humidity.Application.Interfaces;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
@@ -38,7 +39,7 @@ public class OneCSyncBackgroundService : BackgroundService
     {
         _logger.LogInformation("Сервис синхронизации с 1С запущен.");
 
-        // ========== ВАРИАНТ 1: Запускаем полную синхронизацию сразу при старте ==========
+        // ========== ВАЖНО: Запускаем полную синхронизацию сразу при старте ==========
         // Выполняем полную синхронизацию один раз до запуска фоновых циклов,
         // чтобы данные были актуальны с самого начала работы приложения.
         try
@@ -81,9 +82,17 @@ public class OneCSyncBackgroundService : BackgroundService
 
                 await SyncVehiclesAsync(from, to, stoppingToken);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (OperationCanceledException ex) when (ex.CancellationToken == stoppingToken)
             {
-                _logger.LogError(ex, "Ошибка при выполнении инкрементальной синхронизации.");
+                // Это штатная отмена при остановке приложения (например, при деплое или перезапуске)
+                _logger.LogInformation("Синхронизация корректно остановлена.");
+                break;
+            }
+            catch (Exception ex)
+            {
+                // Перехватываем ВСЕ остальные ошибки, включая TaskCanceledException от таймаута HttpClient.
+                // Цикл продолжит работу и попытается снова через заданный интервал.
+                _logger.LogError(ex, "Ошибка при выполнении инкрементальной синхронизации. Будет предпринята повторная попытка через {Minutes} мин.", _settings.IncrementalIntervalMinutes);
             }
         }
     }
@@ -108,9 +117,17 @@ public class OneCSyncBackgroundService : BackgroundService
 
                 await SyncVehiclesAsync(from, to, stoppingToken);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (OperationCanceledException ex) when (ex.CancellationToken == stoppingToken)
             {
-                _logger.LogError(ex, "Ошибка при выполнении полной синхронизации.");
+                // Это штатная отмена при остановке приложения (например, при деплое или перезапуске)
+                _logger.LogInformation("Синхронизация корректно остановлена.");
+                break;
+            }
+            catch (Exception ex)
+            {
+                // Перехватываем ВСЕ остальные ошибки, включая TaskCanceledException от таймаута HttpClient.
+                // Цикл продолжит работу и попытается снова через заданный интервал.
+                _logger.LogError(ex, "Ошибка при выполнении полной синхронизации. Будет предпринята повторная попытка через {Hours} ч.", _settings.FullSyncIntervalHours);
             }
         }
     }
@@ -191,36 +208,43 @@ public class OneCSyncBackgroundService : BackgroundService
                             existing.EntryDate = oneCVehicle.EntryDate;
                             needUpdate = true;
                         }
+
                         if (existing.ExitDate != oneCVehicle.ExitDate)
                         {
                             existing.ExitDate = oneCVehicle.ExitDate;
                             needUpdate = true;
                         }
+
                         if (existing.Counterparty != oneCVehicle.Counterparty)
                         {
                             existing.Counterparty = oneCVehicle.Counterparty;
                             needUpdate = true;
                         }
+
                         if (existing.Inn != oneCVehicle.Inn)
                         {
                             existing.Inn = oneCVehicle.Inn;
                             needUpdate = true;
                         }
+
                         if (existing.VehicleBrand != oneCVehicle.VehicleBrand)
                         {
                             existing.VehicleBrand = oneCVehicle.VehicleBrand;
                             needUpdate = true;
                         }
+
                         if (existing.VehiclePlate != oneCVehicle.VehiclePlate)
                         {
                             existing.VehiclePlate = oneCVehicle.VehiclePlate;
                             needUpdate = true;
                         }
+
                         if (existing.Trailer != oneCVehicle.Trailer)
                         {
                             existing.Trailer = oneCVehicle.Trailer;
                             needUpdate = true;
                         }
+
                         if (existing.Driver != oneCVehicle.Driver)
                         {
                             existing.Driver = oneCVehicle.Driver;
