@@ -33,6 +33,12 @@ public class HumidityDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Number).IsRequired().HasMaxLength(50);
+
+            // Конфигурация нового поля OneCGuid с уникальным индексом для контроля уникальности на уровне БД.
+            // IsUnicode(false) оптимизирует хранение, так как GUID содержит только латинские символы и цифры.
+            entity.Property(e => e.OneCGuid).HasMaxLength(50).IsUnicode(false);
+            entity.HasIndex(e => e.OneCGuid).IsUnique();
+
             entity.Property(e => e.Counterparty).HasMaxLength(200);
             entity.Property(e => e.Inn).HasMaxLength(12); // ИНН может быть 10 или 12 символов
             entity.Property(e => e.VehicleBrand).HasMaxLength(100);

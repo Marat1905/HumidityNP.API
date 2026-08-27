@@ -9,6 +9,12 @@ namespace Humidity.Domain.Entities;
 public class Vehicle : BaseEntity
 {
     /// <summary>
+    /// Уникальный идентификатор записи из 1С для контроля уникальности.
+    /// Используется как первичный ключ при синхронизации для предотвращения создания дубликатов.
+    /// </summary>
+    public string? OneCGuid { get; set; }
+
+    /// <summary>
     /// Номер пропуска (например, Я-9310099848).
     /// </summary>
     public string Number { get; set; } = string.Empty;

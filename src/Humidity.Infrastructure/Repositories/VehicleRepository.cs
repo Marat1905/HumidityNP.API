@@ -130,7 +130,7 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
 
     /// <summary>
     /// Найти машину по номеру пропуска и дате создания пропуска.
-    /// Используется для синхронизации с 1С для однозначной идентификации записи.
+    /// Используется для синхронизации с 1С для однозначной идентификации записи (резервный метод).
     /// </summary>
     /// <param name="number">Номер пропуска.</param>
     /// <param name="date">Дата создания пропуска.</param>
@@ -140,6 +140,19 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     {
         return await _context.Vehicles
             .FirstOrDefaultAsync(v => v.Number == number && v.Date == date, cancellationToken);
+    }
+
+    /// <summary>
+    /// Найти машину по уникальному идентификатору 1С (ГУИД).
+    /// Основной метод для контроля уникальности при синхронизации.
+    /// </summary>
+    /// <param name="oneCGuid">Уникальный идентификатор из 1С.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Сущность Vehicle или null, если не найдена.</returns>
+    public async Task<Vehicle?> GetByOneCGuidAsync(string oneCGuid, CancellationToken cancellationToken = default)
+    {
+        return await _context.Vehicles
+            .FirstOrDefaultAsync(v => v.OneCGuid == oneCGuid, cancellationToken);
     }
 
     /// <summary>

@@ -1,6 +1,6 @@
 ﻿namespace Humidity.Application.DTOs;
 
-/// <summary>
+//// <summary>
 /// DTO для передачи данных о машине клиенту.
 /// </summary>
 public class VehicleDto
@@ -9,6 +9,11 @@ public class VehicleDto
     /// Идентификатор машины.
     /// </summary>
     public Guid Id { get; set; }
+
+    /// <summary>
+    /// Уникальный идентификатор записи из 1С для контроля уникальности.
+    /// </summary>
+    public string? OneCGuid { get; set; }
 
     /// <summary>
     /// Номер пропуска.

@@ -134,6 +134,7 @@ public class OneCSyncBackgroundService : BackgroundService
 
     /// <summary>
     /// Основной метод синхронизации: получает данные из 1С и обновляет/добавляет записи в БД.
+    /// Реализует строгий контроль уникальности по полю OneCGuid.
     /// </summary>
     private async Task SyncVehiclesAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
     {
@@ -170,11 +171,21 @@ public class OneCSyncBackgroundService : BackgroundService
                         continue;
                     }
 
-                    // Ищем существующую машину по номеру пропуска и дате создания
-                    var existing = await vehicleRepository.GetByNumberAndDateAsync(
-                        oneCVehicle.Number,
-                        oneCVehicle.Date,
-                        cancellationToken);
+                    // 1. КОНТРОЛЬ УНИКАЛЬНОСТИ: Ищем существующую машину по ГУИД (приоритетный метод)
+                    Vehicle? existing = null;
+                    if (!string.IsNullOrWhiteSpace(oneCVehicle.OneCGuid))
+                    {
+                        existing = await vehicleRepository.GetByOneCGuidAsync(oneCVehicle.OneCGuid, cancellationToken);
+                    }
+
+                    // 2. Если по GUID не найдено, пробуем найти по номеру пропуска и дате (для обратной совместимости со старыми записями)
+                    if (existing == null)
+                    {
+                        existing = await vehicleRepository.GetByNumberAndDateAsync(
+                            oneCVehicle.Number,
+                            oneCVehicle.Date,
+                            cancellationToken);
+                    }
 
                     if (existing == null)
                     {
@@ -191,17 +202,30 @@ public class OneCSyncBackgroundService : BackgroundService
                             VehicleBrand = oneCVehicle.VehicleBrand,
                             VehiclePlate = oneCVehicle.VehiclePlate,
                             Trailer = oneCVehicle.Trailer,
-                            Driver = oneCVehicle.Driver
+                            Driver = oneCVehicle.Driver,
+                            OneCGuid = oneCVehicle.OneCGuid
                         };
 
                         await vehicleRepository.AddAsync(newVehicle, cancellationToken);
                         addedCount++;
-                        _logger.LogDebug("Добавлена новая машина: {Number} {Date}", oneCVehicle.Number, oneCVehicle.Date);
+                        _logger.LogDebug("Добавлена новая машина: {Number} {Date} (GUID: {OneCGuid})", oneCVehicle.Number, oneCVehicle.Date, oneCVehicle.OneCGuid);
                     }
                     else
                     {
-                        // Проверяем, изменились ли поля (кроме Id, Number, Date, CreatedAt, UpdatedAt)
+                        // Проверяем, изменились ли поля (кроме Id, CreatedAt, UpdatedAt)
                         bool needUpdate = false;
+
+                        if (existing.Number != oneCVehicle.Number)
+                        {
+                            existing.Number = oneCVehicle.Number;
+                            needUpdate = true;
+                        }
+
+                        if (existing.Date != oneCVehicle.Date)
+                        {
+                            existing.Date = oneCVehicle.Date;
+                            needUpdate = true;
+                        }
 
                         if (existing.EntryDate != oneCVehicle.EntryDate)
                         {
@@ -251,11 +275,18 @@ public class OneCSyncBackgroundService : BackgroundService
                             needUpdate = true;
                         }
 
+                        // Обновляем GUID, если он появился или изменился (например, был пустой, а теперь 1С начала его передавать)
+                        if (existing.OneCGuid != oneCVehicle.OneCGuid)
+                        {
+                            existing.OneCGuid = oneCVehicle.OneCGuid;
+                            needUpdate = true;
+                        }
+
                         if (needUpdate)
                         {
                             await vehicleRepository.UpdateAsync(existing, cancellationToken);
                             updatedCount++;
-                            _logger.LogDebug("Обновлена машина: {Number} {Date}", oneCVehicle.Number, oneCVehicle.Date);
+                            _logger.LogDebug("Обновлена машина: {Number} {Date} (GUID: {OneCGuid})", oneCVehicle.Number, oneCVehicle.Date, oneCVehicle.OneCGuid);
                         }
                     }
 
