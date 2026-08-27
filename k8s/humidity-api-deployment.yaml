@@ -26,7 +26,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: humidity-api
-          image: ghcr.io/marat1905/humiditynp-api:1.2.4
+          image: ghcr.io/marat1905/humiditynp-api:1.2.5
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
