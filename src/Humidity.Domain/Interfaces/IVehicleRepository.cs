@@ -53,13 +53,22 @@ public interface IVehicleRepository : IRepository<Vehicle>
 
     /// <summary>
     /// Найти машину по номеру пропуска и дате создания пропуска.
-    /// Используется для синхронизации с 1С, чтобы однозначно идентифицировать запись.
+    /// Используется для синхронизации с 1С, чтобы однозначно идентифицировать запись (резервный метод).
     /// </summary>
     /// <param name="number">Номер пропуска.</param>
     /// <param name="date">Дата создания пропуска.</param>
     /// <param name="cancellationToken">Токен отмены операции.</param>
     /// <returns>Сущность Vehicle или null, если не найдена.</returns>
     Task<Vehicle?> GetByNumberAndDateAsync(string number, DateTimeOffset date, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Найти машину по уникальному идентификатору 1С (ГУИД).
+    /// Основной метод для контроля уникальности при синхронизации.
+    /// </summary>
+    /// <param name="oneCGuid">Уникальный идентификатор из 1С.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Сущность Vehicle или null, если не найдена.</returns>
+    Task<Vehicle?> GetByOneCGuidAsync(string oneCGuid, CancellationToken cancellationToken = default);
 
     // НОВЫЙ МЕТОД для фильтрации с пагинацией
     /// <summary>

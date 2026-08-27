@@ -6,6 +6,11 @@
 public class OneCVehicleDto
 {
     /// <summary>
+    /// Уникальный идентификатор записи из 1С для контроля уникальности.
+    /// </summary>
+    public string? OneCGuid { get; set; }
+
+    /// <summary>
     /// Номер пропуска.
     /// </summary>
     public string Number { get; set; } = string.Empty;

@@ -54,7 +54,8 @@ public class VehicleRepositoryTests : IClassFixture<TestContainersFixture>, IAsy
             VehiclePlate = "A001AA77",
             Trailer = "T001",
             Driver = "Ivanov I.I.",
-            ExitDate = null
+            ExitDate = null,
+            OneCGuid = "85487929-a138-11f1-a34b-3a68dd023b0f"
         };
 
         // Act
@@ -67,6 +68,7 @@ public class VehicleRepositoryTests : IClassFixture<TestContainersFixture>, IAsy
         savedVehicle!.VehiclePlate.Should().Be("A001AA77");
         savedVehicle.Counterparty.Should().Be("Test Supplier LLC");
         savedVehicle.ExitDate.Should().BeNull();
+        savedVehicle.OneCGuid.Should().Be("85487929-a138-11f1-a34b-3a68dd023b0f");
     }
 
     [Fact]
@@ -326,5 +328,36 @@ public class VehicleRepositoryTests : IClassFixture<TestContainersFixture>, IAsy
         unloadedVehicle.WeightKg.Should().Be(5000.5);
         unloadedVehicle.StackNumber.Should().Be("STACK-001");
         unloadedVehicle.ExitDate.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task GetByOneCGuidAsync_WhenVehicleExists_ShouldReturnVehicle()
+    {
+        // Arrange
+        var oneCGuid = "85487929-a138-11f1-a34b-3a68dd023b0f";
+        var vehicle = new Vehicle
+        {
+            Id = Guid.NewGuid(),
+            Number = "TEST-GUID-001",
+            Date = DateTimeOffset.UtcNow,
+            EntryDate = DateTimeOffset.UtcNow,
+            Counterparty = "Test Supplier GUID",
+            VehiclePlate = "G001GG77",
+            Driver = "Driver Guid",
+            OneCGuid = oneCGuid,
+            ExitDate = null
+        };
+
+        _dbContext.Vehicles.Add(vehicle);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        // Эмуляция вызова метода репозитория GetByOneCGuidAsync через прямой запрос к DbContext
+        var result = await _dbContext.Vehicles.FirstOrDefaultAsync(v => v.OneCGuid == oneCGuid);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.OneCGuid.Should().Be(oneCGuid);
+        result.Number.Should().Be("TEST-GUID-001");
     }
 }

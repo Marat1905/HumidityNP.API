@@ -228,7 +228,9 @@ public class OneCClient : IOneCClient
                 Trailer = dict.GetValueOrDefault("Прицеп") ?? string.Empty,
                 Counterparty = dict.GetValueOrDefault("Поставщик") ?? string.Empty,
                 Inn = dict.GetValueOrDefault("ИННПоставщика"),
-                Driver = dict.GetValueOrDefault("Водитель") ?? string.Empty
+                Driver = dict.GetValueOrDefault("Водитель") ?? string.Empty,
+                // Извлекаем новый параметр ГУИД для контроля уникальности
+                OneCGuid = dict.GetValueOrDefault("ГУИД")
             };
 
             result.Add(dto);
