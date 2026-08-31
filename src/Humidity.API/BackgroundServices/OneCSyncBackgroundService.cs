@@ -1,6 +1,4 @@
-﻿// API/BackgroundServices/OneCSyncBackgroundService.cs
-
-using Humidity.Application.Interfaces;
+﻿using Humidity.Application.Interfaces;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
 using Microsoft.Extensions.Options;

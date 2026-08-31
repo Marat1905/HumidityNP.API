@@ -1,5 +1,4 @@
 ﻿using Asp.Versioning;
-using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
 using Humidity.Domain.Common;
 using Microsoft.AspNetCore.Mvc;
