@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { subDays } from 'date-fns';
 import { useTopSuppliers } from '../../hooks/humidity/useTopSuppliers';
-import RangeDatePicker from '../../components/shared/RangeDatePicker';
-import { SkeletonTable } from '../../components/shared/Skeleton';
+import RangeDatePicker from '../../components/common/RangeDatePicker';
+import { SkeletonTable } from '../../components/common/Skeleton';
 import TopSuppliersChart from '../../components/humidity/TopSuppliersChart';
 import SuppliersTable from '../../components/humidity/SuppliersTable';
 import type { SupplierDto } from '../../types/humidity';

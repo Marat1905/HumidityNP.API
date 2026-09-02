@@ -1,5 +1,3 @@
-// src/components/shared/DatePicker.tsx
-
 import React, { useState, useRef, useLayoutEffect } from "react";
 import { FiCalendar } from "react-icons/fi";
 import { format } from "date-fns";

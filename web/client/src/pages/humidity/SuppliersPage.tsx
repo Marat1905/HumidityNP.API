@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { subDays } from 'date-fns';
 import { useSuppliers } from '../../hooks/humidity/useSuppliers';
 import SupplierList from '../../components/humidity/SupplierList';
-import Pagination from '../../components/shared/Pagination';
-import RangeDatePicker from '../../components/shared/RangeDatePicker';
-import { SkeletonTable } from '../../components/shared/Skeleton';
+import Pagination from '../../components/common/Pagination';
+import RangeDatePicker from '../../components/common/RangeDatePicker';
+import { SkeletonTable } from '../../components/common/Skeleton';
 
 export default function SuppliersPage() {
     const DEFAULT_DAYS = 30;

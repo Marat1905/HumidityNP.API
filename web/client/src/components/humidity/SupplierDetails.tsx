@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSupplierDetails } from '../../hooks/humidity/useSupplierDetails';
-import { SkeletonReport } from '../shared/Skeleton';
+import { SkeletonReport } from '../common/Skeleton';
 import SupplierChart from './SupplierChart';
 import SupplierVehiclesTable from './SupplierVehiclesTable';
 import MeasurementStatistics from '../humidity/MeasurementStatistics';

@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useMeasurements } from '../../hooks/humidity/useMeasurements';
-import Pagination from '../shared/Pagination';
-import { SkeletonMeasurementsList } from '../shared/Skeleton';
+import Pagination from '../common/Pagination';
+import { SkeletonMeasurementsList } from '../common/Skeleton';
 import type { MeasurementDto, SignType, MeasurementSource } from '../../types/humidity';
 
 interface VehicleMeasurementsExpandProps {

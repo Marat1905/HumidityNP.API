@@ -3,10 +3,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAllMeasurementsByDateRange } from '../../hooks/humidity/useAllMeasurementsByDateRange';
-import RangeDatePicker from '../../components/shared/RangeDatePicker';
+import RangeDatePicker from '../../components/common/RangeDatePicker';
 import PeriodReportTable, { type PeriodReportItem, type PeriodSummaryStats } from '../../components/humidity/PeriodReportTable';
 import PeriodReportCardView from '../../components/humidity/PeriodReportCardView';
-import { SkeletonReport } from '../../components/shared/Skeleton';
+import { SkeletonReport } from '../../components/common/Skeleton';
 import { MeasurementSource } from '../../types/humidity';
 import { LayoutGrid, Table } from 'lucide-react';
 

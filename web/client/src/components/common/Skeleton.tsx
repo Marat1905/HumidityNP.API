@@ -1,4 +1,3 @@
-// src/components/Skeleton.tsx
 import React from 'react';
 
 /**
