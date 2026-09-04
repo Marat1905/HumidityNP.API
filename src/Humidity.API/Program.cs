@@ -6,6 +6,7 @@ using Humidity.API.Auth;
 using Humidity.API.BackgroundServices;
 using Humidity.API.Middleware;
 using Humidity.Application;
+using Humidity.Application.Common.Models;
 using Humidity.Application.Interfaces;
 using Humidity.Application.Services;
 using Humidity.Application.Validators;
