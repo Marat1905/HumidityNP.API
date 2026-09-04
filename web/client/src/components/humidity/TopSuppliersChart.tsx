@@ -25,7 +25,14 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
     rankType,
     maxItems = 20,
 }) => {
-    const displayData = useMemo(() => suppliers.slice(0, maxItems), [suppliers, maxItems]);
+    // ИСПРАВЛЕНИЕ: добавлена проверка Array.isArray, чтобы displayData всегда был массивом,
+    // даже если в пропс suppliers пришло undefined, null или объект вместо массива.
+    const displayData = useMemo(() => {
+        if (!Array.isArray(suppliers)) {
+            return [];
+        }
+        return suppliers.slice(0, maxItems);
+    }, [suppliers, maxItems]);
 
     if (displayData.length === 0) {
         return (
@@ -36,7 +43,11 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
         );
     }
 
-    const chartData = displayData.map((supplier) => ({
+    // ИСПРАВЛЕНИЕ: дополнительная страховка — если displayData по какой-то причине не массив,
+    // используем пустой массив, чтобы .map() не упал с ошибкой "is not a function".
+    const safeDisplayData = Array.isArray(displayData) ? displayData : [];
+
+    const chartData = safeDisplayData.map((supplier) => ({
         fullName: supplier.counterparty,
         shortName: supplier.counterparty.length > 15
             ? supplier.counterparty.slice(0, 14) + '…'

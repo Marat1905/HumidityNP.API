@@ -6,8 +6,8 @@ export type ShiftType = 'day' | 'night';
 
 export interface ShiftReportItem {
     vehicleId: string;
-    number: string;                // номер заявки
-    vehiclePlate: string;          // госномер
+    number: string; // номер заявки
+    vehiclePlate: string; // госномер
     measurementsCount: number;
     averageHumidity: number | null;
     minHumidity: number | null;
@@ -89,7 +89,9 @@ export const useShiftReport = (
 
         try {
             const result = await measurementService.getByDateRange(fromISO, toISO, 1, pageSize);
-            const measurements = result.items;
+
+            // ИСПРАВЛЕНИЕ: безопасное получение массива замеров
+            const measurements = result?.items ?? [];
 
             // Агрегация по машинам
             const vehicleMap = new Map<string, {
@@ -115,6 +117,7 @@ export const useShiftReport = (
                 totalMeasurements++;
                 if (m.source === 'Auto') totalAuto++;
                 else totalManual++;
+
                 sumAllHumidity += m.humidityValue;
                 if (globalMin === null || m.humidityValue < globalMin) globalMin = m.humidityValue;
                 if (globalMax === null || m.humidityValue > globalMax) globalMax = m.humidityValue;
@@ -133,6 +136,7 @@ export const useShiftReport = (
                         lastTimestamp: null,
                     });
                 }
+
                 const entry = vehicleMap.get(id)!;
                 // При первом добавлении обновляем номер и госномер, если они ещё не заданы
                 if (!entry.number && m.vehicleNumber) entry.number = m.vehicleNumber;
@@ -141,9 +145,11 @@ export const useShiftReport = (
                 entry.measurements.push(m);
                 if (m.source === 'Auto') entry.autoCount++;
                 else entry.manualCount++;
+
                 entry.sumHumidity += m.humidityValue;
                 if (entry.minHumidity === null || m.humidityValue < entry.minHumidity) entry.minHumidity = m.humidityValue;
                 if (entry.maxHumidity === null || m.humidityValue > entry.maxHumidity) entry.maxHumidity = m.humidityValue;
+
                 if (!entry.lastTimestamp || m.timestamp > entry.lastTimestamp) {
                     entry.lastTimestamp = m.timestamp;
                 }
@@ -153,6 +159,7 @@ export const useShiftReport = (
             for (const [vehicleId, entry] of vehicleMap.entries()) {
                 const count = entry.measurements.length;
                 const avg = count > 0 ? entry.sumHumidity / count : null;
+
                 items.push({
                     vehicleId,
                     number: entry.number || vehicleId.slice(0, 8), // fallback на часть ID
@@ -171,7 +178,6 @@ export const useShiftReport = (
 
             // Общая статистика
             const overallAverage = totalMeasurements > 0 ? sumAllHumidity / totalMeasurements : null;
-
             const summary: ShiftSummaryStats = {
                 vehicleCount: vehicleMap.size,
                 totalMeasurements,

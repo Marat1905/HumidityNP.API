@@ -1,4 +1,5 @@
 // src/pages/ReportPeriodPage.tsx
+
 import { useState, useEffect, useMemo } from 'react';
 import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -7,7 +8,7 @@ import RangeDatePicker from '../../components/common/RangeDatePicker';
 import PeriodReportTable, { type PeriodReportItem, type PeriodSummaryStats } from '../../components/humidity/PeriodReportTable';
 import PeriodReportCardView from '../../components/humidity/PeriodReportCardView';
 import { SkeletonReport } from '../../components/common/Skeleton';
-import { MeasurementSource } from '../../types/humidity';
+import { MeasurementSource, type MeasurementDto } from '../../types/humidity';
 import { LayoutGrid, Table } from 'lucide-react';
 
 type ViewMode = 'table' | 'cards';
@@ -18,8 +19,8 @@ export default function ReportPeriodPage() {
         const now = new Date();
         return subDays(now, 6);
     });
-    const [endDate, setEndDate] = useState<Date | null>(() => new Date());
 
+    const [endDate, setEndDate] = useState<Date | null>(() => new Date());
     const [viewMode, setViewMode] = useState<ViewMode>('table');
 
     // Обработчик изменения диапазона из RangeDatePicker
@@ -43,14 +44,17 @@ export default function ReportPeriodPage() {
 
     // Агрегация данных по машинам
     const reportData = useMemo(() => {
-        if (!measurements || measurements.length === 0) {
+        // ИСПРАВЛЕНИЕ: фильтруем массив, убирая возможные undefined/null элементы перед обработкой
+        const validMeasurements = (measurements ?? []).filter((m): m is MeasurementDto => m != null);
+
+        if (validMeasurements.length === 0) {
             return { items: [] as PeriodReportItem[], summary: null as PeriodSummaryStats | null };
         }
 
         const vehicleMap = new Map<string, {
             number: string;
             vehiclePlate: string;
-            measurements: typeof measurements;
+            measurements: typeof validMeasurements;
             autoCount: number;
             manualCount: number;
             sumHumidity: number;
@@ -66,10 +70,11 @@ export default function ReportPeriodPage() {
         let globalMin: number | null = null;
         let globalMax: number | null = null;
 
-        measurements.forEach(m => {
+        validMeasurements.forEach(m => {
             totalMeasurements++;
             if (m.source === MeasurementSource.Auto) totalAuto++;
             else totalManual++;
+
             sumAllHumidity += m.humidityValue;
             if (globalMin === null || m.humidityValue < globalMin) globalMin = m.humidityValue;
             if (globalMax === null || m.humidityValue > globalMax) globalMax = m.humidityValue;
@@ -88,6 +93,7 @@ export default function ReportPeriodPage() {
                     lastTimestamp: null,
                 });
             }
+
             const entry = vehicleMap.get(id)!;
             if (!entry.number && m.vehicleNumber) entry.number = m.vehicleNumber;
             if (!entry.vehiclePlate && m.vehiclePlate) entry.vehiclePlate = m.vehiclePlate;
@@ -95,9 +101,11 @@ export default function ReportPeriodPage() {
             entry.measurements.push(m);
             if (m.source === MeasurementSource.Auto) entry.autoCount++;
             else entry.manualCount++;
+
             entry.sumHumidity += m.humidityValue;
             if (entry.minHumidity === null || m.humidityValue < entry.minHumidity) entry.minHumidity = m.humidityValue;
             if (entry.maxHumidity === null || m.humidityValue > entry.maxHumidity) entry.maxHumidity = m.humidityValue;
+
             if (!entry.lastTimestamp || m.timestamp > entry.lastTimestamp) {
                 entry.lastTimestamp = m.timestamp;
             }
@@ -107,6 +115,7 @@ export default function ReportPeriodPage() {
         for (const [vehicleId, entry] of vehicleMap.entries()) {
             const count = entry.measurements.length;
             const avg = count > 0 ? entry.sumHumidity / count : null;
+
             items.push({
                 vehicleId,
                 number: entry.number || vehicleId.slice(0, 8),
@@ -124,7 +133,6 @@ export default function ReportPeriodPage() {
         items.sort((a, b) => b.measurementsCount - a.measurementsCount);
 
         const overallAverage = totalMeasurements > 0 ? sumAllHumidity / totalMeasurements : null;
-
         const summary: PeriodSummaryStats = {
             vehicleCount: vehicleMap.size,
             totalMeasurements,
@@ -171,7 +179,6 @@ export default function ReportPeriodPage() {
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                     {periodLabel}
                 </div>
-
                 <div className="ml-auto flex items-center gap-2">
                     <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">Вид:</span>
                     <button

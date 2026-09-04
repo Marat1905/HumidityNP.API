@@ -46,6 +46,7 @@ export default function MeasurementsPage() {
 
     const [pageNumber, setPageNumber] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+
     const { data, loading, error, refetch } = useMeasurementsByDateRange(
         startDate,
         endDate,
@@ -99,7 +100,10 @@ export default function MeasurementsPage() {
         );
     }
 
-    const { items, totalCount, totalPages } = data!;
+    // ИСПРАВЛЕНИЕ: безопасное извлечение свойств с резервными значениями
+    const items = data?.items ?? [];
+    const totalCount = data?.totalCount ?? 0;
+    const totalPages = data?.totalPages ?? 0;
 
     return (
         <div>

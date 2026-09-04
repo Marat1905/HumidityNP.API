@@ -14,8 +14,8 @@ export default function SuppliersPage() {
         const now = new Date();
         return subDays(now, DEFAULT_DAYS);
     });
-    const [endDate, setEndDate] = useState<Date>(() => new Date());
 
+    const [endDate, setEndDate] = useState<Date>(() => new Date());
     const [pageNumber, setPageNumber] = useState(1);
     const [pageSize, setPageSize] = useState(10);
     const [expandedInn, setExpandedInn] = useState<string | null>(null);
@@ -61,28 +61,28 @@ export default function SuppliersPage() {
                 </div>
             </div>
 
-            {data && data.items.length === 0 ? (
+            {/* ИСПРАВЛЕНИЕ: безопасная проверка на отсутствие items */}
+            {data && (!data.items || data.items.length === 0) ? (
                 <div className="text-center py-10 text-gray-500 dark:text-gray-400">
                     Нет поставщиков за выбранный период
                 </div>
             ) : (
                 <>
                     <SupplierList
-                        suppliers={data?.items || []}
+                        suppliers={data?.items ?? []}
                         expandedInn={expandedInn}
                         onToggle={toggleSupplier}
                         fromDate={startDate}
                         toDate={endDate}
                     />
-
                     {data && (
                         <Pagination
-                            currentPage={data.pageNumber}
-                            totalPages={data.totalPages}
+                            currentPage={data.pageNumber ?? 1}
+                            totalPages={data.totalPages ?? 1}
                             onPageChange={setPageNumber}
-                            pageSize={data.pageSize}
+                            pageSize={data.pageSize ?? 10}
                             onPageSizeChange={(size) => { setPageSize(size); setPageNumber(1); }}
-                            totalCount={data.totalCount}
+                            totalCount={data.totalCount ?? 0}
                         />
                     )}
                 </>

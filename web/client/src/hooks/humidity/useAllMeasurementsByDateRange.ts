@@ -50,8 +50,10 @@ export const useAllMeasurementsByDateRange = (
                     currentPage,
                     maxPageSize
                 );
-                allItems = allItems.concat(result.items);
-                totalPages = result.totalPages;
+
+                // ИСПРАВЛЕНИЕ: безопасное получение массива items для предотвращения добавления undefined
+                allItems = allItems.concat(result?.items ?? []);
+                totalPages = result?.totalPages ?? 1;
                 currentPage++;
             } while (currentPage <= totalPages);
 

@@ -7,6 +7,9 @@ interface SuppliersTableProps {
 }
 
 const SuppliersTable: React.FC<SuppliersTableProps> = ({ suppliers, rankType }) => {
+    // ИСПРАВЛЕНИЕ: безопасная обработка пропса suppliers на случай, если он не является массивом
+    const safeSuppliers = Array.isArray(suppliers) ? suppliers : [];
+
     const getRowColor = (index: number) => {
         if (rankType === 'good') {
             if (index === 0) return 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700';
@@ -19,6 +22,15 @@ const SuppliersTable: React.FC<SuppliersTableProps> = ({ suppliers, rankType }) 
         }
         return '';
     };
+
+    // ИСПРАВЛЕНИЕ: если suppliers пустой или не массив, показываем заглушку вместо падения
+    if (safeSuppliers.length === 0) {
+        return (
+            <div className="text-center text-gray-500 dark:text-gray-400 py-12 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                <p>Нет данных для отображения</p>
+            </div>
+        );
+    }
 
     return (
         <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
@@ -43,7 +55,7 @@ const SuppliersTable: React.FC<SuppliersTableProps> = ({ suppliers, rankType }) 
                     </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                    {suppliers.map((supplier, index) => (
+                    {safeSuppliers.map((supplier, index) => (
                         <tr
                             key={supplier.inn}
                             className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition ${getRowColor(index)}`}

@@ -252,7 +252,6 @@ function VehicleCard({ vehicle, averageHumidity, isLoadingAvg }: {
 export default function VehiclesPage() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-
     const page = parseInt(searchParams.get('page') || '1', 10);
     const size = parseInt(searchParams.get('size') || '10', 10);
     const counterparty = searchParams.get('counterparty') || '';
@@ -308,7 +307,8 @@ export default function VehiclesPage() {
     const { data, loading, error, refetch } = useVehicles(queryParams);
 
     useEffect(() => {
-        if (!data || !data.items.length) {
+        // ИСПРАВЛЕНИЕ: добавлена опциональная цепочка ?. для безопасной проверки длины
+        if (!data || !data.items?.length) {
             setAverageHumidityMap({});
             setLoadingStats({});
             return;
@@ -321,12 +321,10 @@ export default function VehiclesPage() {
                 newLoadingStats[id] = true;
             }
         });
-
         setLoadingStats(prev => ({ ...prev, ...newLoadingStats }));
 
         vehicleIds.forEach(id => {
             if (id in averageHumidityMap) return;
-
             measurementService.getStatisticsByVehicle(id)
                 .then(stats => {
                     setAverageHumidityMap(prev => ({
@@ -370,7 +368,6 @@ export default function VehiclesPage() {
         if (key === 'plate') { setLocalPlate(''); }
         if (key === 'driver') { setLocalDriver(''); }
         if (key === 'status') { setLocalStatus('active'); }
-
         setSearchParams({
             page: '1',
             size: String(size),
@@ -434,7 +431,10 @@ export default function VehiclesPage() {
     if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
     if (!data) return null;
 
-    const { items, totalCount, totalPages } = data;
+    // ИСПРАВЛЕНИЕ: добавлена защита от undefined для items, totalCount и totalPages
+    const items = data.items ?? [];
+    const totalCount = data.totalCount ?? 0;
+    const totalPages = data.totalPages ?? 0;
 
     const handleRowClick = (vehicleId: string) => {
         const queryString = searchParams.toString();

@@ -15,9 +15,9 @@ import {
     CheckCircle,
     XCircle,
     FileText,
-    Package,          // иконка для тюков
-    Weight,           // иконка для веса
-    Hash,             // иконка для номера штабеля
+    Package, // иконка для тюков
+    Weight, // иконка для веса
+    Hash, // иконка для номера штабеля
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { vehicleService } from '../../services/humidity/api';
@@ -212,11 +212,12 @@ export default function VehicleDetailsPage() {
             ) : measurementsData ? (
                 <MeasurementList
                     vehicleId={vehicle.id}
-                    measurements={measurementsData.items}
-                    totalCount={measurementsData.totalCount}
-                    pageNumber={measurementsData.pageNumber}
-                    pageSize={measurementsData.pageSize}
-                    totalPages={measurementsData.totalPages}
+                    // ИСПРАВЛЕНИЕ: безопасная передача пропсов с резервными значениями
+                    measurements={measurementsData?.items ?? []}
+                    totalCount={measurementsData?.totalCount ?? 0}
+                    pageNumber={measurementsData?.pageNumber ?? 1}
+                    pageSize={measurementsData?.pageSize ?? 10}
+                    totalPages={measurementsData?.totalPages ?? 0}
                     onPageChange={setPageNumber}
                     onPageSizeChange={(size) => { setPageSize(size); setPageNumber(1); }}
                     onRefresh={handleRefresh}
