@@ -44,7 +44,7 @@ function VehicleCard({ vehicle, averageHumidity, isLoadingAvg }: {
 }) {
     const navigate = useNavigate();
     const handleClick = () => {
-        navigate(`/vehicles/${vehicle.id}`);
+        navigate(`/humidity/vehicles/${vehicle.id}`);
     };
 
     const isActive = !vehicle.exitDate;
@@ -438,7 +438,7 @@ export default function VehiclesPage() {
 
     const handleRowClick = (vehicleId: string) => {
         const queryString = searchParams.toString();
-        const path = queryString ? `/vehicles/${vehicleId}?${queryString}` : `/vehicles/${vehicleId}`;
+        const path = queryString ? `/humidity/vehicles/${vehicleId}?${queryString}` : `/humidity/vehicles/${vehicleId}`;
         navigate(path);
     };
 

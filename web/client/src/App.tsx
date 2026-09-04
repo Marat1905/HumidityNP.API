@@ -54,8 +54,8 @@ function App() {
 
             <Layout>
                 <Routes>
-                    <Route path="/" element={<MainPage />} />
-                    <Route path="/vehicles/:id" element={<VehicleDetailsPage />} />
+                    <Route path="/humidity" element={<MainPage />} />
+                    <Route path="/humidity/vehicles/:id" element={<VehicleDetailsPage />} />
                 </Routes>
             </Layout>
         </BrowserRouter>

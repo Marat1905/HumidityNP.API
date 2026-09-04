@@ -82,7 +82,7 @@ export default function VehicleDetailsPage() {
     };
 
     // Формируем путь для ссылки «Главная» с сохранением параметров пагинации
-    const mainPagePath = searchParams.toString() ? `/?${searchParams.toString()}` : '/';
+    const mainPagePath = searchParams.toString() ? `/?${searchParams.toString()}` : '/humidity';
 
     return (
         <div>
