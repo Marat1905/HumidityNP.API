@@ -1,6 +1,4 @@
-﻿using Humidity.Domain.Enums;
-
-namespace Humidity.Domain.Entities;
+﻿namespace Humidity.Domain.Entities;
 
 /// <summary>
 /// Машина, въезжающая на площадку.

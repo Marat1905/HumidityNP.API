@@ -1,5 +1,4 @@
-﻿// Domain/Interfaces/IVehicleRepository.cs
-using Humidity.Domain.Common;
+﻿using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
 
 namespace Humidity.Domain.Interfaces;

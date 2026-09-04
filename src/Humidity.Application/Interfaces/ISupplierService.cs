@@ -1,5 +1,4 @@
-﻿using Humidity.Application.DTOs;
-using Humidity.Domain.Common;
+﻿using Humidity.Domain.Common;
 
 namespace Humidity.Application.Interfaces;
 

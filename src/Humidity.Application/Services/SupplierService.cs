@@ -1,5 +1,4 @@
 ﻿using AutoMapper;
-using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
 using Humidity.Domain.Common;
 using Humidity.Domain.Interfaces;

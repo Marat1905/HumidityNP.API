@@ -1,4 +1,5 @@
-﻿using Humidity.Application.Interfaces;
+﻿using Humidity.Application.Common.Models;
+using Humidity.Application.Interfaces;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
 using Microsoft.Extensions.Options;

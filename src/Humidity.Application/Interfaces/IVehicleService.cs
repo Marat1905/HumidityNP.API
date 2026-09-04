@@ -1,5 +1,4 @@
-﻿// Application/Interfaces/IVehicleService.cs
-using Humidity.Application.DTOs;
+﻿using Humidity.Application.DTOs;
 using Humidity.Domain.Common;
 
 namespace Humidity.Application.Interfaces;

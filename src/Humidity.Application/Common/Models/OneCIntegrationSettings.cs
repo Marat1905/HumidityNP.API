@@ -1,4 +1,5 @@
-﻿/// <summary>
+﻿namespace Humidity.Application.Common.Models;
+/// <summary>
 /// Настройки для интеграции с 1С.
 /// </summary>
 public class OneCIntegrationSettings

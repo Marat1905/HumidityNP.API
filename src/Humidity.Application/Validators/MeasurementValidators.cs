@@ -1,6 +1,5 @@
 ﻿using FluentValidation;
 using Humidity.Application.DTOs;
-using Humidity.Domain.Enums;
 
 namespace Humidity.Application.Validators;
 

@@ -1,12 +1,11 @@
 ﻿using AutoMapper;
+using FluentValidation;
 using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
 using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
-using Humidity.Domain.Enums;
 using Humidity.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
-using FluentValidation;
 
 namespace Humidity.Application.Services;
 

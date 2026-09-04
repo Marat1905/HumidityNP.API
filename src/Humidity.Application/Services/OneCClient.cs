@@ -1,4 +1,5 @@
-﻿using Humidity.Application.DTOs;
+﻿using Humidity.Application.Common.Models;
+using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

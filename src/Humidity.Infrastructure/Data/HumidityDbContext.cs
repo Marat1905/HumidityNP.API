@@ -1,7 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Humidity.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
-using Humidity.Domain.Entities;
-using Humidity.Domain.Enums;
 
 namespace Humidity.Infrastructure.Data;
 
