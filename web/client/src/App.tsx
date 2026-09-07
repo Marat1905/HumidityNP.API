@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { FiSun, FiMoon } from 'react-icons/fi';
 import Layout from './components/humidity/Layout';
-import MainPage from './pages/humidity/MainPage';
+import Humidity from './pages/humidity/Humidity';
 import VehicleDetailsPage from './pages/humidity/VehicleDetailsPage';
 import './index.css';
 
@@ -54,7 +54,7 @@ function App() {
 
             <Layout>
                 <Routes>
-                    <Route path="/humidity" element={<MainPage />} />
+                    <Route path="/humidity" element={<Humidity />} />
                     <Route path="/humidity/vehicles/:id" element={<VehicleDetailsPage />} />
                 </Routes>
             </Layout>

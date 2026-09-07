@@ -6,7 +6,7 @@ import ReportPeriodPage from './ReportPeriodPage';
 import SuppliersPage from './SuppliersPage';
 import TopSuppliersPage from './TopSuppliersPage'; // импорт новой страницы
 
-export default function MainPage() {
+export default function Humidity() {
     const [activeTab, setActiveTab] = useState<'vehicles' | 'measurements' | 'reports' | 'period' | 'suppliers' | 'top'>('vehicles');
 
     return (
