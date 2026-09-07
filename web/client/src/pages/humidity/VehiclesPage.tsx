@@ -449,29 +449,12 @@ export default function VehiclesPage() {
 
     if (loading) return <SkeletonTable rows={5} columns={11} />;
     if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
+    if (!data) return null;
 
-    // ИСПРАВЛЕНИЕ 1: вместо return null показываем сообщение
-    if (!data) {
-        return (
-            <div className="text-center py-10 text-gray-500 dark:text-gray-400">
-                Нет данных для отображения
-            </div>
-        );
-    }
-
-    // ИСПРАВЛЕНИЕ 2: безопасно извлекаем свойства
+    // ИСПРАВЛЕНИЕ: добавлена защита от undefined для items, totalCount и totalPages
     const items = data.items ?? [];
     const totalCount = data.totalCount ?? 0;
     const totalPages = data.totalPages ?? 0;
-
-    // ИСПРАВЛЕНИЕ 3: если массив пуст, показываем отдельное сообщение
-    if (items.length === 0) {
-        return (
-            <div className="text-center py-10 text-gray-500 dark:text-gray-400">
-                Нет машин, соответствующих выбранным фильтрам.
-            </div>
-        );
-    }
 
     const handleRowClick = (vehicleId: string) => {
         const queryString = searchParams.toString();
