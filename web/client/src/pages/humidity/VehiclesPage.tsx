@@ -2,7 +2,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useVehicles } from '../../hooks/humidity/useVehicles';
 import Pagination from '../../components/common/Pagination';
 import { SkeletonTable } from '../../components/common/Skeleton';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import type { VehiclesQueryParams, VehicleDto } from '../../types/humidity';
 import {
     Search,
@@ -276,6 +276,8 @@ export default function VehiclesPage() {
 
     const [averageHumidityMap, setAverageHumidityMap] = useState<Record<string, number | null>>({});
     const [loadingStats, setLoadingStats] = useState<Record<string, boolean>>({});
+    // Добавляем реф для отслеживания уже загруженных идентификаторов машин
+    const loadedIdsRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         setLocalCounterparty(counterparty);
@@ -306,25 +308,41 @@ export default function VehiclesPage() {
 
     const { data, loading, error, refetch } = useVehicles(queryParams);
 
+    // ИСПРАВЛЕННЫЙ useEffect – убрана зависимость от averageHumidityMap и добавлен loadedIdsRef
     useEffect(() => {
-        // ИСПРАВЛЕНИЕ: добавлена опциональная цепочка ?. для безопасной проверки длины
+        // Если данные отсутствуют или список машин пуст
         if (!data || !data.items?.length) {
-            setAverageHumidityMap({});
-            setLoadingStats({});
+            // Сбрасываем состояния только если ранее были загруженные данные
+            if (loadedIdsRef.current.size > 0) {
+                setAverageHumidityMap({});
+                setLoadingStats({});
+                loadedIdsRef.current.clear();
+            }
             return;
         }
 
         const vehicleIds = data.items.map(v => v.id);
         const newLoadingStats: Record<string, boolean> = {};
+
+        // Определяем, для каких машин ещё не загружена статистика
         vehicleIds.forEach(id => {
-            if (!(id in averageHumidityMap)) {
+            if (!loadedIdsRef.current.has(id) && !(id in averageHumidityMap)) {
                 newLoadingStats[id] = true;
             }
         });
-        setLoadingStats(prev => ({ ...prev, ...newLoadingStats }));
 
+        // Обновляем состояние загрузки только для новых машин
+        if (Object.keys(newLoadingStats).length > 0) {
+            setLoadingStats(prev => ({ ...prev, ...newLoadingStats }));
+        }
+
+        // Загружаем статистику для каждой новой машины
         vehicleIds.forEach(id => {
-            if (id in averageHumidityMap) return;
+            // Пропускаем уже загруженные или те, что уже в процессе
+            if (loadedIdsRef.current.has(id) || id in averageHumidityMap) {
+                return;
+            }
+
             measurementService.getStatisticsByVehicle(id)
                 .then(stats => {
                     setAverageHumidityMap(prev => ({
@@ -336,6 +354,7 @@ export default function VehiclesPage() {
                         delete newState[id];
                         return newState;
                     });
+                    loadedIdsRef.current.add(id);
                 })
                 .catch(err => {
                     console.error(`Ошибка загрузки статистики для машины ${id}`, err);
@@ -348,9 +367,10 @@ export default function VehiclesPage() {
                         delete newState[id];
                         return newState;
                     });
+                    loadedIdsRef.current.add(id);
                 });
         });
-    }, [data, averageHumidityMap]);
+    }, [data]); // Зависимость только от data, не от averageHumidityMap
 
     const activeFilters = [];
     if (counterparty) activeFilters.push({ key: 'counterparty', label: `Поставщик: ${counterparty}`, value: counterparty });
@@ -429,12 +449,29 @@ export default function VehiclesPage() {
 
     if (loading) return <SkeletonTable rows={5} columns={11} />;
     if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
-    if (!data) return null;
 
-    // ИСПРАВЛЕНИЕ: добавлена защита от undefined для items, totalCount и totalPages
+    // ИСПРАВЛЕНИЕ 1: вместо return null показываем сообщение
+    if (!data) {
+        return (
+            <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+                Нет данных для отображения
+            </div>
+        );
+    }
+
+    // ИСПРАВЛЕНИЕ 2: безопасно извлекаем свойства
     const items = data.items ?? [];
     const totalCount = data.totalCount ?? 0;
     const totalPages = data.totalPages ?? 0;
+
+    // ИСПРАВЛЕНИЕ 3: если массив пуст, показываем отдельное сообщение
+    if (items.length === 0) {
+        return (
+            <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+                Нет машин, соответствующих выбранным фильтрам.
+            </div>
+        );
+    }
 
     const handleRowClick = (vehicleId: string) => {
         const queryString = searchParams.toString();
