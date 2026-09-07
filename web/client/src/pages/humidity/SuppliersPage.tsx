@@ -5,6 +5,7 @@ import SupplierList from '../../components/humidity/SupplierList';
 import Pagination from '../../components/common/Pagination';
 import RangeDatePicker from '../../components/common/RangeDatePicker';
 import { SkeletonTable } from '../../components/common/Skeleton';
+import { RotateCcw } from 'lucide-react';
 
 export default function SuppliersPage() {
     const DEFAULT_DAYS = 30;
@@ -37,12 +38,30 @@ export default function SuppliersPage() {
         setExpandedInn(null); // сбрасываем раскрытие
     };
 
+    // Сброс фильтра – возвращаем к диапазону по умолчанию (последние 30 дней)
+    const resetFilter = () => {
+        const now = new Date();
+        setStartDate(subDays(now, DEFAULT_DAYS));
+        setEndDate(now);
+        setPageNumber(1);
+        setExpandedInn(null);
+    };
+
     const toggleSupplier = (inn: string) => {
         setExpandedInn(prev => (prev === inn ? null : inn));
     };
 
+    // --- Обработка состояний ---
+    // 1. Загрузка
     if (loading) return <SkeletonTable rows={5} columns={4} />;
+
+    // 2. Ошибка
     if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
+
+    // 3. Данные загружены, но их нет (пустой результат)
+    //    При этом фильтры остаются видимыми и доступными.
+    const items = data?.items ?? [];
+    const hasData = items.length > 0;
 
     return (
         <div>
@@ -58,18 +77,35 @@ export default function SuppliersPage() {
                             size="md"
                         />
                     </div>
+                    <button
+                        onClick={resetFilter}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                        title="Сбросить фильтр к последним 30 дням"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                        Сбросить
+                    </button>
                 </div>
             </div>
 
-            {/* ИСПРАВЛЕНИЕ: безопасная проверка на отсутствие items */}
-            {data && (!data.items || data.items.length === 0) ? (
-                <div className="text-center py-10 text-gray-500 dark:text-gray-400">
-                    Нет поставщиков за выбранный период
+            {/* --- Отображение данных или сообщение об их отсутствии --- */}
+            {!hasData ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+                    <RotateCcw className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                    <p className="text-lg font-medium">Нет поставщиков</p>
+                    <p className="text-sm mt-1">За выбранный период поставщики не найдены</p>
+                    <button
+                        onClick={resetFilter}
+                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                        Сбросить фильтр
+                    </button>
                 </div>
             ) : (
                 <>
                     <SupplierList
-                        suppliers={data?.items ?? []}
+                        suppliers={items}
                         expandedInn={expandedInn}
                         onToggle={toggleSupplier}
                         fromDate={startDate}

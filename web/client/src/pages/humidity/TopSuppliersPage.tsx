@@ -6,7 +6,7 @@ import { SkeletonTable } from '../../components/common/Skeleton';
 import TopSuppliersChart from '../../components/humidity/TopSuppliersChart';
 import SuppliersTable from '../../components/humidity/SuppliersTable';
 import type { SupplierDto } from '../../types/humidity';
-import { TrendingUp, TrendingDown, BarChart, Table } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart, Table, RotateCcw } from 'lucide-react';
 
 export default function TopSuppliersPage() {
     const DEFAULT_DAYS = 30;
@@ -57,9 +57,19 @@ export default function TopSuppliersPage() {
         }
     };
 
+    // Сброс фильтров – возвращаем к значениям по умолчанию
+    const resetFilters = () => {
+        const now = new Date();
+        setStartDate(subDays(now, DEFAULT_DAYS));
+        setEndDate(now);
+        setTopCount(10);
+    };
+
     const isLoading = loadingGood || loadingBad;
     const hasError = errorGood || errorBad;
 
+    // --- Обработка состояний ---
+    // 1. Загрузка
     if (isLoading) {
         return (
             <div>
@@ -69,6 +79,7 @@ export default function TopSuppliersPage() {
         );
     }
 
+    // 2. Ошибка
     if (hasError) {
         return (
             <div className="text-red-500 text-center py-10">
@@ -76,6 +87,11 @@ export default function TopSuppliersPage() {
             </div>
         );
     }
+
+    // 3. Данные загружены, но их нет (пустой результат)
+    //    При этом фильтры остаются видимыми и доступными.
+    const hasGoodData = Array.isArray(goodSuppliers) && goodSuppliers.length > 0;
+    const hasBadData = Array.isArray(badSuppliers) && badSuppliers.length > 0;
 
     return (
         <div>
@@ -107,6 +123,14 @@ export default function TopSuppliersPage() {
                             <option value={50}>50</option>
                         </select>
                     </div>
+                    <button
+                        onClick={resetFilters}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                        title="Сбросить фильтры к последним 30 дням и топ-10"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                        Сбросить
+                    </button>
                 </div>
             </div>
 
@@ -142,9 +166,11 @@ export default function TopSuppliersPage() {
                             </button>
                         </div>
                     </div>
-                    {goodSuppliers.length === 0 ? (
+                    {!hasGoodData ? (
                         <div className="text-center py-8 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-                            Нет данных за выбранный период
+                            <TrendingDown className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                            <p className="text-lg font-medium">Нет данных</p>
+                            <p className="text-sm mt-1">За выбранный период данные не найдены</p>
                         </div>
                     ) : (
                         <>
@@ -189,9 +215,11 @@ export default function TopSuppliersPage() {
                             </button>
                         </div>
                     </div>
-                    {badSuppliers.length === 0 ? (
+                    {!hasBadData ? (
                         <div className="text-center py-8 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-                            Нет данных за выбранный период
+                            <TrendingUp className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                            <p className="text-lg font-medium">Нет данных</p>
+                            <p className="text-sm mt-1">За выбранный период данные не найдены</p>
                         </div>
                     ) : (
                         <>

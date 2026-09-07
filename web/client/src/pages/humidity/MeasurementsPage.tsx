@@ -82,9 +82,21 @@ export default function MeasurementsPage() {
         return source === 'Auto' ? 'Авто' : 'Ручной';
     };
 
+    // --- Обработка состояний ---
+    // 1. Загрузка
     if (loading) return <SkeletonTable rows={5} columns={7} />;
+
+    // 2. Ошибка
     if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
-    if (!data && !loading) {
+
+    // 3. Данные загружены, но их нет (пустой результат)
+    //    При этом фильтры остаются видимыми и доступными.
+    const items = data?.items ?? [];
+    const totalCount = data?.totalCount ?? 0;
+    const totalPages = data?.totalPages ?? 0;
+
+    // Если данные ещё не выбраны (startDate или endDate === null) — показываем подсказку
+    if (!startDate || !endDate) {
         return (
             <div className="text-center py-10 text-gray-500 dark:text-gray-400">
                 <p>Выберите диапазон дат для отображения замеров.</p>
@@ -100,17 +112,12 @@ export default function MeasurementsPage() {
         );
     }
 
-    // ИСПРАВЛЕНИЕ: безопасное извлечение свойств с резервными значениями
-    const items = data?.items ?? [];
-    const totalCount = data?.totalCount ?? 0;
-    const totalPages = data?.totalPages ?? 0;
-
     return (
         <div>
             {/* Фильтр по дате – пикер и кнопка справа */}
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <span className="text-sm text-gray-600 dark:text-gray-300">
-                    Показаны замеры с {format(startDate!, 'dd.MM.yyyy')} по {format(endDate!, 'dd.MM.yyyy')}
+                    Показаны замеры с {format(startDate, 'dd.MM.yyyy')} по {format(endDate, 'dd.MM.yyyy')}
                 </span>
                 <div className="flex items-center gap-2">
                     <div className="w-64">
@@ -132,84 +139,102 @@ export default function MeasurementsPage() {
                 </div>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-800">
-                        <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Время
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Машина
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Влажность
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Температура
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Материал
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Источник
-                            </th>
-                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Действия
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                        {items.map((m) => (
-                            <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
-                                    {format(new Date(m.timestamp), 'dd MMM yyyy HH:mm', { locale: ru })}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                    {m.vehicleNumber} ({m.vehiclePlate})
-                                </td>
-                                <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                                    {m.displayValue}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                    {m.temperatureC.toFixed(1)} °C
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                    {m.material ?? '—'}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                    {getSourceLabel(m.source)}
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <button
-                                            onClick={() => setEditMeasurement(m)}
-                                            className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition"
-                                        >
-                                            <Pencil className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => setDeleteId(m.id)}
-                                            className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+            {/* --- Отображение данных или сообщение об их отсутствии --- */}
+            {items.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+                    <RotateCcw className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                    <p className="text-lg font-medium">Нет замеров</p>
+                    <p className="text-sm mt-1">За выбранный период замеры не найдены</p>
+                    <button
+                        onClick={resetFilter}
+                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                        Сбросить фильтр
+                    </button>
+                </div>
+            ) : (
+                <>
+                    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead className="bg-gray-50 dark:bg-gray-800">
+                                <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Время
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Машина
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Влажность
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Температура
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Материал
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Источник
+                                    </th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Действия
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                                {items.map((m) => (
+                                    <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                                            {format(new Date(m.timestamp), 'dd MMM yyyy HH:mm', { locale: ru })}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                            {m.vehicleNumber} ({m.vehiclePlate})
+                                        </td>
+                                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                                            {m.displayValue}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                            {m.temperatureC.toFixed(1)} °C
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                            {m.material ?? '—'}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                            {getSourceLabel(m.source)}
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    onClick={() => setEditMeasurement(m)}
+                                                    className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition"
+                                                >
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => setDeleteId(m.id)}
+                                                    className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
 
-            <Pagination
-                currentPage={pageNumber}
-                totalPages={totalPages}
-                onPageChange={setPageNumber}
-                pageSize={pageSize}
-                onPageSizeChange={(size) => { setPageSize(size); setPageNumber(1); }}
-                totalCount={totalCount}
-            />
+                    <Pagination
+                        currentPage={pageNumber}
+                        totalPages={totalPages}
+                        onPageChange={setPageNumber}
+                        pageSize={pageSize}
+                        onPageSizeChange={(size) => { setPageSize(size); setPageNumber(1); }}
+                        totalCount={totalCount}
+                    />
+                </>
+            )}
 
             {/* Модалка редактирования замера */}
             {editMeasurement && (

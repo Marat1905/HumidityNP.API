@@ -447,14 +447,18 @@ export default function VehiclesPage() {
         setFiltersCollapsed(prev => !prev);
     };
 
+    // --- Обработка состояний загрузки, ошибки и отсутствия данных ---
+    // 1. Загрузка
     if (loading) return <SkeletonTable rows={5} columns={11} />;
-    if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
-    if (!data) return null;
 
-    // ИСПРАВЛЕНИЕ: добавлена защита от undefined для items, totalCount и totalPages
-    const items = data.items ?? [];
-    const totalCount = data.totalCount ?? 0;
-    const totalPages = data.totalPages ?? 0;
+    // 2. Ошибка
+    if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
+
+    // 3. Данные загружены, но их нет (пустой результат)
+    //    При этом фильтры остаются видимыми и доступными.
+    const items = data?.items ?? [];
+    const totalCount = data?.totalCount ?? 0;
+    const totalPages = data?.totalPages ?? 0;
 
     const handleRowClick = (vehicleId: string) => {
         const queryString = searchParams.toString();
@@ -464,7 +468,7 @@ export default function VehiclesPage() {
 
     return (
         <div>
-            {/* Блок фильтров со сворачиванием */}
+            {/* Блок фильтров — всегда виден, сворачивается только по кнопке пользователя */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 mb-6 transition-all">
                 <div
                     className="flex items-center justify-between cursor-pointer select-none"
@@ -691,158 +695,180 @@ export default function VehiclesPage() {
                 </div>
             </div>
 
-            {viewMode === 'table' ? (
-                <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead className="bg-gray-50 dark:bg-gray-800">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Номер пропуска
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Поставщик
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Гос. номер
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Водитель
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Замеры
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    <div className="flex items-center gap-1">
-                                        <Droplet className="w-3 h-3" />
-                                        Средняя влажность
-                                    </div>
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Статус
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    <div className="flex items-center gap-1">
-                                        <Package className="w-3 h-3" />
-                                        Тюки
-                                    </div>
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    <div className="flex items-center gap-1">
-                                        <Package className="w-3 h-3" />
-                                        Порванные
-                                    </div>
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    <div className="flex items-center gap-1">
-                                        <Weight className="w-3 h-3" />
-                                        Вес (кг)
-                                    </div>
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    <div className="flex items-center gap-1">
-                                        <Hash className="w-3 h-3" />
-                                        Штабель
-                                    </div>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+            {/* --- Отображение данных или сообщение об их отсутствии --- */}
+            {items.length === 0 ? (
+                // Если данных нет, показываем сообщение, фильтры остаются видимыми
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+                    <Truck className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                    <p className="text-lg font-medium">Нет машин</p>
+                    <p className="text-sm mt-1">Попробуйте изменить параметры фильтрации</p>
+                    {hasActiveFilters && (
+                        <button
+                            onClick={resetFilters}
+                            className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
+                        >
+                            <X className="w-4 h-4" />
+                            Сбросить фильтры
+                        </button>
+                    )}
+                </div>
+            ) : (
+                // Данные есть — отображаем таблицу или карточки
+                <>
+                    {viewMode === 'table' ? (
+                        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead className="bg-gray-50 dark:bg-gray-800">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Номер пропуска
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Поставщик
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Гос. номер
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Водитель
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Замеры
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            <div className="flex items-center gap-1">
+                                                <Droplet className="w-3 h-3" />
+                                                Средняя влажность
+                                            </div>
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Статус
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            <div className="flex items-center gap-1">
+                                                <Package className="w-3 h-3" />
+                                                Тюки
+                                            </div>
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            <div className="flex items-center gap-1">
+                                                <Package className="w-3 h-3" />
+                                                Порванные
+                                            </div>
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            <div className="flex items-center gap-1">
+                                                <Weight className="w-3 h-3" />
+                                                Вес (кг)
+                                            </div>
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            <div className="flex items-center gap-1">
+                                                <Hash className="w-3 h-3" />
+                                                Штабель
+                                            </div>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                                    {items.map((vehicle) => {
+                                        const avg = averageHumidityMap[vehicle.id];
+                                        const isAvgLoading = loadingStats[vehicle.id];
+                                        return (
+                                            <tr
+                                                key={vehicle.id}
+                                                onClick={() => handleRowClick(vehicle.id)}
+                                                className="hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer"
+                                                role="button"
+                                                tabIndex={0}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.preventDefault();
+                                                        handleRowClick(vehicle.id);
+                                                    }
+                                                }}
+                                            >
+                                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                                    {vehicle.number}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                                    {vehicle.counterparty}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                                    {vehicle.vehiclePlate}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                                    {vehicle.driver}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                                    {vehicle.measurementsCount}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                                    {isAvgLoading ? (
+                                                        <div className="animate-pulse h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded mx-auto"></div>
+                                                    ) : avg !== undefined && avg !== null ? (
+                                                        <span className="font-medium text-blue-600 dark:text-blue-400">
+                                                            {avg.toFixed(1)}%
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-gray-400 dark:text-gray-500">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm">
+                                                    <span
+                                                        className={`px-2 py-1 rounded-full text-xs font-medium ${vehicle.exitDate
+                                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                                            }`}
+                                                    >
+                                                        {vehicle.exitDate ? 'Выехал' : 'На площадке'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                                    {vehicle.baleCount != null ? vehicle.baleCount : '—'}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                                    {vehicle.damagedBaleCount != null ? vehicle.damagedBaleCount : '—'}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                                    {vehicle.weightKg != null ? vehicle.weightKg : '—'}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
+                                                    {vehicle.stackNumber || '—'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-6">
                             {items.map((vehicle) => {
                                 const avg = averageHumidityMap[vehicle.id];
                                 const isAvgLoading = loadingStats[vehicle.id];
                                 return (
-                                    <tr
+                                    <VehicleCard
                                         key={vehicle.id}
-                                        onClick={() => handleRowClick(vehicle.id)}
-                                        className="hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer"
-                                        role="button"
-                                        tabIndex={0}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' || e.key === ' ') {
-                                                e.preventDefault();
-                                                handleRowClick(vehicle.id);
-                                            }
-                                        }}
-                                    >
-                                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                            {vehicle.number}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                            {vehicle.counterparty}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                            {vehicle.vehiclePlate}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                            {vehicle.driver}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
-                                            {vehicle.measurementsCount}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
-                                            {isAvgLoading ? (
-                                                <div className="animate-pulse h-4 w-12 bg-gray-200 dark:bg-gray-700 rounded mx-auto"></div>
-                                            ) : avg !== undefined && avg !== null ? (
-                                                <span className="font-medium text-blue-600 dark:text-blue-400">
-                                                    {avg.toFixed(1)}%
-                                                </span>
-                                            ) : (
-                                                <span className="text-gray-400 dark:text-gray-500">—</span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm">
-                                            <span
-                                                className={`px-2 py-1 rounded-full text-xs font-medium ${vehicle.exitDate
-                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                                                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                                                    }`}
-                                            >
-                                                {vehicle.exitDate ? 'Выехал' : 'На площадке'}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
-                                            {vehicle.baleCount != null ? vehicle.baleCount : '—'}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
-                                            {vehicle.damagedBaleCount != null ? vehicle.damagedBaleCount : '—'}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
-                                            {vehicle.weightKg != null ? vehicle.weightKg : '—'}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-center">
-                                            {vehicle.stackNumber || '—'}
-                                        </td>
-                                    </tr>
+                                        vehicle={vehicle}
+                                        averageHumidity={avg}
+                                        isLoadingAvg={isAvgLoading}
+                                    />
                                 );
                             })}
-                        </tbody>
-                    </table>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 gap-6">
-                    {items.map((vehicle) => {
-                        const avg = averageHumidityMap[vehicle.id];
-                        const isAvgLoading = loadingStats[vehicle.id];
-                        return (
-                            <VehicleCard
-                                key={vehicle.id}
-                                vehicle={vehicle}
-                                averageHumidity={avg}
-                                isLoadingAvg={isAvgLoading}
-                            />
-                        );
-                    })}
-                </div>
-            )}
+                        </div>
+                    )}
 
-            <Pagination
-                currentPage={page}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-                pageSize={size}
-                onPageSizeChange={handlePageSizeChange}
-                totalCount={totalCount}
-            />
+                    <Pagination
+                        currentPage={page}
+                        totalPages={totalPages}
+                        onPageChange={handlePageChange}
+                        pageSize={size}
+                        onPageSizeChange={handlePageSizeChange}
+                        totalCount={totalCount}
+                    />
+                </>
+            )}
         </div>
     );
 }

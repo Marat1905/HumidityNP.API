@@ -9,7 +9,7 @@ import PeriodReportTable, { type PeriodReportItem, type PeriodSummaryStats } fro
 import PeriodReportCardView from '../../components/humidity/PeriodReportCardView';
 import { SkeletonReport } from '../../components/common/Skeleton';
 import { MeasurementSource, type MeasurementDto } from '../../types/humidity';
-import { LayoutGrid, Table } from 'lucide-react';
+import { LayoutGrid, Table, RotateCcw } from 'lucide-react';
 
 type ViewMode = 'table' | 'cards';
 
@@ -28,6 +28,13 @@ export default function ReportPeriodPage() {
         const [start, end] = dates;
         setStartDate(start);
         setEndDate(end);
+    };
+
+    // Сброс фильтра – возвращаем к диапазону по умолчанию (последние 7 дней)
+    const resetFilter = () => {
+        const now = new Date();
+        setStartDate(subDays(now, 6));
+        setEndDate(now);
     };
 
     // Загружаем все замеры за период
@@ -154,8 +161,16 @@ export default function ReportPeriodPage() {
         return `с ${fromStr} по ${toStr}`;
     }, [startDate, endDate]);
 
+    // --- Обработка состояний ---
+    // 1. Загрузка
     if (loading) return <SkeletonReport />;
+
+    // 2. Ошибка
     if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
+
+    // 3. Данные загружены, но их нет (пустой результат)
+    //    При этом фильтры остаются видимыми и доступными.
+    const hasData = reportData.items.length > 0;
 
     return (
         <div>
@@ -179,6 +194,14 @@ export default function ReportPeriodPage() {
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                     {periodLabel}
                 </div>
+                <button
+                    onClick={resetFilter}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                    title="Сбросить фильтр к последним 7 дням"
+                >
+                    <RotateCcw className="w-4 h-4" />
+                    Сбросить
+                </button>
                 <div className="ml-auto flex items-center gap-2">
                     <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">Вид:</span>
                     <button
@@ -204,10 +227,19 @@ export default function ReportPeriodPage() {
                 </div>
             </div>
 
-            {/* Отображение отчёта в выбранном виде */}
-            {reportData.items.length === 0 ? (
-                <div className="text-center py-10 text-gray-500 dark:text-gray-400">
-                    Нет данных за выбранный период.
+            {/* --- Отображение данных или сообщение об их отсутствии --- */}
+            {!hasData ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+                    <LayoutGrid className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                    <p className="text-lg font-medium">Нет данных</p>
+                    <p className="text-sm mt-1">За выбранный период замеры не найдены</p>
+                    <button
+                        onClick={resetFilter}
+                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                        Сбросить фильтр
+                    </button>
                 </div>
             ) : (
                 <>
