@@ -1,4 +1,4 @@
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useVehicles } from '../../hooks/humidity/useVehicles';
 import Pagination from '../../components/common/Pagination';
 import { SkeletonTable } from '../../components/common/Skeleton';
