@@ -22,12 +22,11 @@ const toLocalDateTimeInput = (utcDateStr: string): string => {
 
 /**
  * Преобразует локальное время из поля datetime-local в UTC-строку для отправки на сервер.
+ * Используем прямое преобразование, так как new Date(localDateTime) интерпретирует строку
+ * как локальное время, а toISOString() даёт UTC.
  */
 const toUtcIsoString = (localDateTime: string): string => {
-    const localDate = new Date(localDateTime);
-    const offsetMinutes = localDate.getTimezoneOffset();
-    const utcDate = new Date(localDate.getTime() - offsetMinutes * 60000);
-    return utcDate.toISOString();
+    return new Date(localDateTime).toISOString();
 };
 
 interface MeasurementFormModalProps {
