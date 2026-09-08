@@ -177,11 +177,11 @@ public class MeasurementsController : ControllerBase
         [FromQuery] DateTimeOffset from,
         [FromQuery] DateTimeOffset to,
         [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 20)
+        [FromQuery] int pageSize = 10000)
     {
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 20;
-        if (pageSize > 100) pageSize = 100;
+        if (pageSize > 20000) pageSize = 20000;
 
         var result = await _measurementService.GetByDateRangePagedAsync(
             from, to, pageNumber, pageSize, HttpContext.RequestAborted);

@@ -293,7 +293,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     {
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 10;
-        if (pageSize > 100) pageSize = 100;
+        if (pageSize > 20000) pageSize = 20000; // ИЗМЕНЕНО: максимальный лимит увеличен с 100 до 2000 для поддержки отчетов за смену
 
         IQueryable<HumidityMeasurement> query = DbSet
             .Where(m => m.Timestamp >= from && m.Timestamp <= to)
@@ -502,6 +502,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
             OverallStatistics = overallStats
         };
     }
+
     /// <summary>
     /// Получить топ-N поставщиков по средней влажности за период.
     /// </summary>
