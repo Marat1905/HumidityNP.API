@@ -16,3 +16,4 @@ export { default as SuppliersTable } from './SuppliersTable';
 export { default as SupplierVehiclesTable } from './SupplierVehiclesTable';
 export { default as TopSuppliersChart } from './TopSuppliersChart';
 export { default as VehicleMeasurementsExpand } from './VehicleMeasurementsExpand';
+export type { PeriodReportItem, PeriodSummaryStats } from './PeriodReportTable';

@@ -24,7 +24,7 @@ import { vehicleService } from '../../services/humidity/api';
 import { useMeasurements } from '../../hooks/humidity/useMeasurements';
 import { useMeasurementStatistics } from '../../hooks/humidity/useMeasurementStatistics';
 import { MeasurementList, MeasurementStatistics } from '../../components/humidity'
-import { SkeletonDetails, SkeletonMeasurementsList } from '../../components/common/Skeleton';
+import { SkeletonDetails, SkeletonMeasurementsList } from '../../components/common';
 
 export default function VehicleDetailsPage() {
     const { id } = useParams<{ id: string }>();

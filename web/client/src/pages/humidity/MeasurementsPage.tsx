@@ -3,10 +3,8 @@ import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Pencil, Trash2, RotateCcw } from 'lucide-react';
 import { useMeasurementsByDateRange } from '../../hooks/humidity/useMeasurementsByDateRange';
-import Pagination from '../../components/common/Pagination';
-import { SkeletonTable } from '../../components/common/Skeleton';
+import { SkeletonTable, Pagination, RangeDatePicker } from '../../components/common';
 import { DeleteConfirmationModal, MeasurementFormModal } from '../../components/humidity'
-import RangeDatePicker from '../../components/common/RangeDatePicker';
 import { measurementService } from '../../services/humidity/api';
 import toast from 'react-hot-toast';
 import type { MeasurementDto, SignType, MeasurementSource } from '../../types/humidity';

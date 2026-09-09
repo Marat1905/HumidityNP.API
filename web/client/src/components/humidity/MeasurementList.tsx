@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Pencil, Trash2, PenTool } from 'lucide-react';
 import { type MeasurementDto, SignType, MeasurementSource } from '../../types/humidity';
-import Pagination from '../common/Pagination';
+import { Pagination } from '../common';
 import { DeleteConfirmationModal, MeasurementFormModal } from '../humidity'
 import { measurementService } from '../../services/humidity/api';
 import toast from 'react-hot-toast';

@@ -12,8 +12,8 @@ import {
     ChevronDown,
     ChevronRight,
 } from 'lucide-react';
-import { VehicleMeasurementsExpand} from '../humidity'
-import type { PeriodReportItem, PeriodSummaryStats } from './PeriodReportTable';
+import { VehicleMeasurementsExpand, type PeriodReportItem, type PeriodSummaryStats } from '../humidity'
+
 
 interface PeriodReportCardViewProps {
     items: PeriodReportItem[];

@@ -4,10 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAllMeasurementsByDateRange } from '../../hooks/humidity/useAllMeasurementsByDateRange';
-import RangeDatePicker from '../../components/common/RangeDatePicker';
-import { type PeriodReportItem, type PeriodSummaryStats } from '../../components/humidity/PeriodReportTable';
-import { PeriodReportCardView, PeriodReportTable } from '../../components/humidity'
-import { SkeletonReport } from '../../components/common/Skeleton';
+import { SkeletonReport, RangeDatePicker } from '../../components/common';
+import { PeriodReportCardView, PeriodReportTable, type PeriodReportItem, type PeriodSummaryStats } from '../../components/humidity'
 import { MeasurementSource, type MeasurementDto } from '../../types/humidity';
 import { LayoutGrid, Table, RotateCcw } from 'lucide-react';
 

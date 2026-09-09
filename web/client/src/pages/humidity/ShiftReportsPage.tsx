@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useShiftReport, type ShiftType } from '../../hooks/humidity/useShiftReport';
 import { ShiftReportTable, ShiftReportCardView } from '../../components/humidity'
-import DatePicker from '../../components/common/DatePicker';
-import { SkeletonReport } from '../../components/common/Skeleton';
+import { SkeletonReport, DatePicker } from '../../components/common';
 import { ChevronLeft, ChevronRight, LayoutGrid, Table } from 'lucide-react';
 import { format, subDays, addDays, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
