@@ -5,8 +5,8 @@ import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAllMeasurementsByDateRange } from '../../hooks/humidity/useAllMeasurementsByDateRange';
 import RangeDatePicker from '../../components/common/RangeDatePicker';
-import PeriodReportTable, { type PeriodReportItem, type PeriodSummaryStats } from '../../components/humidity/PeriodReportTable';
-import PeriodReportCardView from '../../components/humidity/PeriodReportCardView';
+import { type PeriodReportItem, type PeriodSummaryStats } from '../../components/humidity/PeriodReportTable';
+import { PeriodReportCardView, PeriodReportTable } from '../../components/humidity'
 import { SkeletonReport } from '../../components/common/Skeleton';
 import { MeasurementSource, type MeasurementDto } from '../../types/humidity';
 import { LayoutGrid, Table, RotateCcw } from 'lucide-react';

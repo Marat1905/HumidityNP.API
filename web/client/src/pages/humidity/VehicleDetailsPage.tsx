@@ -23,8 +23,7 @@ import toast from 'react-hot-toast';
 import { vehicleService } from '../../services/humidity/api';
 import { useMeasurements } from '../../hooks/humidity/useMeasurements';
 import { useMeasurementStatistics } from '../../hooks/humidity/useMeasurementStatistics';
-import MeasurementList from '../../components/humidity/MeasurementList';
-import MeasurementStatistics from '../../components/humidity/MeasurementStatistics';
+import { MeasurementList, MeasurementStatistics } from '../../components/humidity'
 import { SkeletonDetails, SkeletonMeasurementsList } from '../../components/common/Skeleton';
 
 export default function VehicleDetailsPage() {

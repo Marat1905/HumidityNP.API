@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useShiftReport, type ShiftType } from '../../hooks/humidity/useShiftReport';
-import ShiftReportTable from '../../components/humidity/ShiftReportTable';
-import ShiftReportCardView from '../../components/humidity/ShiftReportCardView';
+import { ShiftReportTable, ShiftReportCardView } from '../../components/humidity'
 import DatePicker from '../../components/common/DatePicker';
 import { SkeletonReport } from '../../components/common/Skeleton';
 import { ChevronLeft, ChevronRight, LayoutGrid, Table } from 'lucide-react';

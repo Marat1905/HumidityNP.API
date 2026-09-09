@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router';
 import { Toaster } from 'react-hot-toast';
 import { FiSun, FiMoon } from 'react-icons/fi';
 import Layout from './components/humidity/Layout';
-import HumidityPage from './pages/humidity/HumidityPage';
+import { HumidityPage } from './pages/humidity';
 import VehicleDetailsPage from './pages/humidity/VehicleDetailsPage';
 import './index.css';
 

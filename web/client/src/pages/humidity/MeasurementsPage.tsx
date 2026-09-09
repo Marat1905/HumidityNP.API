@@ -5,8 +5,7 @@ import { Pencil, Trash2, RotateCcw } from 'lucide-react';
 import { useMeasurementsByDateRange } from '../../hooks/humidity/useMeasurementsByDateRange';
 import Pagination from '../../components/common/Pagination';
 import { SkeletonTable } from '../../components/common/Skeleton';
-import DeleteConfirmationModal from '../../components/humidity/DeleteConfirmationModal';
-import MeasurementFormModal from '../../components/humidity/MeasurementFormModal';
+import { DeleteConfirmationModal, MeasurementFormModal } from '../../components/humidity'
 import RangeDatePicker from '../../components/common/RangeDatePicker';
 import { measurementService } from '../../services/humidity/api';
 import toast from 'react-hot-toast';

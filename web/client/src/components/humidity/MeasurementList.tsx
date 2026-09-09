@@ -4,8 +4,7 @@ import { ru } from 'date-fns/locale';
 import { Pencil, Trash2, PenTool } from 'lucide-react';
 import { type MeasurementDto, SignType, MeasurementSource } from '../../types/humidity';
 import Pagination from '../common/Pagination';
-import DeleteConfirmationModal from './DeleteConfirmationModal';
-import MeasurementFormModal from './MeasurementFormModal';
+import { DeleteConfirmationModal, MeasurementFormModal } from '../humidity'
 import { measurementService } from '../../services/humidity/api';
 import toast from 'react-hot-toast';
 

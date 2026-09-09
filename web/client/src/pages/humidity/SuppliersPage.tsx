@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { subDays } from 'date-fns';
 import { useSuppliers } from '../../hooks/humidity/useSuppliers';
-import SupplierList from '../../components/humidity/SupplierList';
+import { SupplierList } from '../../components/humidity'
 import Pagination from '../../components/common/Pagination';
 import RangeDatePicker from '../../components/common/RangeDatePicker';
 import { SkeletonTable } from '../../components/common/Skeleton';

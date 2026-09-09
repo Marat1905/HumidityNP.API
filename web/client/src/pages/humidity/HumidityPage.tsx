@@ -1,10 +1,5 @@
 import { useState } from 'react';
-import VehiclesPage from './VehiclesPage';
-import MeasurementsPage from './MeasurementsPage';
-import ShiftReportsPage from './ShiftReportsPage';
-import ReportPeriodPage from './ReportPeriodPage';
-import SuppliersPage from './SuppliersPage';
-import TopSuppliersPage from './TopSuppliersPage'; // импорт новой страницы
+import { VehiclesPage, MeasurementsPage, ShiftReportsPage, ReportPeriodPage, SuppliersPage, TopSuppliersPage } from '../humidity'
 
 export default function HumidityPage() {
     const [activeTab, setActiveTab] = useState<'vehicles' | 'measurements' | 'reports' | 'period' | 'suppliers' | 'top'>('vehicles');

@@ -13,7 +13,7 @@ import {
     ChevronDown,
     ChevronRight,
 } from 'lucide-react';
-import VehicleMeasurementsExpand from './VehicleMeasurementsExpand';
+import { VehicleMeasurementsExpand } from '../humidity'
 
 interface ShiftReportTableProps {
     items: ShiftReportItem[];

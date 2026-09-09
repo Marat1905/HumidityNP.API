@@ -3,8 +3,7 @@ import { subDays } from 'date-fns';
 import { useTopSuppliers } from '../../hooks/humidity/useTopSuppliers';
 import RangeDatePicker from '../../components/common/RangeDatePicker';
 import { SkeletonTable } from '../../components/common/Skeleton';
-import TopSuppliersChart from '../../components/humidity/TopSuppliersChart';
-import SuppliersTable from '../../components/humidity/SuppliersTable';
+import { TopSuppliersChart, SuppliersTable } from '../../components/humidity'
 import type { SupplierDto } from '../../types/humidity';
 import { TrendingUp, TrendingDown, BarChart, Table, RotateCcw } from 'lucide-react';
 

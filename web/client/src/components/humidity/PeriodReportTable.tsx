@@ -12,7 +12,7 @@ import {
     ChevronDown,
     ChevronRight,
 } from 'lucide-react';
-import VehicleMeasurementsExpand from './VehicleMeasurementsExpand';
+import { VehicleMeasurementsExpand } from '../humidity'
 
 /**
  * Элемент отчёта для одной машины.
