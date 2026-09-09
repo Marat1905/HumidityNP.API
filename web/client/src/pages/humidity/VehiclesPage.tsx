@@ -1,5 +1,5 @@
 import { useNavigate, useSearchParams } from 'react-router';
-import { useVehicles } from '../../hooks/humidity/useVehicles';
+import { useVehicles } from '../../hooks/humidity';
 import { Pagination, SkeletonTable } from '../../components/common';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import type { VehiclesQueryParams, VehicleDto } from '../../types/humidity';

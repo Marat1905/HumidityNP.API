@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { useMeasurements } from '../../hooks/humidity/useMeasurements';
+import { useMeasurements } from '../../hooks/humidity';
 import { SkeletonMeasurementsList, Pagination } from '../common';
 import type { MeasurementDto, SignType, MeasurementSource } from '../../types/humidity';
 

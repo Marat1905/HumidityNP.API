@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { subDays } from 'date-fns';
-import { useTopSuppliers } from '../../hooks/humidity/useTopSuppliers';
+import { useTopSuppliers } from '../../hooks/humidity';
 import { RangeDatePicker, SkeletonTable } from '../../components/common';
 import { TopSuppliersChart, SuppliersTable } from '../../components/humidity'
 import type { SupplierDto } from '../../types/humidity';

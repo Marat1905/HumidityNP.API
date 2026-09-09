@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Pencil, Trash2, RotateCcw } from 'lucide-react';
-import { useMeasurementsByDateRange } from '../../hooks/humidity/useMeasurementsByDateRange';
+import { useMeasurementsByDateRange } from '../../hooks/humidity';
 import { SkeletonTable, Pagination, RangeDatePicker } from '../../components/common';
 import { DeleteConfirmationModal, MeasurementFormModal } from '../../components/humidity'
 import { measurementService } from '../../services/humidity/api';

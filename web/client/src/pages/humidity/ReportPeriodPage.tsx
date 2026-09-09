@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { useAllMeasurementsByDateRange } from '../../hooks/humidity/useAllMeasurementsByDateRange';
+import { useAllMeasurementsByDateRange } from '../../hooks/humidity';
 import { SkeletonReport, RangeDatePicker } from '../../components/common';
 import { PeriodReportCardView, PeriodReportTable, type PeriodReportItem, type PeriodSummaryStats } from '../../components/humidity'
 import { MeasurementSource, type MeasurementDto } from '../../types/humidity';

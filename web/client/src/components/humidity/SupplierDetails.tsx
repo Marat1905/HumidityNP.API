@@ -1,5 +1,5 @@
 import React from 'react';
-import { useSupplierDetails } from '../../hooks/humidity/useSupplierDetails';
+import { useSupplierDetails } from '../../hooks/humidity';
 import { SkeletonReport } from '../common';
 import { SupplierChart, SupplierVehiclesTable, MeasurementStatistics } from '../humidity'
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { subDays } from 'date-fns';
-import { useSuppliers } from '../../hooks/humidity/useSuppliers';
+import { useSuppliers } from '../../hooks/humidity';
 import { SupplierList } from '../../components/humidity'
 import { Pagination, RangeDatePicker, SkeletonTable } from '../../components/common';
 import { RotateCcw } from 'lucide-react';

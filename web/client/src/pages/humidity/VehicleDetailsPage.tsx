@@ -21,8 +21,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { vehicleService } from '../../services/humidity/api';
-import { useMeasurements } from '../../hooks/humidity/useMeasurements';
-import { useMeasurementStatistics } from '../../hooks/humidity/useMeasurementStatistics';
+import { useMeasurementStatistics, useMeasurements } from '../../hooks/humidity';
 import { MeasurementList, MeasurementStatistics } from '../../components/humidity'
 import { SkeletonDetails, SkeletonMeasurementsList } from '../../components/common';
 
