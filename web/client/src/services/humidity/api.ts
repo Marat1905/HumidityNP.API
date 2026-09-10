@@ -7,9 +7,16 @@ import type {
     SupplierDto,
     VehiclesQueryParams
 } from '../../types/humidity';
+import {
+    requestInterceptor,
+    requestErrorInterceptor,
+    responseInterceptor,
+    responseErrorInterceptor,
+} from '../axiosInterceptors';
 
 const API_BASE_URL = '/humidity/api/v1';
 
+// Создаём экземпляр axios с базовым URL и общими заголовками
 const apiClient = axios.create({
     baseURL: API_BASE_URL,
     headers: {
@@ -17,25 +24,9 @@ const apiClient = axios.create({
     },
 });
 
-apiClient.interceptors.request.use((config) => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-        config.headers = config.headers || {};
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
-
-apiClient.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
-            localStorage.removeItem('access_token');
-            window.location.href = '/login';
-        }
-        return Promise.reject(error);
-    }
-);
+// Применяем кастомные интерцепторы проекта
+apiClient.interceptors.request.use(requestInterceptor, requestErrorInterceptor);
+apiClient.interceptors.response.use(responseInterceptor, responseErrorInterceptor);
 
 export const vehicleService = {
     // Изменяем метод getAll, добавляем параметры фильтрации
