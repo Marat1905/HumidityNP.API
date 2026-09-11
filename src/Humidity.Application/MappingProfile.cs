@@ -42,10 +42,11 @@ public class MappingProfile : Profile
         // ==========================================
 
         // Сущность HumidityMeasurement -> DTO MeasurementDto
-        // Добавлены маппинги для VehicleNumber и VehiclePlate из навигационного свойства Vehicle.
+        // Добавлены маппинги для VehicleNumber, VehiclePlate и Counterparty из навигационного свойства Vehicle.
         CreateMap<HumidityMeasurement, MeasurementDto>()
             .ForMember(dest => dest.VehicleNumber, opt => opt.MapFrom(src => src.Vehicle.Number))
-            .ForMember(dest => dest.VehiclePlate, opt => opt.MapFrom(src => src.Vehicle.VehiclePlate));
+            .ForMember(dest => dest.VehiclePlate, opt => opt.MapFrom(src => src.Vehicle.VehiclePlate))
+            .ForMember(dest => dest.Counterparty, opt => opt.MapFrom(src => src.Vehicle.Counterparty));
 
         // DTO CreateMeasurementRequest -> Сущность HumidityMeasurement
         CreateMap<CreateMeasurementRequest, HumidityMeasurement>();

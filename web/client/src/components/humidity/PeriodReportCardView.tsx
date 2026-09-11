@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { VehicleMeasurementsExpand, type PeriodReportItem, type PeriodSummaryStats } from '../humidity'
 
-
 interface PeriodReportCardViewProps {
     items: PeriodReportItem[];
     summary: PeriodSummaryStats;
@@ -168,12 +167,17 @@ const PeriodReportCardView: React.FC<PeriodReportCardViewProps> = ({
                             <div className="p-4">
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 mb-1">
                                             <Truck className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                                             <span className="font-medium text-sm text-gray-900 dark:text-white">
                                                 {item.number} ({item.vehiclePlate})
                                             </span>
                                         </div>
+                                        {item.counterparty && (
+                                            <div className="ml-7 text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">
+                                                Поставщик: {item.counterparty}
+                                            </div>
+                                        )}
                                         <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-sm">
                                             <div>
                                                 <span className="text-gray-500 dark:text-gray-400">Замеров:</span>

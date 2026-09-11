@@ -61,6 +61,7 @@ export interface MeasurementDto {
     vehicleId: string;
     vehicleNumber: string;
     vehiclePlate: string;
+    counterparty?: string; //Поставщик для отображения в отчетах
     humidityValue: number;
     temperatureC: number;
     measurementType: string | null;

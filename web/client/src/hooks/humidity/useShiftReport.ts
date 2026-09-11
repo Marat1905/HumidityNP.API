@@ -8,6 +8,7 @@ export interface ShiftReportItem {
     vehicleId: string;
     number: string; // номер заявки
     vehiclePlate: string; // госномер
+    counterparty: string; // Поставщик
     measurementsCount: number;
     averageHumidity: number | null;
     minHumidity: number | null;
@@ -97,6 +98,7 @@ export const useShiftReport = (
             const vehicleMap = new Map<string, {
                 number: string;
                 vehiclePlate: string;
+                counterparty: string;
                 measurements: MeasurementDto[];
                 autoCount: number;
                 manualCount: number;
@@ -127,6 +129,7 @@ export const useShiftReport = (
                     vehicleMap.set(id, {
                         number: m.vehicleNumber || '',
                         vehiclePlate: m.vehiclePlate || '',
+                        counterparty: m.counterparty || '',
                         measurements: [],
                         autoCount: 0,
                         manualCount: 0,
@@ -138,9 +141,10 @@ export const useShiftReport = (
                 }
 
                 const entry = vehicleMap.get(id)!;
-                // При первом добавлении обновляем номер и госномер, если они ещё не заданы
+                // При первом добавлении обновляем номер, госномер и поставщика, если они ещё не заданы
                 if (!entry.number && m.vehicleNumber) entry.number = m.vehicleNumber;
                 if (!entry.vehiclePlate && m.vehiclePlate) entry.vehiclePlate = m.vehiclePlate;
+                if (!entry.counterparty && m.counterparty) entry.counterparty = m.counterparty;
 
                 entry.measurements.push(m);
                 if (m.source === 'Auto') entry.autoCount++;
@@ -164,6 +168,7 @@ export const useShiftReport = (
                     vehicleId,
                     number: entry.number || vehicleId.slice(0, 8), // fallback на часть ID
                     vehiclePlate: entry.vehiclePlate || '—',
+                    counterparty: entry.counterparty || '—',
                     measurementsCount: count,
                     averageHumidity: avg,
                     minHumidity: entry.minHumidity,

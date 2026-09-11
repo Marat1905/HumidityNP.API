@@ -28,6 +28,11 @@ public class MeasurementDto
     public string VehiclePlate { get; set; } = string.Empty;
 
     /// <summary>
+    /// Поставщик (из сущности Vehicle).
+    /// </summary>
+    public string Counterparty { get; set; } = string.Empty;
+
+    /// <summary>
     /// Значение влажности (%).
     /// </summary>
     public double HumidityValue { get; set; }

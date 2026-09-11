@@ -59,6 +59,7 @@ export default function ReportPeriodPage() {
         const vehicleMap = new Map<string, {
             number: string;
             vehiclePlate: string;
+            counterparty: string;
             measurements: typeof validMeasurements;
             autoCount: number;
             manualCount: number;
@@ -89,6 +90,7 @@ export default function ReportPeriodPage() {
                 vehicleMap.set(id, {
                     number: m.vehicleNumber || '',
                     vehiclePlate: m.vehiclePlate || '',
+                    counterparty: m.counterparty || '',
                     measurements: [],
                     autoCount: 0,
                     manualCount: 0,
@@ -102,6 +104,7 @@ export default function ReportPeriodPage() {
             const entry = vehicleMap.get(id)!;
             if (!entry.number && m.vehicleNumber) entry.number = m.vehicleNumber;
             if (!entry.vehiclePlate && m.vehiclePlate) entry.vehiclePlate = m.vehiclePlate;
+            if (!entry.counterparty && m.counterparty) entry.counterparty = m.counterparty;
 
             entry.measurements.push(m);
             if (m.source === MeasurementSource.Auto) entry.autoCount++;
@@ -125,6 +128,7 @@ export default function ReportPeriodPage() {
                 vehicleId,
                 number: entry.number || vehicleId.slice(0, 8),
                 vehiclePlate: entry.vehiclePlate || '—',
+                counterparty: entry.counterparty || '—',
                 measurementsCount: count,
                 averageHumidity: avg,
                 minHumidity: entry.minHumidity,
