@@ -11,17 +11,17 @@ export enum SignType {
 
 export interface VehicleDto {
     id: string;
-    number: string;                 // Номер пропуска
-    date: string;                   // Дата создания пропуска
-    entryDate: string;              // Дата въезда на площадку
-    exitDate?: string;              // Дата выезда с площадки
-    counterparty: string;           // Поставщик
-    inn?: string | null;            // ИНН поставщика
-    vehicleBrand: string;           // Марка автомобиля
-    vehiclePlate: string;           // Государственный номер
-    trailer: string;                // Номер прицепа
-    driver: string;                 // ФИО водителя
-    measurementsCount: number;      // Количество замеров
+    number: string; // Номер пропуска
+    date: string; // Дата создания пропуска
+    entryDate: string; // Дата въезда на площадку
+    exitDate?: string; // Дата выезда с площадки
+    counterparty: string; // Поставщик
+    inn?: string | null; // ИНН поставщика
+    vehicleBrand: string; // Марка автомобиля
+    vehiclePlate: string; // Государственный номер
+    trailer: string; // Номер прицепа
+    driver: string; // ФИО водителя
+    measurementsCount: number; // Количество замеров
     /** Количество тюков, выгруженных из машины */
     baleCount?: number | null;
     /** Количество порванных тюков */
@@ -135,6 +135,7 @@ export interface SupplierDto {
     inn: string;
     counterparty: string;
     vehiclesCount: number;
+    measuredVehiclesCount: number;
     totalMeasurements: number;
     averageHumidity: number | null;
     minHumidity: number | null;

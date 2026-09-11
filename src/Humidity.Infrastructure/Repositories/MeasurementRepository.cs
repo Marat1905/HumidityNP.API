@@ -251,7 +251,6 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     public async Task<MeasurementStatisticsDto> GetStatisticsByVehicleIdAsync(Guid vehicleId, CancellationToken cancellationToken = default)
     {
         var query = DbSet.Where(m => m.VehicleId == vehicleId);
-
         var statistics = new MeasurementStatisticsDto();
 
         // Общее количество
@@ -339,9 +338,9 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
         // Основной запрос: все машины, въехавшие в период, с левым присоединением замеров за тот же период
         var query = from vehicle in Context.Vehicles
                     join measurement in Context.Measurements
-                        on new { VehicleId = vehicle.Id, TimestampRange = true }
-                        equals new { VehicleId = measurement.VehicleId, TimestampRange = measurement.Timestamp >= fromUtc && measurement.Timestamp <= toUtc }
-                        into measurementsGroup
+                    on new { VehicleId = vehicle.Id, TimestampRange = true }
+                    equals new { VehicleId = measurement.VehicleId, TimestampRange = measurement.Timestamp >= fromUtc && measurement.Timestamp <= toUtc }
+                    into measurementsGroup
                     from measurement in measurementsGroup.DefaultIfEmpty()
                     where vehicle.EntryDate >= fromUtc && vehicle.EntryDate <= toUtc
                           && vehicle.Inn != null && vehicle.Inn != string.Empty
@@ -352,7 +351,13 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
                         LastCounterparty = g.OrderByDescending(x => x.vehicle.Date)
                                             .Select(x => x.vehicle.Counterparty)
                                             .FirstOrDefault(),
+                        // Общее количество машин
                         VehiclesCount = g.Select(x => x.vehicle.Id).Distinct().Count(),
+                        // Количество машин с замерами
+                        MeasuredVehiclesCount = g.Where(x => x.measurement != null)
+                                                 .Select(x => x.vehicle.Id)
+                                                 .Distinct()
+                                                 .Count(),
                         TotalMeasurements = g.Count(x => x.measurement != null),
                         AverageHumidity = g.Where(x => x.measurement != null)
                                            .Average(x => x.measurement!.HumidityValue),
@@ -373,6 +378,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
                 Inn = x.Inn,
                 Counterparty = x.LastCounterparty ?? x.Inn,
                 VehiclesCount = x.VehiclesCount,
+                MeasuredVehiclesCount = x.MeasuredVehiclesCount,
                 TotalMeasurements = x.TotalMeasurements,
                 AverageHumidity = x.AverageHumidity,
                 MinHumidity = x.MinHumidity,
@@ -406,15 +412,16 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
         // Получаем все машины поставщика, въехавшие в период, с их замерами (за тот же период)
         var dataQuery = from vehicle in Context.Vehicles
                         join measurement in Context.Measurements
-                            on new { VehicleId = vehicle.Id, TimestampRange = true }
-                            equals new { VehicleId = measurement.VehicleId, TimestampRange = measurement.Timestamp >= fromUtc && measurement.Timestamp <= toUtc }
-                            into measurementsGroup
+                        on new { VehicleId = vehicle.Id, TimestampRange = true }
+                        equals new { VehicleId = measurement.VehicleId, TimestampRange = measurement.Timestamp >= fromUtc && measurement.Timestamp <= toUtc }
+                        into measurementsGroup
                         from measurement in measurementsGroup.DefaultIfEmpty()
                         where vehicle.Inn == inn
                               && vehicle.EntryDate >= fromUtc && vehicle.EntryDate <= toUtc
                         select new { Vehicle = vehicle, Measurement = measurement };
 
         var list = await dataQuery.ToListAsync(cancellationToken);
+
         if (!list.Any())
         {
             return new SupplierDetailsDto
@@ -446,6 +453,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
             var measurements = group.Where(x => x.Measurement != null)
                                     .Select(x => x.Measurement!)
                                     .ToList();
+
             var count = measurements.Count;
             var avg = count > 0 ? measurements.Average(m => m.HumidityValue) : (double?)null;
             var min = count > 0 ? measurements.Min(m => m.HumidityValue) : (double?)null;
@@ -518,9 +526,9 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
 
         var query = from vehicle in Context.Vehicles
                     join measurement in Context.Measurements
-                        on new { VehicleId = vehicle.Id, TimestampRange = true }
-                        equals new { VehicleId = measurement.VehicleId, TimestampRange = measurement.Timestamp >= fromUtc && measurement.Timestamp <= toUtc }
-                        into measurementsGroup
+                    on new { VehicleId = vehicle.Id, TimestampRange = true }
+                    equals new { VehicleId = measurement.VehicleId, TimestampRange = measurement.Timestamp >= fromUtc && measurement.Timestamp <= toUtc }
+                    into measurementsGroup
                     from measurement in measurementsGroup.DefaultIfEmpty()
                     where vehicle.EntryDate >= fromUtc && vehicle.EntryDate <= toUtc
                           && vehicle.Inn != null && vehicle.Inn != string.Empty
@@ -531,7 +539,13 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
                         LastCounterparty = g.OrderByDescending(x => x.vehicle.Date)
                                             .Select(x => x.vehicle.Counterparty)
                                             .FirstOrDefault(),
+                        // Общее количество машин
                         VehiclesCount = g.Select(x => x.vehicle.Id).Distinct().Count(),
+                        // Количество машин с замерами
+                        MeasuredVehiclesCount = g.Where(x => x.measurement != null)
+                                                 .Select(x => x.vehicle.Id)
+                                                 .Distinct()
+                                                 .Count(),
                         TotalMeasurements = g.Count(x => x.measurement != null),
                         AverageHumidity = g.Where(x => x.measurement != null)
                                            .Average(x => x.measurement!.HumidityValue),
@@ -557,6 +571,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
                 Inn = x.Inn,
                 Counterparty = x.LastCounterparty ?? x.Inn,
                 VehiclesCount = x.VehiclesCount,
+                MeasuredVehiclesCount = x.MeasuredVehiclesCount,
                 TotalMeasurements = x.TotalMeasurements,
                 AverageHumidity = x.AverageHumidity,
                 MinHumidity = x.MinHumidity,

@@ -16,9 +16,14 @@ public class SupplierDto
     public string Counterparty { get; set; } = string.Empty;
 
     /// <summary>
-    /// Количество машин, связанных с этим поставщиком за выбранный период.
+    /// Общее количество машин, связанных с этим поставщиком за выбранный период.
     /// </summary>
     public int VehiclesCount { get; set; }
+
+    /// <summary>
+    /// Количество машин, по которым проводились замеры за выбранный период.
+    /// </summary>
+    public int MeasuredVehiclesCount { get; set; }
 
     /// <summary>
     /// Общее количество замеров за период.

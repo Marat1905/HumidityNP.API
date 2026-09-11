@@ -59,6 +59,7 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
         range: [supplier.minHumidity ?? 0, supplier.maxHumidity ?? 0],
         measurements: supplier.totalMeasurements,
         vehicles: supplier.vehiclesCount,
+        measuredVehicles: supplier.measuredVehiclesCount,
     }));
 
     const getBarColor = (index: number, total: number) => {
@@ -77,6 +78,7 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
     const CustomTooltip = ({ active, payload }: any) => {
         if (!active || !payload || payload.length === 0) return null;
         const data = payload[0].payload;
+
         return (
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-4 max-w-xs">
                 <div className="flex items-start justify-between">
@@ -95,6 +97,7 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
                         {rankType === 'good' ? 'Лучший' : 'Худший'}
                     </div>
                 </div>
+
                 <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
                     <div className="flex items-center gap-1.5 col-span-2">
                         <span className="text-gray-600 dark:text-gray-300">Диапазон влажности:</span>
@@ -116,11 +119,18 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
                             {data.measurements}
                         </span>
                     </div>
-                    <div className="flex items-center gap-1.5 col-span-2">
+                    <div className="flex items-center gap-1.5">
                         <Truck className="w-4 h-4 text-blue-500" />
-                        <span className="text-gray-600 dark:text-gray-300">Машин:</span>
+                        <span className="text-gray-600 dark:text-gray-300">Всего машин:</span>
                         <span className="font-medium text-gray-900 dark:text-white">
                             {data.vehicles}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <Truck className="w-4 h-4 text-emerald-500" />
+                        <span className="text-gray-600 dark:text-gray-300">С замерами:</span>
+                        <span className="font-medium text-gray-900 dark:text-white">
+                            {data.measuredVehicles}
                         </span>
                     </div>
                 </div>
@@ -172,7 +182,6 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
                             return value;
                         }}
                     />
-
                     <Bar
                         dataKey="range"
                         name="range"
@@ -188,7 +197,6 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
                             />
                         ))}
                     </Bar>
-
                     <Line
                         type="monotone"
                         dataKey="average"
@@ -200,7 +208,6 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
                     />
                 </ComposedChart>
             </ResponsiveContainer>
-
             <div className="mt-3 flex flex-wrap items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                 <span>Столбцы – диапазон влажности (мин–макс), линия с точками – среднее значение.</span>
                 <span className="flex items-center gap-2">

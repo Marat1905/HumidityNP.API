@@ -1,14 +1,14 @@
 import React from 'react';
 import type { SupplierDto } from '../../types/humidity';
 import { ChevronRight, Truck, Activity, Droplet } from 'lucide-react';
-import { SupplierDetails } from '../humidity'
+import { SupplierDetails } from '../humidity';
 
 interface SupplierListProps {
     suppliers: SupplierDto[];
     expandedInn: string | null;
     onToggle: (inn: string) => void;
-    fromDate: Date | null;   // <-- добавить
-    toDate: Date | null;     // <-- добавить
+    fromDate: Date | null;
+    toDate: Date | null;
 }
 
 const SupplierList: React.FC<SupplierListProps> = ({
@@ -33,7 +33,7 @@ const SupplierList: React.FC<SupplierListProps> = ({
                         onClick={() => onToggle(supplier.inn)}
                         className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition text-left"
                     >
-                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
+                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-5 gap-2 items-center">
                             <div>
                                 <div className="text-sm font-semibold text-gray-900 dark:text-white">{supplier.counterparty}</div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400">ИНН: {supplier.inn}</div>
@@ -41,6 +41,10 @@ const SupplierList: React.FC<SupplierListProps> = ({
                             <div className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300">
                                 <Truck className="w-4 h-4 text-blue-500" />
                                 <span>{supplier.vehiclesCount} машин</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300">
+                                <Truck className="w-4 h-4 text-emerald-500" />
+                                <span>{supplier.measuredVehiclesCount} с замерами</span>
                             </div>
                             <div className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300">
                                 <Activity className="w-4 h-4 text-indigo-500" />
@@ -55,7 +59,6 @@ const SupplierList: React.FC<SupplierListProps> = ({
                             className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedInn === supplier.inn ? 'rotate-90' : ''}`}
                         />
                     </button>
-
                     {expandedInn === supplier.inn && (
                         <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50">
                             {/* Передаём даты в SupplierDetails */}
