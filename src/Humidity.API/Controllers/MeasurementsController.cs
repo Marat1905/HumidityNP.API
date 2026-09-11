@@ -2,6 +2,7 @@
 using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
 using Humidity.Domain.Common;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Humidity.API.Controllers;
@@ -66,6 +67,7 @@ public class MeasurementsController : ControllerBase
     public async Task<IActionResult> GetLatestByVehicle(Guid vehicleId)
     {
         var measurement = await _measurementService.GetLatestByVehicleIdAsync(vehicleId, HttpContext.RequestAborted);
+
         if (measurement == null)
         {
             return NotFound($"Замеры для машины с id {vehicleId} не найдены");
@@ -141,6 +143,7 @@ public class MeasurementsController : ControllerBase
     /// <param name="id">Идентификатор замера</param>
     /// <param name="request">Данные для обновления</param>
     [HttpPut("{id}")]
+    [Authorize(Policy = "TCXPolicy")]
     [ProducesResponseType(typeof(MeasurementDto), 200)]
     [ProducesResponseType(404)]
     [ProducesResponseType(400)]
@@ -156,6 +159,7 @@ public class MeasurementsController : ControllerBase
     /// </summary>
     /// <param name="id">Идентификатор замера</param>
     [HttpDelete("{id}")]
+    [Authorize(Policy = "TCXPolicy")]
     [ProducesResponseType(204)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> Delete(Guid id)
@@ -185,6 +189,7 @@ public class MeasurementsController : ControllerBase
 
         var result = await _measurementService.GetByDateRangePagedAsync(
             from, to, pageNumber, pageSize, HttpContext.RequestAborted);
+
         return Ok(result);
     }
 }

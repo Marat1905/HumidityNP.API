@@ -4,10 +4,11 @@ import { ru } from 'date-fns/locale';
 import { Pencil, Trash2, RotateCcw } from 'lucide-react';
 import { useMeasurementsByDateRange } from '../../hooks/humidity';
 import { SkeletonTable, Pagination, RangeDatePicker } from '../../components/common';
-import { DeleteConfirmationModal, MeasurementFormModal } from '../../components/humidity'
+import { DeleteConfirmationModal, MeasurementFormModal } from '../../components/humidity';
 import { measurementService } from '../../services/humidity/api';
 import toast from 'react-hot-toast';
 import type { MeasurementDto, SignType, MeasurementSource } from '../../types/humidity';
+import { useAuth } from '../../context/AuthContext';
 
 export default function MeasurementsPage() {
     // Количество дней по умолчанию для отображения (последние 2 недели)
@@ -54,6 +55,8 @@ export default function MeasurementsPage() {
     const [editMeasurement, setEditMeasurement] = useState<MeasurementDto | null>(null);
     const [deleteId, setDeleteId] = useState<string | null>(null);
 
+    const { isAdminOrTcx } = useAuth();
+
     const handleDelete = async () => {
         if (!deleteId) return;
         try {
@@ -80,14 +83,15 @@ export default function MeasurementsPage() {
     };
 
     // --- Обработка состояний ---
+
     // 1. Загрузка
-    if (loading) return <SkeletonTable rows={5} columns={7} />;
+    if (loading) return <SkeletonTable rows={5} columns={isAdminOrTcx ? 7 : 6} />;
 
     // 2. Ошибка
     if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
 
     // 3. Данные загружены, но их нет (пустой результат)
-    //    При этом фильтры остаются видимыми и доступными.
+    // При этом фильтры остаются видимыми и доступными.
     const items = data?.items ?? [];
     const totalCount = data?.totalCount ?? 0;
     const totalPages = data?.totalPages ?? 0;
@@ -174,9 +178,11 @@ export default function MeasurementsPage() {
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Источник
                                     </th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                        Действия
-                                    </th>
+                                    {isAdminOrTcx && (
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Действия
+                                        </th>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -200,22 +206,24 @@ export default function MeasurementsPage() {
                                         <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                                             {getSourceLabel(m.source)}
                                         </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <button
-                                                    onClick={() => setEditMeasurement(m)}
-                                                    className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition"
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => setDeleteId(m.id)}
-                                                    className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </td>
+                                        {isAdminOrTcx && (
+                                            <td className="px-4 py-3 text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        onClick={() => setEditMeasurement(m)}
+                                                        className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setDeleteId(m.id)}
+                                                        className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>

@@ -4,9 +4,10 @@ import { ru } from 'date-fns/locale';
 import { Pencil, Trash2, PenTool } from 'lucide-react';
 import { type MeasurementDto, SignType, MeasurementSource } from '../../types/humidity';
 import { Pagination } from '../common';
-import { DeleteConfirmationModal, MeasurementFormModal } from '../humidity'
+import { DeleteConfirmationModal, MeasurementFormModal } from '../humidity';
 import { measurementService } from '../../services/humidity/api';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 
 interface MeasurementListProps {
     vehicleId: string;
@@ -33,6 +34,7 @@ export default function MeasurementList({
     onRefresh,
     loading,
 }: MeasurementListProps) {
+    const { isAdminOrTcx } = useAuth();
     const [editMeasurement, setEditMeasurement] = useState<MeasurementDto | null>(null);
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -70,12 +72,14 @@ export default function MeasurementList({
         <div className="mt-6">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Замеры влажности</h3>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition"
-                >
-                    + Добавить замер
-                </button>
+                {isAdminOrTcx && (
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition"
+                    >
+                        + Добавить замер
+                    </button>
+                )}
             </div>
 
             {measurements.length === 0 ? (
@@ -104,9 +108,11 @@ export default function MeasurementList({
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Источник
                                     </th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                        Действия
-                                    </th>
+                                    {isAdminOrTcx && (
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Действия
+                                        </th>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -139,22 +145,24 @@ export default function MeasurementList({
                                                 {isManual && <PenTool className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />}
                                                 {getSourceLabel(m.source)}
                                             </td>
-                                            <td className="px-4 py-3 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => setEditMeasurement(m)}
-                                                        className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition"
-                                                    >
-                                                        <Pencil className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setDeleteId(m.id)}
-                                                        className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
+                                            {isAdminOrTcx && (
+                                                <td className="px-4 py-3 text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        <button
+                                                            onClick={() => setEditMeasurement(m)}
+                                                            className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition"
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setDeleteId(m.id)}
+                                                            className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            )}
                                         </tr>
                                     );
                                 })}
