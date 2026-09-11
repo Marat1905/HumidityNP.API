@@ -50,7 +50,10 @@ const SuppliersTable: React.FC<SuppliersTableProps> = ({ suppliers, rankType }) 
                             Замеров
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Машин
+                            Всего машин
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Машин с замерами
                         </th>
                     </tr>
                 </thead>
@@ -79,6 +82,9 @@ const SuppliersTable: React.FC<SuppliersTableProps> = ({ suppliers, rankType }) 
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                                 {supplier.vehiclesCount}
+                            </td>
+                            <td className="px-4 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                                {supplier.measuredVehiclesCount ?? 0}
                             </td>
                         </tr>
                     ))}
