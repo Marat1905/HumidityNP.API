@@ -397,18 +397,20 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     }
 
     /// <summary>
-    /// Получить детальную информацию по поставщику (ИНН) за период.
-    /// Возвращает все машины поставщика, въехавшие в период, и их замеры (если есть).
+    /// Вспомогательный метод: загружает все машины поставщика за период с агрегированными данными
+    /// и вычисляет общую статистику. Используется как в постраничном методе, так и в методе для графика.
     /// </summary>
-    public async Task<SupplierDetailsDto> GetSupplierDetailsAsync(
-        string inn,
-        DateTimeOffset from,
-        DateTimeOffset to,
-        CancellationToken cancellationToken = default)
+    /// <param name="inn">ИНН поставщика.</param>
+    /// <param name="fromUtc">Начало периода в UTC (включительно).</param>
+    /// <param name="toUtc">Конец периода в UTC (включительно).</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>
+    /// Кортеж: полный список сводок по машинам (без сортировки и пагинации),
+    /// общая статистика и актуальное наименование поставщика.
+    /// </returns>
+    private async Task<(List<SupplierVehicleSummaryDto> AllVehicles, MeasurementStatisticsDto OverallStats, string Counterparty)>
+        LoadSupplierDataAsync(string inn, DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken cancellationToken)
     {
-        var fromUtc = from.ToUniversalTime();
-        var toUtc = to.ToUniversalTime();
-
         // Получаем все машины поставщика, въехавшие в период, с их замерами (за тот же период)
         var dataQuery = from vehicle in Context.Vehicles
                         join measurement in Context.Measurements
@@ -420,17 +422,13 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
                               && vehicle.EntryDate >= fromUtc && vehicle.EntryDate <= toUtc
                         select new { Vehicle = vehicle, Measurement = measurement };
 
-        var list = await dataQuery.ToListAsync(cancellationToken);
+        var list = await dataQuery
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
 
         if (!list.Any())
         {
-            return new SupplierDetailsDto
-            {
-                Inn = inn,
-                Counterparty = inn,
-                Vehicles = new List<SupplierVehicleSummaryDto>(),
-                OverallStatistics = new MeasurementStatisticsDto()
-            };
+            return (new List<SupplierVehicleSummaryDto>(), new MeasurementStatisticsDto(), inn);
         }
 
         // Определяем актуальное название поставщика (последнее по дате пропуска)
@@ -446,6 +444,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
         double? globalMin = null;
         double? globalMax = null;
         int autoCount = 0, manualCount = 0;
+        DateTimeOffset? lastTimestamp = null;
 
         foreach (var group in vehicleGroups)
         {
@@ -484,6 +483,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
                 totalHumiditySum += measurements.Sum(m => m.HumidityValue);
                 if (globalMin == null || min < globalMin) globalMin = min;
                 if (globalMax == null || max > globalMax) globalMax = max;
+                if (lastTimestamp == null || last > lastTimestamp) lastTimestamp = last;
             }
             autoCount += auto;
             manualCount += manual;
@@ -497,18 +497,110 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
             Max = globalMax,
             ManualCount = manualCount,
             AutoCount = autoCount,
-            LastMeasurementTimestamp = list.Where(x => x.Measurement != null)
-                                           .OrderByDescending(x => x.Measurement!.Timestamp)
-                                           .FirstOrDefault()?.Measurement?.Timestamp
+            LastMeasurementTimestamp = lastTimestamp
         };
+
+        return (vehicleSummaries, overallStats, counterparty);
+    }
+
+    /// <summary>
+    /// Получить детальную информацию по поставщику (ИНН) за период с постраничной выборкой машин.
+    /// Сортировка и пагинация выполняются на стороне сервера.
+    /// </summary>
+    public async Task<SupplierDetailsDto> GetSupplierDetailsAsync(
+        string inn,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        int pageNumber,
+        int pageSize,
+        bool sortDescending,
+        CancellationToken cancellationToken = default)
+    {
+        var fromUtc = from.ToUniversalTime();
+        var toUtc = to.ToUniversalTime();
+
+        // Нормализация параметров пагинации
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100;
+
+        var (allVehicles, overallStats, counterparty) = await LoadSupplierDataAsync(
+            inn, fromUtc, toUtc, cancellationToken);
+
+        if (allVehicles.Count == 0)
+        {
+            return new SupplierDetailsDto
+            {
+                Inn = inn,
+                Counterparty = inn,
+                Vehicles = new PagedResult<SupplierVehicleSummaryDto>
+                {
+                    Items = new List<SupplierVehicleSummaryDto>(),
+                    TotalCount = 0,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    TotalPages = 0
+                },
+                OverallStatistics = new MeasurementStatisticsDto()
+            };
+        }
+
+        // Сортировка по дате въезда на сервере
+        var sortedVehicles = sortDescending
+            ? allVehicles.OrderByDescending(v => v.EntryDate).ToList()
+            : allVehicles.OrderBy(v => v.EntryDate).ToList();
+
+        // Пагинация на сервере
+        var totalCount = sortedVehicles.Count;
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        var pagedItems = sortedVehicles
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
 
         return new SupplierDetailsDto
         {
             Inn = inn,
             Counterparty = counterparty,
-            Vehicles = vehicleSummaries.OrderByDescending(v => v.MeasurementsCount).ToList(),
+            Vehicles = new PagedResult<SupplierVehicleSummaryDto>
+            {
+                Items = pagedItems,
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalPages = totalPages
+            },
             OverallStatistics = overallStats
         };
+    }
+
+    /// <summary>
+    /// Получить полный (без пагинации) список машин поставщика за период с агрегированными данными,
+    /// отсортированный по дате въезда. Используется для построения графика.
+    /// Сортировка выполняется на стороне сервера.
+    /// </summary>
+    public async Task<IEnumerable<SupplierVehicleSummaryDto>> GetSupplierVehiclesForChartAsync(
+        string inn,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        bool sortDescending,
+        CancellationToken cancellationToken = default)
+    {
+        var fromUtc = from.ToUniversalTime();
+        var toUtc = to.ToUniversalTime();
+
+        var (allVehicles, _, _) = await LoadSupplierDataAsync(inn, fromUtc, toUtc, cancellationToken);
+
+        if (allVehicles.Count == 0)
+        {
+            return Enumerable.Empty<SupplierVehicleSummaryDto>();
+        }
+
+        // Сортировка по дате въезда на сервере (без пагинации)
+        return sortDescending
+            ? allVehicles.OrderByDescending(v => v.EntryDate).ToList()
+            : allVehicles.OrderBy(v => v.EntryDate).ToList();
     }
 
     /// <summary>

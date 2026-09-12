@@ -38,18 +38,52 @@ public class SupplierService : ISupplierService
         return result;
     }
 
+    /// <summary>
+    /// Получить детальную информацию по поставщику (ИНН) за период.
+    /// Пагинация и сортировка выполняются на стороне сервера.
+    /// </summary>
     public async Task<SupplierDetailsDto> GetSupplierDetailsAsync(
         string inn,
         DateTimeOffset from,
         DateTimeOffset to,
+        int pageNumber,
+        int pageSize,
+        bool sortDescending,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Запрос деталей поставщика с ИНН {Inn} за период с {From} по {To}", inn, from, to);
+        _logger.LogInformation(
+            "Запрос деталей поставщика с ИНН {Inn} за период с {From} по {To}, страница {Page}, размер {Size}, сортировка {Order}",
+            inn, from, to, pageNumber, pageSize, sortDescending ? "по убыванию" : "по возрастанию");
 
-        var details = await _measurementRepository.GetSupplierDetailsAsync(inn, from, to, cancellationToken);
+        var details = await _measurementRepository.GetSupplierDetailsAsync(
+            inn, from, to, pageNumber, pageSize, sortDescending, cancellationToken);
 
-        _logger.LogInformation("Для поставщика {Inn} получено {VehicleCount} машин", inn, details.Vehicles.Count);
+        _logger.LogInformation(
+            "Для поставщика {Inn} получено {VehicleCount} машин на странице (всего {TotalCount})",
+            inn, details.Vehicles.Items.Count(), details.Vehicles.TotalCount);
         return details;
+    }
+
+    /// <summary>
+    /// Получить полный список машин поставщика за период для построения графика.
+    /// Пагинация не применяется, сортировка выполняется на стороне сервера.
+    /// </summary>
+    public async Task<IEnumerable<SupplierVehicleSummaryDto>> GetSupplierVehiclesForChartAsync(
+        string inn,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        bool sortDescending,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "Запрос машин для графика поставщика с ИНН {Inn} за период с {From} по {To}, сортировка {Order}",
+            inn, from, to, sortDescending ? "по убыванию" : "по возрастанию");
+
+        var result = await _measurementRepository.GetSupplierVehiclesForChartAsync(
+            inn, from, to, sortDescending, cancellationToken);
+
+        _logger.LogInformation("Для графика поставщика {Inn} получено {Count} машин", inn, result.Count());
+        return result;
     }
 
     /// <summary>

@@ -1,36 +1,42 @@
-import React, { useState, useMemo } from 'react';
-import type { SupplierVehicleSummaryDto } from '../../types/humidity';
+import React from 'react';
+import type { SupplierVehicleSummaryDto, PagedResult } from '../../types/humidity';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Truck, Activity, Droplet, Zap, PenTool } from 'lucide-react';
+import { Truck } from 'lucide-react';
 import { Pagination } from '../common';
 
 interface SupplierVehiclesTableProps {
-    vehicles: SupplierVehicleSummaryDto[];
+    /**
+     * Постраничный список машин поставщика.
+     * Пагинация и сортировка выполнены на стороне сервера.
+     */
+    vehicles: PagedResult<SupplierVehicleSummaryDto>;
+    /** Колбэк смены страницы (вызывает новый запрос на сервер) */
+    onPageChange: (page: number) => void;
+    /** Колбэк изменения размера страницы (вызывает новый запрос на сервер) */
+    onPageSizeChange: (size: number) => void;
 }
 
-const SupplierVehiclesTable: React.FC<SupplierVehiclesTableProps> = ({ vehicles }) => {
-    // Состояние для пагинации таблицы машин
-    const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
-
-    // Сортируем машины по дате заезда (по убыванию: новые машины сверху) перед пагинацией
-    // Это гарантирует, что порядок в таблице совпадает с порядком в графике
-    const sortedVehicles = useMemo(() => {
-        return [...vehicles].sort((a, b) => {
-            return new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime();
-        });
-    }, [vehicles]);
-
-    if (sortedVehicles.length === 0) {
-        return <div className="text-center py-4 text-gray-500 dark:text-gray-400">Нет машин</div>;
+/**
+ * Таблица машин поставщика с серверной пагинацией.
+ *
+ * ВАЖНО: пагинация и сортировка выполняются на стороне сервера.
+ * Компонент только отображает полученную страницу и управляет
+ * запросами через колбэки onPageChange / onPageSizeChange.
+ */
+const SupplierVehiclesTable: React.FC<SupplierVehiclesTableProps> = ({
+    vehicles,
+    onPageChange,
+    onPageSizeChange,
+}) => {
+    // Страховка: если данные не пришли, показываем заглушку
+    if (!vehicles || !Array.isArray(vehicles.items) || vehicles.totalCount === 0) {
+        return (
+            <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                Нет машин
+            </div>
+        );
     }
-
-    // Вычисляем данные для текущей страницы на основе отсортированного массива
-    const totalPages = Math.ceil(sortedVehicles.length / pageSize);
-    const startIndex = (currentPage - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    const paginatedVehicles = sortedVehicles.slice(startIndex, endIndex);
 
     return (
         <div className="space-y-4">
@@ -63,7 +69,7 @@ const SupplierVehiclesTable: React.FC<SupplierVehiclesTableProps> = ({ vehicles 
                             </tr>
                         </thead>
                         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                            {paginatedVehicles.map((v) => (
+                            {vehicles.items.map((v) => (
                                 <tr key={v.vehicleId} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
                                         <div className="flex items-center gap-2">
@@ -109,17 +115,15 @@ const SupplierVehiclesTable: React.FC<SupplierVehiclesTableProps> = ({ vehicles 
                 </div>
             </div>
 
-            {/* Компонент пагинации для таблицы машин */}
-            {totalPages > 1 && (
-                <Pagination
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={setCurrentPage}
-                    pageSize={pageSize}
-                    onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
-                    totalCount={sortedVehicles.length}
-                />
-            )}
+            {/* Компонент пагинации: изменения уходят на сервер через колбэки */}
+            <Pagination
+                currentPage={vehicles.pageNumber}
+                totalPages={vehicles.totalPages}
+                onPageChange={onPageChange}
+                pageSize={vehicles.pageSize}
+                onPageSizeChange={onPageSizeChange}
+                totalCount={vehicles.totalCount}
+            />
         </div>
     );
 };

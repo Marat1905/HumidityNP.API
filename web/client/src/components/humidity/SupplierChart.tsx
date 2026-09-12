@@ -22,27 +22,35 @@ interface SupplierChartProps {
 /**
  * Компонент графика для поставщика.
  * Отображает диапазон влажности (мин–макс) в виде столбцов и среднее значение точкой.
+ *
+ * ВАЖНО: сортировка и пагинация выполняются на стороне сервера.
+ * Данный компонент только визуализирует переданный массив без каких-либо
+ * дополнительных сортировок, срезов и фильтраций.
  */
 const SupplierChart: React.FC<SupplierChartProps> = ({ vehicles }) => {
-    // Подготовка данных: для каждой машины – min, max, среднее, кол-во замеров
-    const chartData = vehicles
-        .map(v => ({
-            // Для оси X используем номер машины или госномер
-            name: v.number || v.vehiclePlate || v.vehicleId.slice(0, 8),
-            minHumidity: v.minHumidity ?? 0,
-            maxHumidity: v.maxHumidity ?? 0,
-            averageHumidity: v.averageHumidity ?? 0,
-            measurementsCount: v.measurementsCount,
-            vehicleId: v.vehicleId,
-            range: [v.minHumidity ?? 0, v.maxHumidity ?? 0] as [number, number],
-            entryDate: v.entryDate, // Добавляем дату заезда для отображения во всплывающем окне
-        }))
-        .filter(d => d.minHumidity !== null && d.maxHumidity !== null) // отфильтровываем машины без данных
-        // Сортировка по дате заезда (по убыванию: новые машины сверху) для согласованности с таблицей
-        .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime());
+    // Страховка: если массив не пришёл, работаем с пустым массивом
+    const safeVehicles = Array.isArray(vehicles) ? vehicles : [];
+
+    // Подготовка данных: для каждой машины – min, max, среднее, кол-во замеров.
+    // Данные уже отсортированы сервером, поэтому порядок сохраняем как есть.
+    const chartData = safeVehicles.map(v => ({
+        // Для оси X используем номер машины или госномер
+        name: v.number || v.vehiclePlate || v.vehicleId.slice(0, 8),
+        minHumidity: v.minHumidity ?? 0,
+        maxHumidity: v.maxHumidity ?? 0,
+        averageHumidity: v.averageHumidity ?? 0,
+        measurementsCount: v.measurementsCount,
+        vehicleId: v.vehicleId,
+        range: [v.minHumidity ?? 0, v.maxHumidity ?? 0] as [number, number],
+        entryDate: v.entryDate, // Дата заезда для отображения во всплывающем окне
+    }));
 
     if (chartData.length === 0) {
-        return <div className="text-center text-gray-500 dark:text-gray-400">Нет данных для графика</div>;
+        return (
+            <div className="text-center text-gray-500 dark:text-gray-400 py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                Нет данных для графика
+            </div>
+        );
     }
 
     // Цветовая палитра для столбцов
@@ -136,6 +144,7 @@ const SupplierChart: React.FC<SupplierChartProps> = ({ vehicles }) => {
             </ResponsiveContainer>
             <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
                 Отображён диапазон влажности (мин–макс) для каждой машины за выбранный период. Красная точка — среднее значение.
+                Сортировка выполнена на сервере (новые машины сверху).
             </div>
         </div>
     );

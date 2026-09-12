@@ -1,33 +1,30 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supplierService } from '../../services/humidity/api';
-import type { SupplierDetailsDto } from '../../types/humidity';
+import type { SupplierVehicleSummaryDto } from '../../types/humidity';
 
 /**
- * Хук для получения детальной информации по поставщику с постраничной выборкой машин.
- * Пагинация и сортировка выполняются на стороне сервера.
+ * Хук для получения полного (без пагинации) списка машин поставщика за период,
+ * отсортированного по дате въезда. Используется для построения графика.
+ * Сортировка выполняется на стороне сервера, пагинация НЕ применяется.
  *
  * @param inn ИНН поставщика или null.
  * @param fromDate Начало периода или null.
  * @param toDate Конец периода или null.
- * @param pageNumber Номер страницы (начиная с 1).
- * @param pageSize Размер страницы.
  * @param order Порядок сортировки по дате въезда: 'desc' — новые сверху (по умолчанию), 'asc' — старые сверху.
  */
-export const useSupplierDetails = (
+export const useSupplierChartData = (
     inn: string | null,
     fromDate: Date | null,
     toDate: Date | null,
-    pageNumber: number = 1,
-    pageSize: number = 10,
     order: 'asc' | 'desc' = 'desc'
 ) => {
-    const [data, setData] = useState<SupplierDetailsDto | null>(null);
+    const [data, setData] = useState<SupplierVehicleSummaryDto[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
 
     const fetchData = useCallback(async () => {
         if (!inn || !fromDate || !toDate) {
-            setData(null);
+            setData([]);
             return;
         }
         const from = new Date(fromDate);
@@ -38,22 +35,20 @@ export const useSupplierDetails = (
         setLoading(true);
         setError(null);
         try {
-            const result = await supplierService.getSupplierDetails(
+            const result = await supplierService.getSupplierVehiclesForChart(
                 inn,
                 from.toISOString(),
                 to.toISOString(),
-                pageNumber,
-                pageSize,
                 order
             );
             setData(result);
         } catch (err: any) {
-            setError(err instanceof Error ? err : new Error(err?.response?.data?.message || 'Ошибка загрузки деталей поставщика'));
-            setData(null);
+            setError(err instanceof Error ? err : new Error(err?.response?.data?.message || 'Ошибка загрузки данных для графика'));
+            setData([]);
         } finally {
             setLoading(false);
         }
-    }, [inn, fromDate, toDate, pageNumber, pageSize, order]);
+    }, [inn, fromDate, toDate, order]);
 
     useEffect(() => {
         fetchData();

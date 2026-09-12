@@ -5,6 +5,7 @@ import type {
     PagedResult, MeasurementStatisticsDto,
     SupplierDetailsDto,
     SupplierDto,
+    SupplierVehicleSummaryDto,
     VehiclesQueryParams
 } from '../../types/humidity';
 import {
@@ -127,17 +128,50 @@ export const supplierService = {
 
     /**
      * Получить детальную информацию по поставщику за период.
+     * Пагинация и сортировка выполняются на стороне сервера.
+     *
+     * @param inn ИНН поставщика.
+     * @param from Начало периода (ISO-строка).
+     * @param to Конец периода (ISO-строка).
+     * @param pageNumber Номер страницы (начиная с 1).
+     * @param pageSize Размер страницы (макс. 100).
+     * @param order Порядок сортировки по дате въезда: 'desc' — новые сверху (по умолчанию), 'asc' — старые сверху.
      */
     async getSupplierDetails(
         inn: string,
         from: string,
-        to: string
+        to: string,
+        pageNumber = 1,
+        pageSize = 10,
+        order: 'asc' | 'desc' = 'desc'
     ): Promise<SupplierDetailsDto> {
         const response = await apiClient.get(`/suppliers/${inn}/details`, {
-            params: { from, to }
+            params: { from, to, pageNumber, pageSize, order }
         });
         return response.data;
     },
+
+    /**
+     * Получить полный (без пагинации) список машин поставщика за период,
+     * отсортированный по дате въезда. Используется для построения графика.
+     *
+     * @param inn ИНН поставщика.
+     * @param from Начало периода (ISO-строка).
+     * @param to Конец периода (ISO-строка).
+     * @param order Порядок сортировки по дате въезда: 'desc' — новые сверху (по умолчанию), 'asc' — старые сверху.
+     */
+    async getSupplierVehiclesForChart(
+        inn: string,
+        from: string,
+        to: string,
+        order: 'asc' | 'desc' = 'desc'
+    ): Promise<SupplierVehicleSummaryDto[]> {
+        const response = await apiClient.get(`/suppliers/${inn}/chart`, {
+            params: { from, to, order }
+        });
+        return response.data;
+    },
+
     /**
      * Получить топ-N поставщиков по средней влажности за период.
      * @param from Начало периода (ISO-строка).

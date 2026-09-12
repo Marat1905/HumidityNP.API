@@ -105,12 +105,43 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Получить детальную информацию по поставщику (ИНН) за период.
+    /// Получить детальную информацию по поставщику (ИНН) за период с постраничной выборкой машин.
+    /// Сортировка выполняется по дате въезда машины на площадку.
+    /// Пагинация и сортировка выполняются на стороне сервера.
     /// </summary>
+    /// <param name="inn">ИНН поставщика.</param>
+    /// <param name="from">Начало периода (включительно).</param>
+    /// <param name="to">Конец периода (включительно).</param>
+    /// <param name="pageNumber">Номер страницы (начиная с 1).</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="sortDescending">true – сортировка по дате въезда по убыванию (новые сверху), false – по возрастанию.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>DTO с постраничным списком машин и общей статистикой по всем машинам.</returns>
     Task<SupplierDetailsDto> GetSupplierDetailsAsync(
         string inn,
         DateTimeOffset from,
         DateTimeOffset to,
+        int pageNumber,
+        int pageSize,
+        bool sortDescending,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить полный (без пагинации) список машин поставщика за период с агрегированными данными,
+    /// отсортированный по дате въезда. Используется для построения графика.
+    /// Сортировка выполняется на стороне сервера.
+    /// </summary>
+    /// <param name="inn">ИНН поставщика.</param>
+    /// <param name="from">Начало периода (включительно).</param>
+    /// <param name="to">Конец периода (включительно).</param>
+    /// <param name="sortDescending">true – сортировка по дате въезда по убыванию (новые сверху), false – по возрастанию.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Коллекция сводок по машинам (полная, без пагинации).</returns>
+    Task<IEnumerable<SupplierVehicleSummaryDto>> GetSupplierVehiclesForChartAsync(
+        string inn,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        bool sortDescending,
         CancellationToken cancellationToken = default);
 
     /// <summary>

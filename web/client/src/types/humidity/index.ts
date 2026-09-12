@@ -148,7 +148,7 @@ export interface SupplierVehicleSummaryDto {
     number: string;
     vehiclePlate: string;
     entryDate: string;
-    exitDate?: string;
+    exitDate?: string | null;
     measurementsCount: number;
     averageHumidity: number | null;
     minHumidity: number | null;
@@ -158,10 +158,17 @@ export interface SupplierVehicleSummaryDto {
     lastMeasurementTimestamp: string | null;
 }
 
+/**
+ * Детальная информация по поставщику.
+ * Пагинация и сортировка списка машин выполняются на стороне сервера.
+ * Поле overallStatistics содержит статистику по ВСЕМ машинам за период,
+ * а не только по текущей странице.
+ */
 export interface SupplierDetailsDto {
     inn: string;
     counterparty: string;
-    vehicles: SupplierVehicleSummaryDto[];
+    /** Постраничный список машин поставщика (пагинация и сортировка выполнены на сервере) */
+    vehicles: PagedResult<SupplierVehicleSummaryDto>;
     overallStatistics: MeasurementStatisticsDto;
 }
 

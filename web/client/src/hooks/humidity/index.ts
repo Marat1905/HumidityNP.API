@@ -5,6 +5,7 @@ export { useMeasurementsByDateRange } from './useMeasurementsByDateRange';
 export { useMeasurementStatistics } from './useMeasurementStatistics';
 export { useShiftReport } from './useShiftReport';
 export { useSupplierDetails } from './useSupplierDetails';
+export { useSupplierChartData } from './useSupplierChartData';
 export { useSuppliers } from './useSuppliers';
 export { useTopSuppliers } from './useTopSuppliers';
 export { useVehicles } from './useVehicles';
