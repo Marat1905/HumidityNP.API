@@ -11,6 +11,8 @@ import {
     Scatter,
     Cell,
 } from 'recharts';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import type { SupplierVehicleSummaryDto } from '../../types/humidity';
 
 interface SupplierChartProps {
@@ -33,6 +35,7 @@ const SupplierChart: React.FC<SupplierChartProps> = ({ vehicles }) => {
             measurementsCount: v.measurementsCount,
             vehicleId: v.vehicleId,
             range: [v.minHumidity ?? 0, v.maxHumidity ?? 0] as [number, number],
+            entryDate: v.entryDate, // Добавляем дату заезда для отображения во всплывающем окне
         }))
         .filter(d => d.minHumidity !== null && d.maxHumidity !== null) // отфильтровываем машины без данных
         .sort((a, b) => b.measurementsCount - a.measurementsCount);
@@ -50,6 +53,7 @@ const SupplierChart: React.FC<SupplierChartProps> = ({ vehicles }) => {
     /**
      * Кастомный тултип, который отображает только нужные поля:
      * - Название машины (label)
+     * - Дата заезда
      * - Диапазон (мин–макс)
      * - Среднее значение
      */
@@ -57,28 +61,29 @@ const SupplierChart: React.FC<SupplierChartProps> = ({ vehicles }) => {
         if (!active || !payload || payload.length === 0) return null;
 
         // Ищем нужные данные
-        const rangePayload = payload.find((p: any) => p.dataKey === 'range');
-        const avgPayload = payload.find((p: any) => p.dataKey === 'averageHumidity');
+        const data = payload[0].payload; // Получаем исходные данные точки
 
         return (
             <div className="bg-gray-800 text-white p-3 rounded-lg shadow-lg border border-gray-600 text-sm">
                 <div className="font-semibold text-gray-200 mb-1">Машина: {label}</div>
-                {rangePayload && (
-                    <div className="flex justify-between gap-4">
-                        <span className="text-gray-400">Диапазон:</span>
-                        <span className="font-medium text-blue-400">
-                            {rangePayload.payload.minHumidity.toFixed(1)}% – {rangePayload.payload.maxHumidity.toFixed(1)}%
-                        </span>
-                    </div>
-                )}
-                {avgPayload && (
-                    <div className="flex justify-between gap-4">
-                        <span className="text-gray-400">Средняя:</span>
-                        <span className="font-medium text-red-400">
-                            {avgPayload.payload.averageHumidity.toFixed(1)}%
-                        </span>
-                    </div>
-                )}
+                <div className="flex justify-between gap-4 mb-1">
+                    <span className="text-gray-400">Дата заезда:</span>
+                    <span className="font-medium text-gray-200">
+                        {format(new Date(data.entryDate), 'dd MMM yyyy HH:mm', { locale: ru })}
+                    </span>
+                </div>
+                <div className="flex justify-between gap-4 mb-1">
+                    <span className="text-gray-400">Диапазон:</span>
+                    <span className="font-medium text-blue-400">
+                        {data.minHumidity.toFixed(1)}% – {data.maxHumidity.toFixed(1)}%
+                    </span>
+                </div>
+                <div className="flex justify-between gap-4">
+                    <span className="text-gray-400">Средняя:</span>
+                    <span className="font-medium text-red-400">
+                        {data.averageHumidity.toFixed(1)}%
+                    </span>
+                </div>
             </div>
         );
     };
