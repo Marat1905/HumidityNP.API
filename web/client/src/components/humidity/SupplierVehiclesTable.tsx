@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { SupplierVehicleSummaryDto } from '../../types/humidity';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -14,15 +14,23 @@ const SupplierVehiclesTable: React.FC<SupplierVehiclesTableProps> = ({ vehicles 
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
 
-    if (vehicles.length === 0) {
+    // Сортируем машины по дате заезда (по убыванию: новые машины сверху) перед пагинацией
+    // Это гарантирует, что порядок в таблице совпадает с порядком в графике
+    const sortedVehicles = useMemo(() => {
+        return [...vehicles].sort((a, b) => {
+            return new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime();
+        });
+    }, [vehicles]);
+
+    if (sortedVehicles.length === 0) {
         return <div className="text-center py-4 text-gray-500 dark:text-gray-400">Нет машин</div>;
     }
 
-    // Вычисляем данные для текущей страницы
-    const totalPages = Math.ceil(vehicles.length / pageSize);
+    // Вычисляем данные для текущей страницы на основе отсортированного массива
+    const totalPages = Math.ceil(sortedVehicles.length / pageSize);
     const startIndex = (currentPage - 1) * pageSize;
     const endIndex = startIndex + pageSize;
-    const paginatedVehicles = vehicles.slice(startIndex, endIndex);
+    const paginatedVehicles = sortedVehicles.slice(startIndex, endIndex);
 
     return (
         <div className="space-y-4">
@@ -109,7 +117,7 @@ const SupplierVehiclesTable: React.FC<SupplierVehiclesTableProps> = ({ vehicles 
                     onPageChange={setCurrentPage}
                     pageSize={pageSize}
                     onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
-                    totalCount={vehicles.length}
+                    totalCount={sortedVehicles.length}
                 />
             )}
         </div>

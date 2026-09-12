@@ -38,7 +38,8 @@ const SupplierChart: React.FC<SupplierChartProps> = ({ vehicles }) => {
             entryDate: v.entryDate, // Добавляем дату заезда для отображения во всплывающем окне
         }))
         .filter(d => d.minHumidity !== null && d.maxHumidity !== null) // отфильтровываем машины без данных
-        .sort((a, b) => b.measurementsCount - a.measurementsCount);
+        // Сортировка по дате заезда (по убыванию: новые машины сверху) для согласованности с таблицей
+        .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime());
 
     if (chartData.length === 0) {
         return <div className="text-center text-gray-500 dark:text-gray-400">Нет данных для графика</div>;
