@@ -131,8 +131,10 @@ public class SupplierServiceIntegrationTests : IClassFixture<TestContainersFixtu
         var from = DateTimeOffset.UtcNow.AddDays(-1);
         var to = DateTimeOffset.UtcNow.AddDays(1);
 
-        // Act: ascending = true (хорошие, низкая влажность, первые в списке)
-        var result = await _supplierService.GetTopSuppliersAsync(top: 2, ascending: true, from, to);
+        // Act: ascending = true (хорошие, низкая влажность, первые в списке).
+        // priorWeight = 0 — коррекция отключена: тест проверяет прежнее «наивное» поведение сортировки.
+        var result = await _supplierService.GetTopSuppliersAsync(
+            top: 2, ascending: true, from, to, priorWeight: 0);
 
         // Assert
         result.Should().NotBeNull();
@@ -165,8 +167,10 @@ public class SupplierServiceIntegrationTests : IClassFixture<TestContainersFixtu
         var from = DateTimeOffset.UtcNow.AddDays(-1);
         var to = DateTimeOffset.UtcNow.AddDays(1);
 
-        // Act: ascending = false (плохие, высокая влажность, первые в списке)
-        var result = await _supplierService.GetTopSuppliersAsync(top: 2, ascending: false, from, to);
+        // Act: ascending = false (плохие, высокая влажность, первые в списке).
+        // priorWeight = 0 — коррекция отключена: тест проверяет прежнее «наивное» поведение сортировки.
+        var result = await _supplierService.GetTopSuppliersAsync(
+            top: 2, ascending: false, from, to, priorWeight: 0);
 
         // Assert
         result.Should().NotBeNull();
@@ -178,10 +182,95 @@ public class SupplierServiceIntegrationTests : IClassFixture<TestContainersFixtu
     }
 
     [Fact]
+    public async Task GetTopSuppliersAsync_WithBayesianCorrection_ShouldShrinkSmallSamplesTowardGlobalMean()
+    {
+        // Arrange
+        // Цель теста — убедиться, что байесовская коррекция работает корректно:
+        // поставщик с малым числом замеров «подтягивается» к глобальной средней,
+        // а поставщик с большим числом замеров сохраняет свою среднюю.
+        var innFewMeasurements = "5555555555"; // Мало замеров, «сырая» средняя низкая (обманчиво хорошая)
+        var innManyMeasurements = "6666666666"; // Много замеров, средняя близка к глобальной
+
+        var vehicleFew = new Vehicle { Id = Guid.NewGuid(), Number = "BAY-FEW", Date = DateTimeOffset.UtcNow, EntryDate = DateTimeOffset.UtcNow, Counterparty = "Few Measurements LLC", Inn = innFewMeasurements, VehiclePlate = "F1", Driver = "FD", ExitDate = null };
+        var vehicleMany = new Vehicle { Id = Guid.NewGuid(), Number = "BAY-MANY", Date = DateTimeOffset.UtcNow, EntryDate = DateTimeOffset.UtcNow, Counterparty = "Many Measurements LLC", Inn = innManyMeasurements, VehiclePlate = "M1", Driver = "MD", ExitDate = null };
+
+        _dbContext.Vehicles.AddRange(vehicleFew, vehicleMany);
+        await _dbContext.SaveChangesAsync();
+
+        // Поставщик с 3 замерами, сумма = 24, наивная средняя = 8.0.
+        // Поставщик с 20 замерами, сумма = 260, наивная средняя = 13.0.
+        // Глобальная средняя m = (24 + 260) / (3 + 20) = 284 / 23 ≈ 12.35.
+        var fewMeasurements = new[]
+        {
+            new HumidityMeasurement { Id = Guid.NewGuid(), VehicleId = vehicleFew.Id, HumidityValue = 8.0,  TemperatureC = 20.0, Source = MeasurementSource.Auto, Timestamp = DateTimeOffset.UtcNow, Sign = SignType.None },
+            new HumidityMeasurement { Id = Guid.NewGuid(), VehicleId = vehicleFew.Id, HumidityValue = 8.0,  TemperatureC = 20.0, Source = MeasurementSource.Auto, Timestamp = DateTimeOffset.UtcNow, Sign = SignType.None },
+            new HumidityMeasurement { Id = Guid.NewGuid(), VehicleId = vehicleFew.Id, HumidityValue = 8.0,  TemperatureC = 20.0, Source = MeasurementSource.Auto, Timestamp = DateTimeOffset.UtcNow, Sign = SignType.None },
+        };
+
+        var manyMeasurements = Enumerable.Range(0, 20).Select(_ => new HumidityMeasurement
+        {
+            Id = Guid.NewGuid(),
+            VehicleId = vehicleMany.Id,
+            HumidityValue = 13.0,
+            TemperatureC = 20.0,
+            Source = MeasurementSource.Auto,
+            Timestamp = DateTimeOffset.UtcNow,
+            Sign = SignType.None
+        }).ToArray();
+
+        _dbContext.Measurements.AddRange(fewMeasurements);
+        _dbContext.Measurements.AddRange(manyMeasurements);
+        await _dbContext.SaveChangesAsync();
+
+        var from = DateTimeOffset.UtcNow.AddDays(-1);
+        var to = DateTimeOffset.UtcNow.AddDays(1);
+
+        // priorWeight = 30 — умеренная коррекция.
+        var priorWeight = 30.0;
+
+        // Act: ascending = true (сначала «хорошие» по скорректированной средней).
+        var result = await _supplierService.GetTopSuppliersAsync(
+            top: 2, ascending: true, from, to, priorWeight);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Should().HaveCount(2);
+
+        var few = result.First(s => s.Inn == innFewMeasurements);
+        var many = result.First(s => s.Inn == innManyMeasurements);
+
+        // Обе средние доступны: наивная и скорректированная.
+        few.AverageHumidity.Should().Be(8.0);
+        many.AverageHumidity.Should().Be(13.0);
+
+        // Байесовская коррекция «подтянула» малое число замеров ближе к глобальной средней:
+        // few.AdjustedAverageHumidity должна быть заметно выше 8.0.
+        few.AdjustedAverageHumidity.Should().NotBeNull();
+        few.AdjustedAverageHumidity!.Value.Should().BeGreaterThan(8.0);
+
+        // Поставщик с большим числом замеров почти не изменился: adjusted ≈ 13.
+        many.AdjustedAverageHumidity.Should().NotBeNull();
+        many.AdjustedAverageHumidity!.Value.Should().BeApproximately(13.0, 0.5);
+
+        // Параметры коррекции проброшены из сервиса в репозиторий.
+        few.PriorWeight.Should().Be(priorWeight);
+        many.PriorWeight.Should().Be(priorWeight);
+        few.GlobalAverageHumidity.Should().NotBeNull();
+        many.GlobalAverageHumidity.Should().NotBeNull();
+
+        // Наивный порядок был бы few(8.0) → many(13.0).
+        // С байесовской коррекцией few «подтянулась» ближе к m, и порядок «хороших» сохраняется,
+        // но разрыв между поставщиками сократился. Проверяем, что первым в списке
+        // остался всё же поставщик с меньшей скорректированной средней.
+        result.First().AdjustedAverageHumidity.Should().BeLessThanOrEqualTo(
+            result.Last().AdjustedAverageHumidity ?? double.MaxValue);
+    }
+
+    [Fact]
     public async Task GetSuppliersAsync_WithDateRange_ShouldFilterByPeriod()
     {
         // Arrange
-        var inn1 = "5555555555";
+        var inn1 = "7777777777";
         var vehicle = new Vehicle { Id = Guid.NewGuid(), Number = "RANGE-001", Date = DateTimeOffset.UtcNow, EntryDate = DateTimeOffset.UtcNow, Counterparty = "Range Supplier", Inn = inn1, VehiclePlate = "R1", Driver = "RD", ExitDate = null };
 
         _dbContext.Vehicles.Add(vehicle);
