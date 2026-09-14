@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useShiftReport, type ShiftType } from '../../hooks/humidity';
-import { ShiftReportTable, ShiftReportCardView } from '../../components/humidity'
+import { ShiftReportTable, ShiftReportCardView } from '../../components/humidity';
 import { SkeletonReport, DatePicker } from '../../components/common';
 import { ChevronLeft, ChevronRight, LayoutGrid, Table } from 'lucide-react';
 import { format, subDays, addDays, startOfDay } from 'date-fns';
@@ -8,15 +8,51 @@ import { ru } from 'date-fns/locale';
 
 type ViewMode = 'table' | 'cards';
 
+/**
+ * Вычисляет дату начала текущей смены и её тип.
+ *
+ * Логика:
+ *  - 08:00 – 19:59 → дневная смена (08:00–20:00), дата = сегодня;
+ *  - 20:00 – 23:59 → ночная смена (20:00–08:00), дата = сегодня;
+ *  - 00:00 – 07:59 → ночная смена (20:00–08:00), НАЧАЛАСЬ ВЧЕРА → дата = вчера.
+ *
+ * Пример: сейчас 07:30 14.09.2026 — мы всё ещё в ночной смене,
+ * которая началась 13.09.2026 в 20:00 и закончится 14.09.2026 в 08:00.
+ * Значит, стартовая дата = 13.09.2026, тип смены = 'night'.
+ *
+ * @returns Кортеж [стартовая дата (начало дня), тип смены]
+ */
+const getInitialShiftState = (): [Date, ShiftType] => {
+    const now = new Date();
+    const hour = now.getHours();
+
+    // Раннее утро (до 08:00) — всё ещё тянется ночная смена, начавшаяся ВЧЕРА.
+    // Именно поэтому стартовая дата — вчерашний день.
+    if (hour < 8) {
+        return [startOfDay(subDays(now, 1)), 'night'];
+    }
+
+    // Дневная смена: 08:00 – 19:59 — сегодняшний день.
+    if (hour < 20) {
+        return [startOfDay(now), 'day'];
+    }
+
+    // Вечер/ночь: 20:00 – 23:59 — сегодняшний день, ночная смена.
+    return [startOfDay(now), 'night'];
+};
+
 export default function ShiftReportsPage() {
+    // Инициализируем состояние один раз, используя общую функцию.
+    // Это гарантирует согласованность даты и типа смены
+    // (например, при 07:30 будет 13.09 + 'night', а не 14.09 + 'night').
     const [selectedDate, setSelectedDate] = useState<Date>(() => {
-        const now = new Date();
-        return startOfDay(now);
+        const [initialDate] = getInitialShiftState();
+        return initialDate;
     });
 
     const [shiftType, setShiftType] = useState<ShiftType>(() => {
-        const hour = new Date().getHours();
-        return (hour >= 8 && hour < 20) ? 'day' : 'night';
+        const [, initialShift] = getInitialShiftState();
+        return initialShift;
     });
 
     const [viewMode, setViewMode] = useState<ViewMode>('table');
@@ -27,20 +63,46 @@ export default function ShiftReportsPage() {
         refetch();
     }, [selectedDate, shiftType, refetch]);
 
+    /**
+     * Переход на предыдущий день.
+     * Просто уменьшаем дату на 1 день — тип смены сохраняется тем же,
+     * чтобы оператор мог листать однотипные смены подряд.
+     */
     const goToPrevDay = () => {
         setSelectedDate(prev => subDays(prev, 1));
     };
 
+    /**
+     * Переход на следующий день.
+     * Ограничение: нельзя уйти в «будущее» — максимальная доступная дата
+     * определяется текущей сменой.
+     *
+     * Если сейчас идёт ночная смена (например, 07:30 14.09 — смена 13.09 night),
+     * то следующей доступной датой будет 14.09 (там уже будет дневная смена 08:00–20:00).
+     *
+     * Если сейчас идёт дневная смена (например, 10:00 14.09 — смена 14.09 day),
+     * то следующей доступной датой будет 14.09 (ночная смена начнётся вечером).
+     * Кнопка «вперёд» в этом случае заблокирована.
+     */
     const goToNextDay = () => {
         const tomorrow = addDays(selectedDate, 1);
-        if (tomorrow <= startOfDay(new Date())) {
+
+        // Максимально допустимая дата — дата начала текущей смены (см. getInitialShiftState).
+        const [maxDate] = getInitialShiftState();
+
+        if (tomorrow <= maxDate) {
             setSelectedDate(tomorrow);
         }
     };
 
+    /**
+     * Можно ли перейти на следующий день.
+     * Следующий день доступен, только если он не превышает дату начала текущей смены.
+     */
     const canGoNext = (() => {
         const tomorrow = addDays(selectedDate, 1);
-        return tomorrow <= startOfDay(new Date());
+        const [maxDate] = getInitialShiftState();
+        return tomorrow <= maxDate;
     })();
 
     const dateDisplay = format(selectedDate, 'dd MMMM yyyy', { locale: ru });
@@ -106,8 +168,8 @@ export default function ShiftReportsPage() {
                     <button
                         onClick={() => setViewMode('table')}
                         className={`p-2 rounded-lg border transition ${viewMode === 'table'
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                                : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                             }`}
                         aria-label="Табличный вид"
                     >
@@ -116,8 +178,8 @@ export default function ShiftReportsPage() {
                     <button
                         onClick={() => setViewMode('cards')}
                         className={`p-2 rounded-lg border transition ${viewMode === 'cards'
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                                : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                             }`}
                         aria-label="Карточный вид"
                     >
