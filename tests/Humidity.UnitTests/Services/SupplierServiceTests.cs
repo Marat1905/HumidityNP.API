@@ -64,34 +64,113 @@ public class SupplierServiceTests
     }
 
     [Fact]
-    public async Task GetSupplierDetailsAsync_ReturnsDetailsWithVehicles()
+    public async Task GetSupplierDetailsAsync_ReturnsDetailsWithPagedVehicles()
     {
         // Arrange
         var inn = "7707083893";
         var from = DateTimeOffset.UtcNow.AddDays(-7);
         var to = DateTimeOffset.UtcNow;
+        var pageNumber = 1;
+        var pageSize = 10;
+        var sortDescending = true; // По умолчанию сервер сортирует по EntryDate по убыванию
 
+        // DTO теперь содержит постраничную коллекцию машин (PagedResult),
+        // так как пагинация и сортировка выполняются на стороне сервера.
         var expectedDetails = new SupplierDetailsDto
         {
             Inn = inn,
             Counterparty = "Test LLC",
-            Vehicles = new List<SupplierVehicleSummaryDto>
+            Vehicles = new PagedResult<SupplierVehicleSummaryDto>
             {
-                new SupplierVehicleSummaryDto { VehicleId = Guid.NewGuid(), VehiclePlate = "A123BC" }
+                Items = new List<SupplierVehicleSummaryDto>
+                {
+                    new SupplierVehicleSummaryDto { VehicleId = Guid.NewGuid(), VehiclePlate = "A123BC" }
+                },
+                TotalCount = 1,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalPages = 1
             },
             OverallStatistics = new MeasurementStatisticsDto()
         };
 
-        _measurementRepositoryMock.Setup(r => r.GetSupplierDetailsAsync(inn, from, to, It.IsAny<CancellationToken>()))
+        _measurementRepositoryMock
+            .Setup(r => r.GetSupplierDetailsAsync(
+                inn,
+                from,
+                to,
+                pageNumber,
+                pageSize,
+                sortDescending,
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedDetails);
 
         // Act
-        var result = await _service.GetSupplierDetailsAsync(inn, from, to, CancellationToken.None);
+        var result = await _service.GetSupplierDetailsAsync(
+            inn, from, to, pageNumber, pageSize, sortDescending, CancellationToken.None);
 
         // Assert
         result.Should().NotBeNull();
         result.Inn.Should().Be(inn);
-        result.Vehicles.Should().HaveCount(1);
+        result.Vehicles.Items.Should().HaveCount(1);
+        result.Vehicles.TotalCount.Should().Be(1);
+        result.Vehicles.PageNumber.Should().Be(pageNumber);
+        result.Vehicles.PageSize.Should().Be(pageSize);
+
+        // Дополнительно проверяем, что сервис пробросил параметры пагинации и сортировки в репозиторий без изменений.
+        _measurementRepositoryMock.Verify(
+            r => r.GetSupplierDetailsAsync(
+                inn,
+                from,
+                to,
+                pageNumber,
+                pageSize,
+                sortDescending,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetSupplierVehiclesForChartAsync_ReturnsUnpaginatedSortedList()
+    {
+        // Arrange
+        var inn = "7707083893";
+        var from = DateTimeOffset.UtcNow.AddDays(-7);
+        var to = DateTimeOffset.UtcNow;
+        var sortDescending = true; // Сортировка по EntryDate по убыванию
+
+        var chartData = new List<SupplierVehicleSummaryDto>
+        {
+            new SupplierVehicleSummaryDto { VehicleId = Guid.NewGuid(), VehiclePlate = "B222BB", EntryDate = DateTimeOffset.UtcNow },
+            new SupplierVehicleSummaryDto { VehicleId = Guid.NewGuid(), VehiclePlate = "A111AA", EntryDate = DateTimeOffset.UtcNow.AddDays(-1) }
+        };
+
+        _measurementRepositoryMock
+            .Setup(r => r.GetSupplierVehiclesForChartAsync(
+                inn,
+                from,
+                to,
+                sortDescending,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(chartData);
+
+        // Act
+        var result = await _service.GetSupplierVehiclesForChartAsync(
+            inn, from, to, sortDescending, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Should().HaveCount(2);
+
+        // Проверяем, что сервис пробросил параметры в репозиторий без изменений.
+        _measurementRepositoryMock.Verify(
+            r => r.GetSupplierVehiclesForChartAsync(
+                inn,
+                from,
+                to,
+                sortDescending,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
