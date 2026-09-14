@@ -11,8 +11,7 @@ import { BrowserRouter, Routes, Route } from 'react-router';
 import { Toaster } from 'react-hot-toast';
 import { FiSun, FiMoon, FiUser, FiShield, FiUserCheck } from 'react-icons/fi';
 import Layout from './components/humidity/Layout';
-import { HumidityPage } from './pages/humidity';
-import VehicleDetailsPage from './pages/humidity/VehicleDetailsPage';
+import { HumidityPage, VehicleDetailsPage } from './pages/Humidity';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import './index.css';
 

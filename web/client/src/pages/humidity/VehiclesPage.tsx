@@ -1,7 +1,7 @@
 import { useNavigate, useSearchParams } from 'react-router';
 import { useVehicles } from '../../hooks/humidity';
 import { Pagination, SkeletonTable } from '../../components/common';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { VehiclesQueryParams, VehicleDto } from '../../types/humidity';
 import {
     Search,
@@ -26,11 +26,17 @@ import {
     BarChart3,
     TrendingUp,
     TrendingDown,
+    RefreshCw,
 } from 'lucide-react';
 import { measurementService } from '../../services/humidity/api';
-import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+
+/**
+ * Интервал автообновления в миллисекундах.
+ * 30 секунд — компромисс между актуальностью данных и нагрузкой на сервер.
+ */
+const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
 // Улучшенный компонент карточки для одной машины
 function VehicleCard({ vehicle, averageHumidity, isLoadingAvg }: {
@@ -270,6 +276,19 @@ export default function VehiclesPage() {
         return (saved === 'cards' || saved === 'table') ? saved : 'table';
     });
 
+    // === Автообновление ===
+
+    // Флаг включённого автообновления. Сохраняется в localStorage,
+    // чтобы выбор пользователя переживал перезагрузку страницы.
+    const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState<boolean>(() => {
+        const saved = localStorage.getItem('vehicles_auto_refresh');
+        // По умолчанию автообновление включено.
+        return saved === null ? true : saved === 'true';
+    });
+
+    // Время последнего успешного обновления данных — для метки «Обновлено: HH:mm:ss».
+    const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
+
     const [averageHumidityMap, setAverageHumidityMap] = useState<Record<string, number | null>>({});
     const [loadingStats, setLoadingStats] = useState<Record<string, boolean>>({});
     // Добавляем реф для отслеживания уже загруженных идентификаторов машин
@@ -290,6 +309,11 @@ export default function VehiclesPage() {
         localStorage.setItem('vehicles_view_mode', viewMode);
     }, [viewMode]);
 
+    // Сохраняем флаг автообновления в localStorage
+    useEffect(() => {
+        localStorage.setItem('vehicles_auto_refresh', String(isAutoRefreshEnabled));
+    }, [isAutoRefreshEnabled]);
+
     const queryParams: VehiclesQueryParams = useMemo(
         () => ({
             pageNumber: page,
@@ -302,7 +326,41 @@ export default function VehiclesPage() {
         [page, size, counterparty, status, plate, driver]
     );
 
-    const { data, loading, error, refetch } = useVehicles(queryParams);
+    // Достаём из хука:
+    //  - refetch() — ручное обновление со спиннером;
+    //  - silentRefetch() — тихое обновление без скелетона, но со спиннером;
+    //  - isRefreshing — флаг, что идёт любой запрос (крутит спиннер на кнопке);
+    //  - loading — флаг первой загрузки (показывает скелетон).
+    const { data, loading, isRefreshing, error, refetch, silentRefetch } = useVehicles(queryParams);
+
+    // Обновляем timestamp при появлении новых данных (и обычных, и тихих).
+    useEffect(() => {
+        if (data) setLastRefreshedAt(new Date());
+    }, [data]);
+
+    // Периодический silent-рефетч.
+    // Ключевые моменты:
+    //  1. Не выставляем loading=true → таблица не размонтируется, фокус в фильтрах
+    //     и позиция скролла сохраняются.
+    //  2. Не трогаем URL → текущая страница пагинации и фильтры остаются теми же.
+    //  3. Пропускаем тик, если вкладка браузера скрыта (document.hidden) —
+    //     экономим ресурсы сервера.
+    useEffect(() => {
+        if (!isAutoRefreshEnabled) return;
+
+        const tick = () => {
+            if (document.hidden) return;
+            silentRefetch();
+        };
+
+        const intervalId = window.setInterval(tick, AUTO_REFRESH_INTERVAL_MS);
+        return () => window.clearInterval(intervalId);
+    }, [isAutoRefreshEnabled, silentRefetch]);
+
+    // Ручное обновление по кнопке — со спиннером и принудительно.
+    const handleManualRefresh = useCallback(() => {
+        refetch();
+    }, [refetch]);
 
     // ИСПРАВЛЕННЫЙ useEffect – убрана зависимость от averageHumidityMap и добавлен loadedIdsRef
     useEffect(() => {
@@ -444,8 +502,9 @@ export default function VehiclesPage() {
     };
 
     // --- Обработка состояний загрузки, ошибки и отсутствия данных ---
-    // 1. Загрузка
-    if (loading) return <SkeletonTable rows={5} columns={11} />;
+    // 1. Загрузка (первая загрузка — показываем скелетон.
+    //    При автообновлении loading НЕ выставляется, поэтому скелетон не мигает.)
+    if (loading && !data) return <SkeletonTable rows={5} columns={11} />;
 
     // 2. Ошибка
     if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
@@ -668,30 +727,65 @@ export default function VehiclesPage() {
                 )}
             </div>
 
-            {/* Строка с переключателем вида — отдельно, чтобы не смешивать с фильтрами */}
-            <div className="flex items-center justify-end mb-4">
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">Вид:</span>
+            {/* Строка управления: слева — метка последнего обновления,
+                справа — переключатель автообновления, кнопка «Обновить» и переключатель вида. */}
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                {/* Метка последнего обновления */}
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {lastRefreshedAt
+                        ? `Обновлено: ${format(lastRefreshedAt, 'HH:mm:ss')}`
+                        : 'Загрузка данных...'}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {/* Чекбокс автообновления */}
+                    <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+                        <input
+                            type="checkbox"
+                            checked={isAutoRefreshEnabled}
+                            onChange={(e) => setIsAutoRefreshEnabled(e.target.checked)}
+                            className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                        />
+                        Автообновление (30 с)
+                    </label>
+
+                    {/* Кнопка ручного обновления.
+                        Спиннер крутится при ЛЮБОМ запросе (isRefreshing),
+                        не только при ручном нажатии, но и при автообновлении. */}
                     <button
-                        onClick={() => setViewMode('table')}
-                        className={`p-2 rounded-lg border transition ${viewMode === 'table'
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                            }`}
-                        aria-label="Табличный вид"
+                        onClick={handleManualRefresh}
+                        disabled={isRefreshing}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Обновить данные"
                     >
-                        <TableIcon className="w-5 h-5" />
+                        <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        Обновить
                     </button>
-                    <button
-                        onClick={() => setViewMode('cards')}
-                        className={`p-2 rounded-lg border transition ${viewMode === 'cards'
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                            }`}
-                        aria-label="Карточный вид"
-                    >
-                        <LayoutGrid className="w-5 h-5" />
-                    </button>
+
+                    {/* Переключатель вида */}
+                    <div className="flex items-center gap-2 ml-1">
+                        <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">Вид:</span>
+                        <button
+                            onClick={() => setViewMode('table')}
+                            className={`p-2 rounded-lg border transition ${viewMode === 'table'
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                }`}
+                            aria-label="Табличный вид"
+                        >
+                            <TableIcon className="w-5 h-5" />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('cards')}
+                            className={`p-2 rounded-lg border transition ${viewMode === 'cards'
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                }`}
+                            aria-label="Карточный вид"
+                        >
+                            <LayoutGrid className="w-5 h-5" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
