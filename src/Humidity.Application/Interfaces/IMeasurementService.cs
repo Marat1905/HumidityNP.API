@@ -104,7 +104,6 @@ public interface IMeasurementService
 
     /// <summary>
     /// Получить страницу замеров в диапазоне дат (фильтр по Timestamp замера).
-    /// Используется в отчёте за период.
     /// </summary>
     /// <param name="from">Начало диапазона (включительно).</param>
     /// <param name="to">Конец диапазона (включительно).</param>
@@ -121,8 +120,7 @@ public interface IMeasurementService
 
     /// <summary>
     /// Получить страницу замеров для машин, у которых ВРЕМЯ ВЫЕЗДА (Vehicle.ExitDate)
-    /// попадает в указанный диапазон. Ключевой метод для отчёта по сменам:
-    /// все замеры машины относятся к той смене, в которую машина выехала.
+    /// попадает в указанный диапазон. Ключевой метод для отчёта по сменам.
     /// </summary>
     /// <param name="from">Начало диапазона (включительно) для времени выезда машины.</param>
     /// <param name="to">Конец диапазона (включительно) для времени выезда машины.</param>
@@ -137,6 +135,27 @@ public interface IMeasurementService
         int pageNumber,
         int pageSize,
         bool sortDescending,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить агрегированный отчёт за период с сортировкой и пагинацией на стороне сервера.
+    /// Возвращает постраничный список машин с агрегатами и общую статистику по всем машинам.
+    /// </summary>
+    /// <param name="from">Начало периода (включительно).</param>
+    /// <param name="to">Конец периода (включительно).</param>
+    /// <param name="sortBy">Поле сортировки: "exitDate", "averageHumidity", "lastMeasurement".</param>
+    /// <param name="sortDescending">true — по убыванию, false — по возрастанию.</param>
+    /// <param name="pageNumber">Номер страницы (начиная с 1).</param>
+    /// <param name="pageSize">Размер страницы (максимум 500).</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Постраничный список машин + общая статистика.</returns>
+    Task<PeriodReportResponseDto> GetPeriodReportAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        string sortBy,
+        bool sortDescending,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken = default);
 
     /// <summary>

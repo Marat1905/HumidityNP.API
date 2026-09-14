@@ -6,6 +6,8 @@ import type {
     SupplierDetailsDto,
     SupplierDto,
     SupplierVehicleSummaryDto,
+    PeriodReportResponseDto,
+    PeriodReportSortBy,
     VehiclesQueryParams
 } from '../../types/humidity';
 import {
@@ -66,7 +68,7 @@ export const measurementService = {
     },
     /**
     * Получить страницу замеров в диапазоне дат (фильтр по Timestamp замера).
-    * Используется в отчёте за период.
+    * Используется в отчёте за период как «сырой» список (при необходимости).
     */
     async getByDateRange(
         from: string,
@@ -130,6 +132,35 @@ export const measurementService = {
      */
     async getStatisticsByVehicle(vehicleId: string): Promise<MeasurementStatisticsDto> {
         const response = await apiClient.get(`/measurements/vehicle/${vehicleId}/statistics`);
+        return response.data;
+    },
+
+    /**
+     * Получить агрегированный отчёт за период с сортировкой и пагинацией на сервере.
+     *
+     * Особенности:
+     *  - сервер делает GROUP BY VehicleId, считает все агрегаты, сортирует и пагинирует в SQL;
+     *  - на клиент уходит одна страница + общая статистика по всем машинам;
+     *  - безопасно для длительных периодов (год и больше).
+     *
+     * @param from Начало периода (ISO-строка).
+     * @param to Конец периода (ISO-строка).
+     * @param sortBy Поле сортировки: 'exitDate' (по умолчанию), 'averageHumidity', 'lastMeasurement'.
+     * @param order Порядок сортировки: 'desc' — по убыванию (по умолчанию), 'asc' — по возрастанию.
+     * @param pageNumber Номер страницы (начиная с 1).
+     * @param pageSize Размер страницы (макс. 500).
+     */
+    async getPeriodReport(
+        from: string,
+        to: string,
+        sortBy: PeriodReportSortBy = 'exitDate',
+        order: 'asc' | 'desc' = 'desc',
+        pageNumber = 1,
+        pageSize = 100
+    ): Promise<PeriodReportResponseDto> {
+        const response = await apiClient.get('/measurements/period-report', {
+            params: { from, to, sortBy, order, pageNumber, pageSize }
+        });
         return response.data;
     }
 };

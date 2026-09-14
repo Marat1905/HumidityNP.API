@@ -1,25 +1,23 @@
 // src/pages/ReportPeriodPage.tsx
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState } from 'react';
 import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { useAllMeasurementsByDateRange } from '../../hooks/humidity';
-import { SkeletonReport, RangeDatePicker } from '../../components/common';
-import { PeriodReportCardView, PeriodReportTable, type PeriodReportItem, type PeriodSummaryStats } from '../../components/humidity';
-import { MeasurementSource, type MeasurementDto } from '../../types/humidity';
+import { usePeriodReport } from '../../hooks/humidity';
+import { SkeletonReport, RangeDatePicker, Pagination } from '../../components/common';
+import { PeriodReportCardView, PeriodReportTable } from '../../components/humidity';
+import type { PeriodReportSortBy } from '../../types/humidity';
 import { LayoutGrid, Table, RotateCcw } from 'lucide-react';
 
 type ViewMode = 'table' | 'cards';
 
 /**
  * Порядок сортировки отчёта за период.
- * Пользователь выбирает его в выпадающем списке в панели фильтров.
- *
- * Варианты «По замеров» (measurementsCountDesc / measurementsCountAsc) удалены.
  * Значение по умолчанию — 'exitDateDesc' (по дате выезда машины, новые сверху).
- * Это согласуется с бизнес-логикой привязки машины к смене: ключевое событие —
- * выезд машины с площадки, поэтому и в отчёте за период логично сортировать
- * по времени выезда, чтобы последние выехавшие машины были вверху списка.
+ *
+ * ВАЖНО: вся сортировка и пагинация выполняются на сервере.
+ * Фронтенд только транслирует выбранный вариант в параметры sortBy + order
+ * и передаёт в хук usePeriodReport.
  */
 type PeriodSortOrder =
     | 'exitDateDesc'
@@ -35,6 +33,26 @@ type PeriodSortOrder =
  */
 const DEFAULT_SORT_ORDER: PeriodSortOrder = 'exitDateDesc';
 
+/**
+ * Маппинг UI-значения сортировки в пару (sortBy, order) для API.
+ * Все значения соответствуют серверному контракту эндпоинта /measurements/period-report.
+ */
+const mapSortOrderToApi = (sortOrder: PeriodSortOrder): { sortBy: PeriodReportSortBy; order: 'asc' | 'desc' } => {
+    switch (sortOrder) {
+        case 'exitDateAsc':
+            return { sortBy: 'exitDate', order: 'asc' };
+        case 'averageHumidityAsc':
+            return { sortBy: 'averageHumidity', order: 'asc' };
+        case 'averageHumidityDesc':
+            return { sortBy: 'averageHumidity', order: 'desc' };
+        case 'lastMeasurementDesc':
+            return { sortBy: 'lastMeasurement', order: 'desc' };
+        case 'exitDateDesc':
+        default:
+            return { sortBy: 'exitDate', order: 'desc' };
+    }
+};
+
 export default function ReportPeriodPage() {
     // Состояние диапазона дат (по умолчанию последние 7 дней)
     const [startDate, setStartDate] = useState<Date | null>(() => {
@@ -49,198 +67,62 @@ export default function ReportPeriodPage() {
     // По умолчанию — по дате выезда машины, новые сверху (exitDateDesc).
     const [sortOrder, setSortOrder] = useState<PeriodSortOrder>(DEFAULT_SORT_ORDER);
 
-    // Обработчик изменения диапазона из RangeDatePicker
+    // Пагинация. Выполняется на сервере, поэтому при смене страницы
+    // хук usePeriodReport перезапрашивает данные с новыми параметрами.
+    const [pageNumber, setPageNumber] = useState(1);
+    const [pageSize, setPageSize] = useState(100);
+
+    // Маппим UI-значение сортировки в параметры API.
+    const { sortBy, order } = mapSortOrderToApi(sortOrder);
+
+    // Загружаем агрегированный отчёт с сервера.
+    // Хук сам следит за изменениями параметров и перезапрашивает данные.
+    const { data, loading, error, refetch } = usePeriodReport(
+        startDate,
+        endDate,
+        sortBy,
+        order,
+        pageNumber,
+        pageSize
+    );
+
+    // Обработчик изменения диапазона из RangeDatePicker.
+    // Сбрасываем пагинацию на первую страницу.
     const handleDateRangeChange = (dates: [Date | null, Date | null]) => {
         const [start, end] = dates;
         setStartDate(start);
         setEndDate(end);
+        setPageNumber(1);
     };
 
-    // Сброс фильтра – возвращаем к диапазону по умолчанию (последние 7 дней)
-    // и порядку сортировки по умолчанию (по дате выезда, новые сверху).
+    // Сброс фильтра – возвращаем к диапазону по умолчанию (последние 7 дней),
+    // порядку сортировки по умолчанию и первой странице.
     const resetFilter = () => {
         const now = new Date();
         setStartDate(subDays(now, 6));
         setEndDate(now);
         setSortOrder(DEFAULT_SORT_ORDER);
+        setPageNumber(1);
     };
 
-    // Загружаем все замеры за период
-    const { measurements, loading, error, refetch } = useAllMeasurementsByDateRange(
-        startDate,
-        endDate,
-        100 // максимальный pageSize на запрос (при необходимости хук сам обходит пагинацию)
-    );
-
-    // При изменении дат перезапрашиваем
-    useEffect(() => {
-        refetch();
-    }, [startDate, endDate, refetch]);
-
-    // Агрегация данных по машинам
-    const reportData = useMemo(() => {
-        // ИСПРАВЛЕНИЕ: фильтруем массив, убирая возможные undefined/null элементы перед обработкой
-        const validMeasurements = (measurements ?? []).filter((m): m is MeasurementDto => m != null);
-
-        if (validMeasurements.length === 0) {
-            return { items: [] as PeriodReportItem[], summary: null as PeriodSummaryStats | null };
-        }
-
-        const vehicleMap = new Map<string, {
-            number: string;
-            vehiclePlate: string;
-            counterparty: string;
-            entryDate: string | null;
-            exitDate: string | null;
-            measurements: typeof validMeasurements;
-            autoCount: number;
-            manualCount: number;
-            sumHumidity: number;
-            minHumidity: number | null;
-            maxHumidity: number | null;
-            lastTimestamp: string | null;
-        }>();
-
-        let totalMeasurements = 0;
-        let totalAuto = 0;
-        let totalManual = 0;
-        let sumAllHumidity = 0;
-        let globalMin: number | null = null;
-        let globalMax: number | null = null;
-
-        validMeasurements.forEach(m => {
-            totalMeasurements++;
-            if (m.source === MeasurementSource.Auto) totalAuto++;
-            else totalManual++;
-
-            sumAllHumidity += m.humidityValue;
-            if (globalMin === null || m.humidityValue < globalMin) globalMin = m.humidityValue;
-            if (globalMax === null || m.humidityValue > globalMax) globalMax = m.humidityValue;
-
-            const id = m.vehicleId;
-            if (!vehicleMap.has(id)) {
-                vehicleMap.set(id, {
-                    number: m.vehicleNumber || '',
-                    vehiclePlate: m.vehiclePlate || '',
-                    counterparty: m.counterparty || '',
-                    entryDate: m.vehicleEntryDate ?? null,
-                    exitDate: m.vehicleExitDate ?? null,
-                    measurements: [],
-                    autoCount: 0,
-                    manualCount: 0,
-                    sumHumidity: 0,
-                    minHumidity: null,
-                    maxHumidity: null,
-                    lastTimestamp: null,
-                });
-            }
-
-            const entry = vehicleMap.get(id)!;
-            if (!entry.number && m.vehicleNumber) entry.number = m.vehicleNumber;
-            if (!entry.vehiclePlate && m.vehiclePlate) entry.vehiclePlate = m.vehiclePlate;
-            if (!entry.counterparty && m.counterparty) entry.counterparty = m.counterparty;
-
-            entry.measurements.push(m);
-            if (m.source === MeasurementSource.Auto) entry.autoCount++;
-            else entry.manualCount++;
-
-            entry.sumHumidity += m.humidityValue;
-            if (entry.minHumidity === null || m.humidityValue < entry.minHumidity) entry.minHumidity = m.humidityValue;
-            if (entry.maxHumidity === null || m.humidityValue > entry.maxHumidity) entry.maxHumidity = m.humidityValue;
-
-            if (!entry.lastTimestamp || m.timestamp > entry.lastTimestamp) {
-                entry.lastTimestamp = m.timestamp;
-            }
-        });
-
-        const items: PeriodReportItem[] = [];
-        for (const [vehicleId, entry] of vehicleMap.entries()) {
-            const count = entry.measurements.length;
-            const avg = count > 0 ? entry.sumHumidity / count : null;
-
-            items.push({
-                vehicleId,
-                number: entry.number || vehicleId.slice(0, 8),
-                vehiclePlate: entry.vehiclePlate || '—',
-                counterparty: entry.counterparty || '—',
-                entryDate: entry.entryDate,
-                exitDate: entry.exitDate,
-                measurementsCount: count,
-                averageHumidity: avg,
-                minHumidity: entry.minHumidity,
-                maxHumidity: entry.maxHumidity,
-                autoCount: entry.autoCount,
-                manualCount: entry.manualCount,
-                lastMeasurementTimestamp: entry.lastTimestamp,
-            });
-        }
-
-        // Сортировка элементов отчёта в соответствии с выбранным порядком.
-        // Для сортировки по датам null-значения уходят в конец.
-        const compareNullableDate = (a: string | null, b: string | null, desc: boolean): number => {
-            if (a === null && b === null) return 0;
-            if (a === null) return 1;
-            if (b === null) return -1;
-            const ta = new Date(a).getTime();
-            const tb = new Date(b).getTime();
-            return desc ? tb - ta : ta - tb;
-        };
-
-        items.sort((a, b) => {
-            switch (sortOrder) {
-                case 'averageHumidityAsc':
-                    if (a.averageHumidity === null && b.averageHumidity === null) return 0;
-                    if (a.averageHumidity === null) return 1;
-                    if (b.averageHumidity === null) return -1;
-                    return a.averageHumidity - b.averageHumidity;
-                case 'averageHumidityDesc':
-                    if (a.averageHumidity === null && b.averageHumidity === null) return 0;
-                    if (a.averageHumidity === null) return 1;
-                    if (b.averageHumidity === null) return -1;
-                    return b.averageHumidity - a.averageHumidity;
-                case 'lastMeasurementDesc':
-                    return compareNullableDate(a.lastMeasurementTimestamp, b.lastMeasurementTimestamp, true);
-                case 'exitDateAsc':
-                    return compareNullableDate(a.exitDate ?? null, b.exitDate ?? null, false);
-                case 'exitDateDesc':
-                    return compareNullableDate(a.exitDate ?? null, b.exitDate ?? null, true);
-                default:
-                    return 0;
-            }
-        });
-
-        const overallAverage = totalMeasurements > 0 ? sumAllHumidity / totalMeasurements : null;
-        const summary: PeriodSummaryStats = {
-            vehicleCount: vehicleMap.size,
-            totalMeasurements,
-            overallAverageHumidity: overallAverage,
-            overallMinHumidity: globalMin,
-            overallMaxHumidity: globalMax,
-            totalAutoCount: totalAuto,
-            totalManualCount: totalManual,
-        };
-
-        return { items, summary };
-    }, [measurements, sortOrder]);
-
     // Формирование строки с периодом для отображения
-    const periodLabel = useMemo(() => {
+    const periodLabel = (() => {
         if (!startDate || !endDate) return 'не выбран';
         const fromStr = format(startDate, 'dd.MM.yyyy');
         const toStr = format(endDate, 'dd.MM.yyyy');
         return `с ${fromStr} по ${toStr}`;
-    }, [startDate, endDate]);
+    })();
 
     // --- Обработка состояний ---
     // 1. Загрузка
-    if (loading) return <SkeletonReport />;
+    if (loading && !data) return <SkeletonReport />;
 
     // 2. Ошибка
     if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
 
     // 3. Данные загружены, но их нет (пустой результат)
     //    При этом фильтры остаются видимыми и доступными.
-    const hasData = reportData.items.length > 0;
+    const hasData = (data?.vehicles.items?.length ?? 0) > 0;
 
     return (
         <div>
@@ -266,13 +148,16 @@ export default function ReportPeriodPage() {
                 </div>
 
                 {/* Выбор порядка сортировки.
-                    Варианты «По замеров» удалены.
-                    По умолчанию — «По дате выезда (новые сверху)» (exitDateDesc). */}
+                    Вся сортировка выполняется на сервере — выбранный вариант
+                    транслируется в параметры sortBy + order и уходит в API. */}
                 <div className="flex items-center gap-2">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Сортировка:</label>
                     <select
                         value={sortOrder}
-                        onChange={(e) => setSortOrder(e.target.value as PeriodSortOrder)}
+                        onChange={(e) => {
+                            setSortOrder(e.target.value as PeriodSortOrder);
+                            setPageNumber(1); // сбрасываем на первую страницу при смене сортировки
+                        }}
                         className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                     >
                         <option value="exitDateDesc">По дате выезда (новые сверху)</option>
@@ -334,17 +219,30 @@ export default function ReportPeriodPage() {
                 <>
                     {viewMode === 'table' ? (
                         <PeriodReportTable
-                            items={reportData.items}
-                            summary={reportData.summary!}
+                            items={data!.vehicles.items}
+                            summary={data!.summary}
                             periodLabel={periodLabel}
                         />
                     ) : (
                         <PeriodReportCardView
-                            items={reportData.items}
-                            summary={reportData.summary!}
+                            items={data!.vehicles.items}
+                            summary={data!.summary}
                             periodLabel={periodLabel}
                         />
                     )}
+
+                    {/* Пагинация: смена страницы вызывает новый запрос к серверу. */}
+                    <Pagination
+                        currentPage={data!.vehicles.pageNumber}
+                        totalPages={data!.vehicles.totalPages}
+                        onPageChange={setPageNumber}
+                        pageSize={data!.vehicles.pageSize}
+                        onPageSizeChange={(size) => {
+                            setPageSize(size);
+                            setPageNumber(1);
+                        }}
+                        totalCount={data!.vehicles.totalCount}
+                    />
                 </>
             )}
         </div>

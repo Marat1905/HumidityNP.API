@@ -170,7 +170,6 @@ public class MeasurementsController : ControllerBase
 
     /// <summary>
     /// Получить страницу замеров в диапазоне дат (фильтр по Timestamp замера).
-    /// Используется в отчёте за период.
     /// </summary>
     /// <param name="from">Начало диапазона (включительно) в формате ISO 8601.</param>
     /// <param name="to">Конец диапазона (включительно) в формате ISO 8601.</param>
@@ -196,8 +195,7 @@ public class MeasurementsController : ControllerBase
 
     /// <summary>
     /// Получить страницу замеров для машин, у которых ВРЕМЯ ВЫЕЗДА (Vehicle.ExitDate)
-    /// попадает в указанный диапазон. Ключевой эндпоинт для отчёта по сменам:
-    /// все замеры машины относятся к той смене, в которую машина выехала.
+    /// попадает в указанный диапазон. Ключевой эндпоинт для отчёта по сменам.
     /// </summary>
     /// <param name="from">Начало диапазона (включительно) для времени выезда машины.</param>
     /// <param name="to">Конец диапазона (включительно) для времени выезда машины.</param>
@@ -221,6 +219,44 @@ public class MeasurementsController : ControllerBase
 
         var result = await _measurementService.GetByVehicleExitDateRangePagedAsync(
             from, to, pageNumber, pageSize, sortDescending, HttpContext.RequestAborted);
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Получить агрегированный отчёт за период с сортировкой и пагинацией на стороне сервера.
+    ///
+    /// Эндпоинт рассчитан на длительные периоды (вплоть до года и больше):
+    ///  - сервер сам делает GROUP BY VehicleId, считает все агрегаты,
+    ///    сортирует и применяет пагинацию в SQL;
+    ///  - на клиент уходит только одна страница + общая статистика по всем машинам.
+    /// </summary>
+    /// <param name="from">Начало периода (включительно) по Timestamp замера.</param>
+    /// <param name="to">Конец периода (включительно) по Timestamp замера.</param>
+    /// <param name="sortBy">
+    /// Поле сортировки: "exitDate" (по умолчанию), "averageHumidity", "lastMeasurement".
+    /// </param>
+    /// <param name="order">Порядок сортировки: 'desc' — по убыванию (по умолчанию), 'asc' — по возрастанию.</param>
+    /// <param name="pageNumber">Номер страницы (начиная с 1).</param>
+    /// <param name="pageSize">Размер страницы (макс. 500).</param>
+    [HttpGet("period-report")]
+    [ProducesResponseType(typeof(PeriodReportResponseDto), 200)]
+    public async Task<IActionResult> GetPeriodReport(
+        [FromQuery] DateTimeOffset from,
+        [FromQuery] DateTimeOffset to,
+        [FromQuery] string sortBy = "exitDate",
+        [FromQuery] string order = "desc",
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 100)
+    {
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 100;
+        if (pageSize > 500) pageSize = 500;
+
+        bool sortDescending = !string.Equals(order, "asc", StringComparison.OrdinalIgnoreCase);
+
+        var result = await _measurementService.GetPeriodReportAsync(
+            from, to, sortBy, sortDescending, pageNumber, pageSize, HttpContext.RequestAborted);
 
         return Ok(result);
     }

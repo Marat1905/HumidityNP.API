@@ -80,7 +80,7 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
 
     /// <summary>
     /// Получить страницу замеров в диапазоне дат (фильтр по Timestamp замера).
-    /// Используется в отчёте за период.
+    /// Используется в отчёте за период как «сырой» список замеров.
     /// </summary>
     /// <param name="from">Начало диапазона (включительно).</param>
     /// <param name="to">Конец диапазона (включительно).</param>
@@ -97,11 +97,10 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
 
     /// <summary>
     /// Получить страницу замеров для машин, у которых ВРЕМЯ ВЫЕЗДА (Vehicle.ExitDate)
-    /// попадает в указанный диапазон. Это ключевой метод для отчёта по сменам:
-    /// все замеры машины относятся к той смене, в которую машина выехала с площадки.
+    /// попадает в указанный диапазон. Ключевой метод для отчёта по сменам:
+    /// все замеры машины относятся к той смене, в которую машина выехала.
     /// Сортировка выполняется по Vehicle.ExitDate (по умолчанию — по убыванию),
     /// при равенстве — по Timestamp замера (тоже по убыванию).
-    /// Машины без даты выезда в выборку не попадают.
     /// </summary>
     /// <param name="from">Начало диапазона (включительно) для времени выезда машины.</param>
     /// <param name="to">Конец диапазона (включительно) для времени выезда машины.</param>
@@ -116,6 +115,43 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
         int pageNumber,
         int pageSize,
         bool sortDescending,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить агрегированный отчёт за период с сортировкой и пагинацией на стороне сервера.
+    ///
+    /// Ключевые особенности:
+    ///  - сервер сам делает GROUP BY VehicleId и считает все агрегаты (COUNT, AVG, MIN, MAX,
+    ///    количество авто/ручных замеров, время последнего замера);
+    ///  - сортировка выполняется в SQL по выбранному полю;
+    ///  - пагинация применяется в SQL — клиент получает только одну страницу;
+    ///  - общая статистика по всем машинам (Summary) считается отдельным запросом
+    ///    по полному набору данных и не зависит от текущей страницы.
+    ///
+    /// Это позволяет безопасно запрашивать отчёты за длительные периоды (год и больше)
+    /// без выгрузки всех замеров на клиент.
+    /// </summary>
+    /// <param name="from">Начало периода (включительно) по Timestamp замера.</param>
+    /// <param name="to">Конец периода (включительно) по Timestamp замера.</param>
+    /// <param name="sortBy">
+    /// Поле сортировки. Поддерживаемые значения (без учёта регистра):
+    ///  - "exitDate"            — по дате выезда машины;
+    ///  - "averageHumidity"     — по средней влажности;
+    ///  - "lastMeasurement"     — по времени последнего замера.
+    /// Любое другое значение трактуется как "exitDate".
+    /// </param>
+    /// <param name="sortDescending">true — по убыванию, false — по возрастанию.</param>
+    /// <param name="pageNumber">Номер страницы (начиная с 1).</param>
+    /// <param name="pageSize">Размер страницы (максимум 500).</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Постраничный список машин + общая статистика.</returns>
+    Task<PeriodReportResponseDto> GetPeriodReportAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        string sortBy,
+        bool sortDescending,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken = default);
 
     /// <summary>

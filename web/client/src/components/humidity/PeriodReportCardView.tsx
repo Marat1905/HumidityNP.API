@@ -11,12 +11,15 @@ import {
     TrendingDown,
     ChevronDown,
     ChevronRight,
+    LogIn,
+    LogOut,
 } from 'lucide-react';
-import { VehicleMeasurementsExpand, type PeriodReportItem, type PeriodSummaryStats } from '../humidity'
+import { VehicleMeasurementsExpand } from '../humidity';
+import type { PeriodReportItemDto, PeriodReportSummaryDto } from '../../types/humidity';
 
 interface PeriodReportCardViewProps {
-    items: PeriodReportItem[];
-    summary: PeriodSummaryStats;
+    items: PeriodReportItemDto[];
+    summary: PeriodReportSummaryDto;
     periodLabel: string;
 }
 
@@ -24,6 +27,8 @@ interface PeriodReportCardViewProps {
  * Карточное представление отчёта за период.
  * Каждая карточка занимает всю ширину контейнера (одна карточка в строке).
  * При клике на «Подробнее» раскрываются замеры для конкретной машины.
+ *
+ * Список машин уже отсортирован на сервере. Компонент отображает порядок как есть.
  */
 const PeriodReportCardView: React.FC<PeriodReportCardViewProps> = ({
     items,
@@ -178,6 +183,29 @@ const PeriodReportCardView: React.FC<PeriodReportCardViewProps> = ({
                                                 Поставщик: {item.counterparty}
                                             </div>
                                         )}
+
+                                        {/* Даты въезда/выезда машины */}
+                                        <div className="ml-7 mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                                            <div className="flex items-center gap-1.5">
+                                                <LogIn className="w-3.5 h-3.5 text-green-500" />
+                                                <span>Въезд:</span>
+                                                <span className="font-medium text-gray-700 dark:text-gray-300">
+                                                    {item.entryDate
+                                                        ? format(new Date(item.entryDate), 'dd MMM yyyy HH:mm', { locale: ru })
+                                                        : '—'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <LogOut className="w-3.5 h-3.5 text-red-500" />
+                                                <span>Выезд:</span>
+                                                <span className="font-medium text-gray-700 dark:text-gray-300">
+                                                    {item.exitDate
+                                                        ? format(new Date(item.exitDate), 'dd MMM yyyy HH:mm', { locale: ru })
+                                                        : '—'}
+                                                </span>
+                                            </div>
+                                        </div>
+
                                         <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-sm">
                                             <div>
                                                 <span className="text-gray-500 dark:text-gray-400">Замеров:</span>

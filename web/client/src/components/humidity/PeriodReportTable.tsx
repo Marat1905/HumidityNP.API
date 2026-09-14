@@ -13,54 +13,26 @@ import {
     ChevronRight,
 } from 'lucide-react';
 import { VehicleMeasurementsExpand } from '../humidity';
+import type { PeriodReportItemDto, PeriodReportSummaryDto } from '../../types/humidity';
 
 /**
- * Элемент отчёта для одной машины.
+ * Совместимые алиасы типов: компонент может принимать как DTO с сервера,
+ * так и прежние локальные типы. По структуре они полностью совпадают.
  */
-export interface PeriodReportItem {
-    vehicleId: string;
-    number: string;
-    vehiclePlate: string;
-    counterparty?: string; // Поставщик
-    /**
-     * Дата въезда машины на площадку (может быть null).
-     */
-    entryDate?: string | null;
-    /**
-     * Дата выезда машины с площадки (может быть null, если машина ещё на площадке).
-     * Используется для сортировки отчёта.
-     */
-    exitDate?: string | null;
-    measurementsCount: number;
-    averageHumidity: number | null;
-    minHumidity: number | null;
-    maxHumidity: number | null;
-    autoCount: number;
-    manualCount: number;
-    lastMeasurementTimestamp: string | null;
-}
-
-/**
- * Общая статистика по периоду.
- */
-export interface PeriodSummaryStats {
-    vehicleCount: number;
-    totalMeasurements: number;
-    overallAverageHumidity: number | null;
-    overallMinHumidity: number | null;
-    overallMaxHumidity: number | null;
-    totalAutoCount: number;
-    totalManualCount: number;
-}
+export type PeriodReportItem = PeriodReportItemDto;
+export type PeriodSummaryStats = PeriodReportSummaryDto;
 
 interface PeriodReportTableProps {
-    items: PeriodReportItem[];
-    summary: PeriodSummaryStats;
+    items: PeriodReportItemDto[];
+    summary: PeriodReportSummaryDto;
     periodLabel: string;
 }
 
 /**
  * Табличное представление отчёта за период с возможностью раскрытия замеров по машине.
+ *
+ * ВАЖНО: сортировка и пагинация выполняются на сервере.
+ * Компонент отображает переданный порядок как есть и не сортирует данные.
  */
 const PeriodReportTable: React.FC<PeriodReportTableProps> = ({ items, summary, periodLabel }) => {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());

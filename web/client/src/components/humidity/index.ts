@@ -16,4 +16,8 @@ export { default as SuppliersTable } from './SuppliersTable';
 export { default as SupplierVehiclesTable } from './SupplierVehiclesTable';
 export { default as TopSuppliersChart } from './TopSuppliersChart';
 export { default as VehicleMeasurementsExpand } from './VehicleMeasurementsExpand';
+
+// Экспорт типов, определённых в компонентах.
+// Типы PeriodReportItem и PeriodSummaryStats оставлены как алиасы для
+// обратной совместимости — по структуре они полностью совпадают с DTO с сервера.
 export type { PeriodReportItem, PeriodSummaryStats } from './PeriodReportTable';

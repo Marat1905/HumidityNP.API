@@ -213,16 +213,15 @@ public class MeasurementService : IMeasurementService
                 _logger.LogWarning("Запрос с индексом {Index}: машина {VehicleId} не найдена", i, request.VehicleId);
             }
 
-            // Если есть ошибки, добавляем запись в список пропущенных и переходим к следующему запросу
+            // Если есть ошибки — пропускаем запрос
             if (errorMessages.Any())
             {
-                var error = new MeasurementBulkError
+                errors.Add(new MeasurementBulkError
                 {
                     Index = i,
                     VehicleId = request.VehicleId,
                     Message = string.Join("; ", errorMessages)
-                };
-                errors.Add(error);
+                });
                 continue;
             }
 
@@ -285,7 +284,6 @@ public class MeasurementService : IMeasurementService
 
     /// <summary>
     /// Получить страницу замеров в диапазоне дат (фильтр по Timestamp замера).
-    /// Используется в отчёте за период.
     /// </summary>
     public async Task<PagedResult<MeasurementDto>> GetByDateRangePagedAsync(
         DateTimeOffset from,
@@ -314,8 +312,7 @@ public class MeasurementService : IMeasurementService
 
     /// <summary>
     /// Получить страницу замеров для машин, у которых ВРЕМЯ ВЫЕЗДА (Vehicle.ExitDate)
-    /// попадает в указанный диапазон. Ключевой метод для отчёта по сменам:
-    /// все замеры машины относятся к той смене, в которую машина выехала.
+    /// попадает в указанный диапазон.
     /// </summary>
     public async Task<PagedResult<MeasurementDto>> GetByVehicleExitDateRangePagedAsync(
         DateTimeOffset from,
@@ -343,6 +340,34 @@ public class MeasurementService : IMeasurementService
 
         _logger.LogInformation("Возвращено {Count} замеров из {TotalCount} по времени выезда",
             result.Items.Count(), result.TotalCount);
+        return result;
+    }
+
+    /// <summary>
+    /// Получить агрегированный отчёт за период с сортировкой и пагинацией на стороне сервера.
+    /// Просто проксирует вызов в репозиторий: сервер сам делает GROUP BY, сортировку, пагинацию
+    /// и подсчёт общей статистики.
+    /// </summary>
+    public async Task<PeriodReportResponseDto> GetPeriodReportAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        string sortBy,
+        bool sortDescending,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "Запрос отчёта за период с {From:O} по {To:O}: сортировка по '{SortBy}' ({Order}), страница {PageNumber}, размер {PageSize}",
+            from, to, sortBy, sortDescending ? "по убыванию" : "по возрастанию", pageNumber, pageSize);
+
+        var result = await _repository.GetPeriodReportAsync(
+            from, to, sortBy, sortDescending, pageNumber, pageSize, cancellationToken);
+
+        _logger.LogInformation(
+            "Отчёт за период сформирован: {Count} машин на странице (всего {TotalCount}), замеров всего {TotalMeasurements}",
+            result.Vehicles.Items.Count(), result.Vehicles.TotalCount, result.Summary.TotalMeasurements);
+
         return result;
     }
 

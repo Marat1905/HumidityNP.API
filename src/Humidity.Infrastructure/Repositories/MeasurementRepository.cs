@@ -157,7 +157,6 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
 
     /// <summary>
     /// Получить замеры в произвольном диапазоне дат (фильтр по Timestamp замера).
-    /// Предполагается, что from и to уже корректно заданы (например, с учётом UTC).
     /// </summary>
     /// <param name="from">Начало диапазона (включительно).</param>
     /// <param name="to">Конец диапазона (включительно).</param>
@@ -277,7 +276,6 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
 
     /// <summary>
     /// Получить страницу замеров в диапазоне дат (фильтр по Timestamp замера).
-    /// Используется в отчёте за период.
     /// </summary>
     /// <param name="from">Начало диапазона (включительно).</param>
     /// <param name="to">Конец диапазона (включительно).</param>
@@ -387,6 +385,152 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
             PageNumber = pageNumber,
             PageSize = pageSize,
             TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+        };
+    }
+
+    /// <summary>
+    /// Получить агрегированный отчёт за период с сортировкой и пагинацией на стороне сервера.
+    ///
+    /// Основной SQL-запрос делает INNER JOIN Measurements + Vehicles, GROUP BY vehicle.Id,
+    /// считает все агрегаты и возвращает одну страницу после сортировки.
+    /// Общая статистика (Summary) считается отдельным запросом по полному набору данных,
+    /// чтобы не зависеть от пагинации.
+    ///
+    /// Такой подход позволяет безопасно запрашивать отчёты за длительные периоды (год и больше):
+    /// на клиент уезжает только одна страница агрегатов, а не все замеры.
+    /// </summary>
+    public async Task<PeriodReportResponseDto> GetPeriodReportAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        string sortBy,
+        bool sortDescending,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        // Приводим границы периода к UTC (на случай, если клиент прислал локальное время со смещением).
+        var fromUtc = from.ToUniversalTime();
+        var toUtc = to.ToUniversalTime();
+
+        // Нормализация параметров пагинации.
+        // Максимум 500 записей на страницу — этого достаточно для отображения,
+        // при этом предотвращает случайные запросы «выгрузить всё».
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 100;
+        if (pageSize > 500) pageSize = 500;
+
+        // Основной запрос: INNER JOIN машин и замеров, фильтр по Timestamp замера,
+        // группировка по машине. Машины без замеров за период в отчёт не попадают —
+        // это согласуется с прежней клиентской логикой (группировка по vehicleId из замеров).
+        var groupedQuery =
+            from measurement in Context.Measurements
+            join vehicle in Context.Vehicles on measurement.VehicleId equals vehicle.Id
+            where measurement.Timestamp >= fromUtc && measurement.Timestamp <= toUtc
+            group new { measurement, vehicle } by vehicle.Id into g
+            select new
+            {
+                VehicleId = g.Key,
+                Number = g.Select(x => x.vehicle.Number).FirstOrDefault() ?? string.Empty,
+                VehiclePlate = g.Select(x => x.vehicle.VehiclePlate).FirstOrDefault() ?? string.Empty,
+                Counterparty = g.Select(x => x.vehicle.Counterparty).FirstOrDefault() ?? string.Empty,
+                EntryDate = (DateTimeOffset?)g.Select(x => x.vehicle.EntryDate).FirstOrDefault(),
+                ExitDate = (DateTimeOffset?)g.Select(x => x.vehicle.ExitDate).FirstOrDefault(),
+                MeasurementsCount = g.Count(),
+                AverageHumidity = (double?)g.Average(x => x.measurement.HumidityValue),
+                MinHumidity = (double?)g.Min(x => x.measurement.HumidityValue),
+                MaxHumidity = (double?)g.Max(x => x.measurement.HumidityValue),
+                AutoCount = g.Count(x => x.measurement.Source == MeasurementSource.Auto),
+                ManualCount = g.Count(x => x.measurement.Source == MeasurementSource.Manual),
+                LastMeasurementTimestamp = (DateTimeOffset?)g.Max(x => x.measurement.Timestamp)
+            };
+
+        // Применяем сортировку в SQL.
+        // Используем стабильные tie-breakers (VehicleId) для детерминированного порядка —
+        // это критично для корректной пагинации, иначе одни и те же строки могут «прыгать» между страницами.
+        var normalizedSortBy = (sortBy ?? string.Empty).Trim().ToLowerInvariant();
+
+        IOrderedQueryable<dynamic> orderedQuery;
+
+        if (normalizedSortBy == "averagehumidity")
+        {
+            orderedQuery = sortDescending
+                ? groupedQuery.OrderByDescending(x => x.AverageHumidity).ThenBy(x => x.VehicleId)
+                : groupedQuery.OrderBy(x => x.AverageHumidity).ThenBy(x => x.VehicleId);
+        }
+        else if (normalizedSortBy == "lastmeasurement" || normalizedSortBy == "lastmeasurementtimestamp")
+        {
+            orderedQuery = sortDescending
+                ? groupedQuery.OrderByDescending(x => x.LastMeasurementTimestamp).ThenBy(x => x.VehicleId)
+                : groupedQuery.OrderBy(x => x.LastMeasurementTimestamp).ThenBy(x => x.VehicleId);
+        }
+        else
+        {
+            // По умолчанию — сортировка по дате выезда машины.
+            orderedQuery = sortDescending
+                ? groupedQuery.OrderByDescending(x => x.ExitDate).ThenBy(x => x.VehicleId)
+                : groupedQuery.OrderBy(x => x.ExitDate).ThenBy(x => x.VehicleId);
+        }
+
+        // Считаем общее количество машин за период (без пагинации).
+        var totalCount = await groupedQuery.CountAsync(cancellationToken);
+
+        // Забираем одну страницу из SQL.
+        var pageItems = await orderedQuery
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        // Маппим «сырые» анонимные объекты в DTO.
+        var items = pageItems
+            .Select(x => new PeriodReportItemDto
+            {
+                VehicleId = x.VehicleId,
+                Number = x.Number,
+                VehiclePlate = x.VehiclePlate,
+                Counterparty = x.Counterparty,
+                EntryDate = x.EntryDate,
+                ExitDate = x.ExitDate,
+                MeasurementsCount = x.MeasurementsCount,
+                AverageHumidity = x.AverageHumidity,
+                MinHumidity = x.MinHumidity,
+                MaxHumidity = x.MaxHumidity,
+                AutoCount = x.AutoCount,
+                ManualCount = x.ManualCount,
+                LastMeasurementTimestamp = x.LastMeasurementTimestamp
+            })
+            .ToList();
+
+        // Общая статистика по всем машинам за период.
+        // Считаем отдельным запросом по полному набору агрегатов (без пагинации).
+        // Средняя влажность — взвешенная по количеству замеров (учитывает, что у разных машин разное число замеров).
+        var summary = await groupedQuery
+            .GroupBy(_ => 1)
+            .Select(g => new PeriodReportSummaryDto
+            {
+                VehicleCount = g.Count(),
+                TotalMeasurements = g.Sum(x => x.MeasurementsCount),
+                // Взвешенная средняя: сумма (avg * count) / сумма count.
+                OverallAverageHumidity = g.Sum(x => x.AverageHumidity * x.MeasurementsCount) / g.Sum(x => x.MeasurementsCount),
+                // Глобальный минимум — минимум по всем машинам, глобальный максимум — максимум по всем машинам.
+                OverallMinHumidity = g.Min(x => x.MinHumidity),
+                OverallMaxHumidity = g.Max(x => x.MaxHumidity),
+                TotalAutoCount = g.Sum(x => x.AutoCount),
+                TotalManualCount = g.Sum(x => x.ManualCount)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new PeriodReportResponseDto
+        {
+            Vehicles = new PagedResult<PeriodReportItemDto>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+            },
+            Summary = summary ?? new PeriodReportSummaryDto()
         };
     }
 

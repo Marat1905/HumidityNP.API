@@ -70,8 +70,6 @@ export interface MeasurementDto {
     /**
      * Дата выезда машины с площадки (из сущности Vehicle).
      * Может быть null, если машина ещё не выехала.
-     * Ключевое поле для привязки машины к смене: все замеры машины
-     * относятся к той смене, в которую машина выехала.
      */
     vehicleExitDate?: string | null;
     humidityValue: number;
@@ -179,7 +177,6 @@ export interface SupplierVehicleSummaryDto {
 export interface SupplierDetailsDto {
     inn: string;
     counterparty: string;
-    /** Постраничный список машин поставщика (пагинация и сортировка выполнены на сервере) */
     vehicles: PagedResult<SupplierVehicleSummaryDto>;
     overallStatistics: MeasurementStatisticsDto;
 }
@@ -192,3 +189,53 @@ export interface VehiclesQueryParams {
     plate?: string;
     driver?: string;
 }
+
+// ===== Отчёт за период =====
+
+/**
+ * Одна строка отчёта за период: агрегированные данные по одной машине.
+ * Формируется на сервере одним SQL-запросом с группировкой по VehicleId.
+ */
+export interface PeriodReportItemDto {
+    vehicleId: string;
+    number: string;
+    vehiclePlate: string;
+    counterparty: string;
+    entryDate: string | null;
+    exitDate: string | null;
+    measurementsCount: number;
+    averageHumidity: number | null;
+    minHumidity: number | null;
+    maxHumidity: number | null;
+    autoCount: number;
+    manualCount: number;
+    lastMeasurementTimestamp: string | null;
+}
+
+/**
+ * Общая статистика по всем машинам за период.
+ * Считается на сервере по полному набору данных (не зависит от страницы).
+ */
+export interface PeriodReportSummaryDto {
+    vehicleCount: number;
+    totalMeasurements: number;
+    overallAverageHumidity: number | null;
+    overallMinHumidity: number | null;
+    overallMaxHumidity: number | null;
+    totalAutoCount: number;
+    totalManualCount: number;
+}
+
+/**
+ * Полный ответ отчёта за период: постраничный список машин и общая статистика.
+ */
+export interface PeriodReportResponseDto {
+    vehicles: PagedResult<PeriodReportItemDto>;
+    summary: PeriodReportSummaryDto;
+}
+
+/**
+ * Поле сортировки отчёта за период.
+ * Соответствует серверному параметру sortBy.
+ */
+export type PeriodReportSortBy = 'exitDate' | 'averageHumidity' | 'lastMeasurement';
