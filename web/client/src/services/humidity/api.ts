@@ -65,7 +65,8 @@ export const measurementService = {
         return response.data;
     },
     /**
-    * Получить страницу замеров в диапазоне дат
+    * Получить страницу замеров в диапазоне дат (фильтр по Timestamp замера).
+    * Используется в отчёте за период.
     */
     async getByDateRange(
         from: string,
@@ -75,6 +76,29 @@ export const measurementService = {
     ): Promise<PagedResult<MeasurementDto>> {
         const response = await apiClient.get('/measurements/range', {
             params: { from, to, pageNumber, pageSize }
+        });
+        return response.data;
+    },
+    /**
+     * Получить страницу замеров для машин, у которых ВРЕМЯ ВЫЕЗДА (Vehicle.ExitDate)
+     * попадает в указанный диапазон. Ключевой метод для отчёта по сменам:
+     * все замеры машины относятся к той смене, в которую машина выехала.
+     *
+     * @param from Начало диапазона (ISO-строка) для времени выезда машины.
+     * @param to Конец диапазона (ISO-строка) для времени выезда машины.
+     * @param pageNumber Номер страницы (начиная с 1).
+     * @param pageSize Размер страницы (макс. 20000).
+     * @param order Порядок сортировки по дате выезда: 'desc' — новые сверху (по умолчанию), 'asc' — старые сверху.
+     */
+    async getByShift(
+        from: string,
+        to: string,
+        pageNumber = 1,
+        pageSize = 20000,
+        order: 'asc' | 'desc' = 'desc'
+    ): Promise<PagedResult<MeasurementDto>> {
+        const response = await apiClient.get('/measurements/shift', {
+            params: { from, to, pageNumber, pageSize, order }
         });
         return response.data;
     },

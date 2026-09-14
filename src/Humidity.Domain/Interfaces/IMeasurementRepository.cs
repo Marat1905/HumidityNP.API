@@ -54,7 +54,7 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
     Task<PagedResult<HumidityMeasurement>> GetByDatePagedAsync(DateTimeOffset date, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Получить замеры в диапазоне дат.
+    /// Получить замеры в диапазоне дат (фильтр по Timestamp замера).
     /// </summary>
     /// <param name="from">Начало диапазона (включительно).</param>
     /// <param name="to">Конец диапазона (включительно).</param>
@@ -79,7 +79,8 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
     Task<MeasurementStatisticsDto> GetStatisticsByVehicleIdAsync(Guid vehicleId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Получить страницу замеров в диапазоне дат.
+    /// Получить страницу замеров в диапазоне дат (фильтр по Timestamp замера).
+    /// Используется в отчёте за период.
     /// </summary>
     /// <param name="from">Начало диапазона (включительно).</param>
     /// <param name="to">Конец диапазона (включительно).</param>
@@ -92,6 +93,29 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
         DateTimeOffset to,
         int pageNumber,
         int pageSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить страницу замеров для машин, у которых ВРЕМЯ ВЫЕЗДА (Vehicle.ExitDate)
+    /// попадает в указанный диапазон. Это ключевой метод для отчёта по сменам:
+    /// все замеры машины относятся к той смене, в которую машина выехала с площадки.
+    /// Сортировка выполняется по Vehicle.ExitDate (по умолчанию — по убыванию),
+    /// при равенстве — по Timestamp замера (тоже по убыванию).
+    /// Машины без даты выезда в выборку не попадают.
+    /// </summary>
+    /// <param name="from">Начало диапазона (включительно) для времени выезда машины.</param>
+    /// <param name="to">Конец диапазона (включительно) для времени выезда машины.</param>
+    /// <param name="pageNumber">Номер страницы (начиная с 1).</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="sortDescending">true — сортировка по ExitDate по убыванию (новые сверху), false — по возрастанию.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Страница замеров с подгруженными данными о машине.</returns>
+    Task<PagedResult<HumidityMeasurement>> GetByVehicleExitDateRangePagedAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        int pageNumber,
+        int pageSize,
+        bool sortDescending,
         CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -33,6 +33,20 @@ public class MeasurementDto
     public string Counterparty { get; set; } = string.Empty;
 
     /// <summary>
+    /// Дата въезда машины на площадку (из сущности Vehicle).
+    /// Используется для отображения в отчётах и сортировки.
+    /// </summary>
+    public DateTimeOffset? VehicleEntryDate { get; set; }
+
+    /// <summary>
+    /// Дата выезда машины с площадки (из сущности Vehicle).
+    /// Может быть null, если машина ещё не выехала.
+    /// Ключевое поле для привязки машины к смене: все замеры машины
+    /// относятся к той смене, в которую машина выехала.
+    /// </summary>
+    public DateTimeOffset? VehicleExitDate { get; set; }
+
+    /// <summary>
     /// Значение влажности (%).
     /// </summary>
     public double HumidityValue { get; set; }

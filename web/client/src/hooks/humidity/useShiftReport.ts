@@ -4,11 +4,39 @@ import type { MeasurementDto } from '../../types/humidity';
 
 export type ShiftType = 'day' | 'night';
 
+/**
+ * Порядок сортировки отчёта по сменам.
+ *  - 'exitDateDesc'           — по дате выезда машины, новые сверху (по умолчанию);
+ *  - 'exitDateAsc'            — по дате выезда машины, старые сверху;
+ *  - 'averageHumidityAsc'     — по средней влажности, ниже сверху (хорошие);
+ *  - 'averageHumidityDesc'    — по средней влажности, выше сверху (плохие);
+ *  - 'lastMeasurementDesc'    — по времени последнего замера, новые сверху.
+ */
+export type ShiftSortOrder =
+    | 'exitDateDesc'
+    | 'exitDateAsc'
+    | 'averageHumidityAsc'
+    | 'averageHumidityDesc'
+    | 'lastMeasurementDesc';
+
+/**
+ * Элемент отчёта по смене (одна строка = одна машина).
+ */
 export interface ShiftReportItem {
     vehicleId: string;
-    number: string; // номер заявки
+    number: string; // номер заявки (пропуска)
     vehiclePlate: string; // госномер
     counterparty: string; // Поставщик
+    /**
+     * Дата въезда машины на площадку.
+     * Отображается в отчёте и участвует в сортировке.
+     */
+    entryDate: string | null;
+    /**
+     * Дата выезда машины с площадки.
+     * Именно по этому полю машина привязывается к смене.
+     */
+    exitDate: string | null;
     measurementsCount: number;
     averageHumidity: number | null;
     minHumidity: number | null;
@@ -46,12 +74,27 @@ export interface ShiftReportData {
 }
 
 /**
- * Хук для получения отчёта по смене с общей статистикой.
+ * Хук для получения отчёта по смене.
+ *
+ * БИЗНЕС-ЛОГИКА ПРИВЯЗКИ МАШИНЫ К СМЕНЕ:
+ * Машина относится к смене по времени выезда (Vehicle.ExitDate),
+ * а не по времени отдельных замеров. Все замеры одной машины
+ * попадают в ту смену, в которую машина фактически выехала с площадки.
+ *
+ * На сервер уходит диапазон [shiftStart, shiftEnd] в UTC; сервер возвращает
+ * замеры для машин, у которых ExitDate попадает в этот диапазон.
+ *
+ * @param date Дата начала смены (в локальном времени пользователя).
+ * @param shiftType Тип смены: 'day' (08:00–20:00) или 'night' (20:00–08:00).
+ * @param pageSize Размер страницы. Отчёт по смене обычно требует ВСЕ замеры сразу,
+ * поэтому значение по умолчанию — 20000 (максимум для API).
+ * @param sortOrder Порядок сортировки. По умолчанию — по дате выезда, новые сверху.
  */
 export const useShiftReport = (
     date: Date | null,
     shiftType: ShiftType,
-    pageSize: number = 1000
+    pageSize: number = 20000,
+    sortOrder: ShiftSortOrder = 'exitDateDesc'
 ) => {
     const [data, setData] = useState<ShiftReportData | null>(null);
     const [loading, setLoading] = useState(false);
@@ -63,6 +106,9 @@ export const useShiftReport = (
             return;
         }
 
+        // Вычисляем границы смены в ЛОКАЛЬНОМ времени пользователя.
+        // Дневная смена: 08:00 – 20:00 текущего дня.
+        // Ночная смена: 20:00 текущего дня – 08:00 следующего дня.
         const startOfDay = new Date(date);
         startOfDay.setHours(0, 0, 0, 0);
 
@@ -82,23 +128,40 @@ export const useShiftReport = (
             shiftEnd.setHours(8, 0, 0, 0);
         }
 
+        // Преобразуем локальные границы смены в UTC-строки для отправки на сервер.
         const fromISO = shiftStart.toISOString();
         const toISO = shiftEnd.toISOString();
+
+        // Определяем порядок сортировки для сервера:
+        // сервер поддерживает только 'asc'/'desc' по ExitDate.
+        // Остальные сортировки (по средней влажности, по последнему замеру)
+        // выполняем на клиенте после агрегации.
+        const serverOrder: 'asc' | 'desc' =
+            sortOrder === 'exitDateAsc' ? 'asc' : 'desc';
 
         setLoading(true);
         setError(null);
 
         try {
-            const result = await measurementService.getByDateRange(fromISO, toISO, 1, pageSize);
+            const result = await measurementService.getByShift(
+                fromISO,
+                toISO,
+                1,
+                pageSize,
+                serverOrder
+            );
 
-            // ИСПРАВЛЕНИЕ: безопасное получение массива замеров
+            // Безопасное получение массива замеров.
             const measurements = result?.items ?? [];
 
-            // Агрегация по машинам
+            // Агрегация по машинам.
+            // Одна машина = одна строка отчёта, независимо от количества её замеров.
             const vehicleMap = new Map<string, {
                 number: string;
                 vehiclePlate: string;
                 counterparty: string;
+                entryDate: string | null;
+                exitDate: string | null;
                 measurements: MeasurementDto[];
                 autoCount: number;
                 manualCount: number;
@@ -130,6 +193,8 @@ export const useShiftReport = (
                         number: m.vehicleNumber || '',
                         vehiclePlate: m.vehiclePlate || '',
                         counterparty: m.counterparty || '',
+                        entryDate: m.vehicleEntryDate ?? null,
+                        exitDate: m.vehicleExitDate ?? null,
                         measurements: [],
                         autoCount: 0,
                         manualCount: 0,
@@ -169,6 +234,8 @@ export const useShiftReport = (
                     number: entry.number || vehicleId.slice(0, 8), // fallback на часть ID
                     vehiclePlate: entry.vehiclePlate || '—',
                     counterparty: entry.counterparty || '—',
+                    entryDate: entry.entryDate,
+                    exitDate: entry.exitDate,
                     measurementsCount: count,
                     averageHumidity: avg,
                     minHumidity: entry.minHumidity,
@@ -179,7 +246,40 @@ export const useShiftReport = (
                 });
             }
 
-            items.sort((a, b) => b.measurementsCount - a.measurementsCount);
+            // Сортировка элементов отчёта в соответствии с выбранным порядком.
+            // Для сортировки по дате выезда null-значения уходят в конец.
+            const compareNullableDate = (a: string | null, b: string | null, desc: boolean): number => {
+                if (a === null && b === null) return 0;
+                if (a === null) return 1; // null всегда в конец
+                if (b === null) return -1;
+                const ta = new Date(a).getTime();
+                const tb = new Date(b).getTime();
+                return desc ? tb - ta : ta - tb;
+            };
+
+            items.sort((a, b) => {
+                switch (sortOrder) {
+                    case 'exitDateAsc':
+                        return compareNullableDate(a.exitDate, b.exitDate, false);
+                    case 'exitDateDesc':
+                        return compareNullableDate(a.exitDate, b.exitDate, true);
+                    case 'averageHumidityAsc':
+                        // null-значения (нет замеров) уходят в конец
+                        if (a.averageHumidity === null && b.averageHumidity === null) return 0;
+                        if (a.averageHumidity === null) return 1;
+                        if (b.averageHumidity === null) return -1;
+                        return a.averageHumidity - b.averageHumidity;
+                    case 'averageHumidityDesc':
+                        if (a.averageHumidity === null && b.averageHumidity === null) return 0;
+                        if (a.averageHumidity === null) return 1;
+                        if (b.averageHumidity === null) return -1;
+                        return b.averageHumidity - a.averageHumidity;
+                    case 'lastMeasurementDesc':
+                        return compareNullableDate(a.lastMeasurementTimestamp, b.lastMeasurementTimestamp, true);
+                    default:
+                        return 0;
+                }
+            });
 
             // Общая статистика
             const overallAverage = totalMeasurements > 0 ? sumAllHumidity / totalMeasurements : null;
@@ -204,7 +304,7 @@ export const useShiftReport = (
         } finally {
             setLoading(false);
         }
-    }, [date, shiftType, pageSize]);
+    }, [date, shiftType, pageSize, sortOrder]);
 
     useEffect(() => {
         fetchReport();

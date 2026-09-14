@@ -61,7 +61,19 @@ export interface MeasurementDto {
     vehicleId: string;
     vehicleNumber: string;
     vehiclePlate: string;
-    counterparty?: string; //Поставщик для отображения в отчетах
+    counterparty?: string; // Поставщик для отображения в отчетах
+    /**
+     * Дата въезда машины на площадку (из сущности Vehicle).
+     * Используется для отображения в отчётах и сортировки.
+     */
+    vehicleEntryDate?: string | null;
+    /**
+     * Дата выезда машины с площадки (из сущности Vehicle).
+     * Может быть null, если машина ещё не выехала.
+     * Ключевое поле для привязки машины к смене: все замеры машины
+     * относятся к той смене, в которую машина выехала.
+     */
+    vehicleExitDate?: string | null;
     humidityValue: number;
     temperatureC: number;
     measurementType: string | null;

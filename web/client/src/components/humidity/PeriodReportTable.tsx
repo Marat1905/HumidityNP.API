@@ -12,7 +12,7 @@ import {
     ChevronDown,
     ChevronRight,
 } from 'lucide-react';
-import { VehicleMeasurementsExpand } from '../humidity'
+import { VehicleMeasurementsExpand } from '../humidity';
 
 /**
  * Элемент отчёта для одной машины.
@@ -21,7 +21,16 @@ export interface PeriodReportItem {
     vehicleId: string;
     number: string;
     vehiclePlate: string;
-    counterparty?: string; //Поставщик
+    counterparty?: string; // Поставщик
+    /**
+     * Дата въезда машины на площадку (может быть null).
+     */
+    entryDate?: string | null;
+    /**
+     * Дата выезда машины с площадки (может быть null, если машина ещё на площадке).
+     * Используется для сортировки отчёта.
+     */
+    exitDate?: string | null;
     measurementsCount: number;
     averageHumidity: number | null;
     minHumidity: number | null;
@@ -197,6 +206,12 @@ const PeriodReportTable: React.FC<PeriodReportTableProps> = ({ items, summary, p
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Машина
                             </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Въезд
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Выезд
+                            </th>
                             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Замеров
                             </th>
@@ -232,6 +247,16 @@ const PeriodReportTable: React.FC<PeriodReportTableProps> = ({ items, summary, p
                                         </td>
                                         <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
                                             {item.number} ({item.vehiclePlate})
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                            {item.entryDate
+                                                ? format(new Date(item.entryDate), 'dd MMM yyyy HH:mm', { locale: ru })
+                                                : '—'}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                            {item.exitDate
+                                                ? format(new Date(item.exitDate), 'dd MMM yyyy HH:mm', { locale: ru })
+                                                : '—'}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-center font-medium text-gray-700 dark:text-gray-300">
                                             {item.measurementsCount}
@@ -297,7 +322,7 @@ const PeriodReportTable: React.FC<PeriodReportTableProps> = ({ items, summary, p
                                     {/* Строка с раскрытыми замерами */}
                                     {isExpanded && (
                                         <tr>
-                                            <td colSpan={9} className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50">
+                                            <td colSpan={11} className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50">
                                                 <VehicleMeasurementsExpand vehicleId={item.vehicleId} compact={false} />
                                             </td>
                                         </tr>

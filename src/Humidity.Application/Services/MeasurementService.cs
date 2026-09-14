@@ -283,9 +283,9 @@ public class MeasurementService : IMeasurementService
         return stats;
     }
 
-
     /// <summary>
-    /// Получить страницу замеров в диапазоне дат.
+    /// Получить страницу замеров в диапазоне дат (фильтр по Timestamp замера).
+    /// Используется в отчёте за период.
     /// </summary>
     public async Task<PagedResult<MeasurementDto>> GetByDateRangePagedAsync(
         DateTimeOffset from,
@@ -308,6 +308,40 @@ public class MeasurementService : IMeasurementService
         };
 
         _logger.LogInformation("Возвращено {Count} замеров из {TotalCount} в диапазоне дат",
+            result.Items.Count(), result.TotalCount);
+        return result;
+    }
+
+    /// <summary>
+    /// Получить страницу замеров для машин, у которых ВРЕМЯ ВЫЕЗДА (Vehicle.ExitDate)
+    /// попадает в указанный диапазон. Ключевой метод для отчёта по сменам:
+    /// все замеры машины относятся к той смене, в которую машина выехала.
+    /// </summary>
+    public async Task<PagedResult<MeasurementDto>> GetByVehicleExitDateRangePagedAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        int pageNumber,
+        int pageSize,
+        bool sortDescending,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "Запрос страницы замеров по времени выезда машин с {From:O} по {To:O}: номер {PageNumber}, размер {PageSize}, сортировка {Order}",
+            from, to, pageNumber, pageSize, sortDescending ? "по убыванию" : "по возрастанию");
+
+        var pagedResult = await _repository.GetByVehicleExitDateRangePagedAsync(
+            from, to, pageNumber, pageSize, sortDescending, cancellationToken);
+
+        var result = new PagedResult<MeasurementDto>
+        {
+            Items = _mapper.Map<IEnumerable<MeasurementDto>>(pagedResult.Items),
+            TotalCount = pagedResult.TotalCount,
+            PageNumber = pagedResult.PageNumber,
+            PageSize = pagedResult.PageSize,
+            TotalPages = pagedResult.TotalPages
+        };
+
+        _logger.LogInformation("Возвращено {Count} замеров из {TotalCount} по времени выезда",
             result.Items.Count(), result.TotalCount);
         return result;
     }

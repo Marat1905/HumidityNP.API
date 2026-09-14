@@ -156,7 +156,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     }
 
     /// <summary>
-    /// Получить замеры в произвольном диапазоне дат.
+    /// Получить замеры в произвольном диапазоне дат (фильтр по Timestamp замера).
     /// Предполагается, что from и to уже корректно заданы (например, с учётом UTC).
     /// </summary>
     /// <param name="from">Начало диапазона (включительно).</param>
@@ -276,7 +276,8 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     }
 
     /// <summary>
-    /// Получить страницу замеров в диапазоне дат.
+    /// Получить страницу замеров в диапазоне дат (фильтр по Timestamp замера).
+    /// Используется в отчёте за период.
     /// </summary>
     /// <param name="from">Начало диапазона (включительно).</param>
     /// <param name="to">Конец диапазона (включительно).</param>
@@ -292,7 +293,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     {
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 10;
-        if (pageSize > 20000) pageSize = 20000; // ИЗМЕНЕНО: максимальный лимит увеличен с 100 до 2000 для поддержки отчетов за смену
+        if (pageSize > 20000) pageSize = 20000; // Максимальный лимит увеличен для поддержки отчётов за смену/период
 
         IQueryable<HumidityMeasurement> query = DbSet
             .Where(m => m.Timestamp >= from && m.Timestamp <= to)
@@ -302,6 +303,78 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
 
         var items = await query
             .OrderByDescending(m => m.Timestamp)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<HumidityMeasurement>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+        };
+    }
+
+    /// <summary>
+    /// Получить страницу замеров для машин, у которых ВРЕМЯ ВЫЕЗДА (Vehicle.ExitDate)
+    /// попадает в указанный диапазон.
+    ///
+    /// КЛЮЧЕВАЯ ИДЕЯ: все замеры машины относятся к той смене, в которую машина выехала с площадки.
+    /// Это устраняет ситуацию, когда одна машина оставляет замеры в разных сменах
+    /// (например, начала мерить в дневную, а закончила в ночную).
+    ///
+    /// Сортировка выполняется по Vehicle.ExitDate (по умолчанию — по убыванию: новые сверху).
+    /// При равенстве ExitDate — по Timestamp замера (тоже по убыванию).
+    /// Машины без даты выезда в выборку не попадают (они всё ещё на площадке).
+    /// </summary>
+    /// <param name="from">Начало диапазона (включительно) для времени выезда машины.</param>
+    /// <param name="to">Конец диапазона (включительно) для времени выезда машины.</param>
+    /// <param name="pageNumber">Номер страницы (начиная с 1).</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="sortDescending">true — сортировка по ExitDate по убыванию (новые сверху), false — по возрастанию.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    public async Task<PagedResult<HumidityMeasurement>> GetByVehicleExitDateRangePagedAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        int pageNumber,
+        int pageSize,
+        bool sortDescending,
+        CancellationToken cancellationToken = default)
+    {
+        // Защита от невалидных значений
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 20000) pageSize = 20000;
+
+        // Фильтруем по времени выезда машины.
+        // ExitDate != null — машина уже выехала (смена завершена для неё).
+        IQueryable<HumidityMeasurement> query = DbSet
+            .Where(m => m.Vehicle.ExitDate != null
+                        && m.Vehicle.ExitDate >= from
+                        && m.Vehicle.ExitDate <= to)
+            .Include(m => m.Vehicle);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // Сортировка: по времени выезда машины (главный критерий), затем по времени замера.
+        // Это гарантирует, что все замеры одной машины идут подряд и упорядочены по времени.
+        if (sortDescending)
+        {
+            query = query
+                .OrderByDescending(m => m.Vehicle.ExitDate)
+                .ThenByDescending(m => m.Timestamp);
+        }
+        else
+        {
+            query = query
+                .OrderBy(m => m.Vehicle.ExitDate)
+                .ThenBy(m => m.Timestamp);
+        }
+
+        var items = await query
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .AsNoTracking()

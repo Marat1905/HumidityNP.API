@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useShiftReport, type ShiftType } from '../../hooks/humidity';
+import { useShiftReport, type ShiftType, type ShiftSortOrder } from '../../hooks/humidity';
 import { ShiftReportTable, ShiftReportCardView } from '../../components/humidity';
 import { SkeletonReport, DatePicker } from '../../components/common';
 import { ChevronLeft, ChevronRight, LayoutGrid, Table } from 'lucide-react';
@@ -7,6 +7,13 @@ import { format, subDays, addDays, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
 type ViewMode = 'table' | 'cards';
+
+/**
+ * Значение сортировки по умолчанию для отчёта по сменам.
+ * Вынесено в константу, чтобы использовать и в useState, и в возможном
+ * сбросе фильтров — единая точка правды.
+ */
+const DEFAULT_SORT_ORDER: ShiftSortOrder = 'exitDateDesc';
 
 /**
  * Вычисляет дату начала текущей смены и её тип.
@@ -57,11 +64,15 @@ export default function ShiftReportsPage() {
 
     const [viewMode, setViewMode] = useState<ViewMode>('table');
 
-    const { data, loading, error, refetch } = useShiftReport(selectedDate, shiftType);
+    // Порядок сортировки отчёта по сменам.
+    // По умолчанию — по дате выезда машины, новые сверху.
+    const [sortOrder, setSortOrder] = useState<ShiftSortOrder>(DEFAULT_SORT_ORDER);
+
+    const { data, loading, error, refetch } = useShiftReport(selectedDate, shiftType, 20000, sortOrder);
 
     useEffect(() => {
         refetch();
-    }, [selectedDate, shiftType, refetch]);
+    }, [selectedDate, shiftType, sortOrder, refetch]);
 
     /**
      * Переход на предыдущий день.
@@ -76,18 +87,9 @@ export default function ShiftReportsPage() {
      * Переход на следующий день.
      * Ограничение: нельзя уйти в «будущее» — максимальная доступная дата
      * определяется текущей сменой.
-     *
-     * Если сейчас идёт ночная смена (например, 07:30 14.09 — смена 13.09 night),
-     * то следующей доступной датой будет 14.09 (там уже будет дневная смена 08:00–20:00).
-     *
-     * Если сейчас идёт дневная смена (например, 10:00 14.09 — смена 14.09 day),
-     * то следующей доступной датой будет 14.09 (ночная смена начнётся вечером).
-     * Кнопка «вперёд» в этом случае заблокирована.
      */
     const goToNextDay = () => {
         const tomorrow = addDays(selectedDate, 1);
-
-        // Максимально допустимая дата — дата начала текущей смены (см. getInitialShiftState).
         const [maxDate] = getInitialShiftState();
 
         if (tomorrow <= maxDate) {
@@ -160,6 +162,23 @@ export default function ShiftReportsPage() {
                     >
                         <option value="day">День (08:00–20:00)</option>
                         <option value="night">Ночь (20:00–08:00)</option>
+                    </select>
+                </div>
+
+                {/* Выбор порядка сортировки. Варианты «По замеров» удалены.
+                    По умолчанию — «По дате выезда (новые сверху)» (exitDateDesc). */}
+                <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Сортировка:</label>
+                    <select
+                        value={sortOrder}
+                        onChange={(e) => setSortOrder(e.target.value as ShiftSortOrder)}
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="exitDateDesc">По дате выезда (новые сверху)</option>
+                        <option value="exitDateAsc">По дате выезда (старые сверху)</option>
+                        <option value="averageHumidityAsc">По влажности (ниже сверху)</option>
+                        <option value="averageHumidityDesc">По влажности (выше сверху)</option>
+                        <option value="lastMeasurementDesc">По последнему замеру (новые сверху)</option>
                     </select>
                 </div>
 

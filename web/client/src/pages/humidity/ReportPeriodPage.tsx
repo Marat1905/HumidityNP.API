@@ -5,11 +5,35 @@ import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAllMeasurementsByDateRange } from '../../hooks/humidity';
 import { SkeletonReport, RangeDatePicker } from '../../components/common';
-import { PeriodReportCardView, PeriodReportTable, type PeriodReportItem, type PeriodSummaryStats } from '../../components/humidity'
+import { PeriodReportCardView, PeriodReportTable, type PeriodReportItem, type PeriodSummaryStats } from '../../components/humidity';
 import { MeasurementSource, type MeasurementDto } from '../../types/humidity';
 import { LayoutGrid, Table, RotateCcw } from 'lucide-react';
 
 type ViewMode = 'table' | 'cards';
+
+/**
+ * Порядок сортировки отчёта за период.
+ * Пользователь выбирает его в выпадающем списке в панели фильтров.
+ *
+ * Варианты «По замеров» (measurementsCountDesc / measurementsCountAsc) удалены.
+ * Значение по умолчанию — 'exitDateDesc' (по дате выезда машины, новые сверху).
+ * Это согласуется с бизнес-логикой привязки машины к смене: ключевое событие —
+ * выезд машины с площадки, поэтому и в отчёте за период логично сортировать
+ * по времени выезда, чтобы последние выехавшие машины были вверху списка.
+ */
+type PeriodSortOrder =
+    | 'exitDateDesc'
+    | 'exitDateAsc'
+    | 'averageHumidityAsc'
+    | 'averageHumidityDesc'
+    | 'lastMeasurementDesc';
+
+/**
+ * Значение сортировки по умолчанию.
+ * Вынесено в константу, чтобы использовать и в useState, и в resetFilter —
+ * это исключает рассинхронизацию «стартовое значение» / «значение сброса».
+ */
+const DEFAULT_SORT_ORDER: PeriodSortOrder = 'exitDateDesc';
 
 export default function ReportPeriodPage() {
     // Состояние диапазона дат (по умолчанию последние 7 дней)
@@ -21,6 +45,10 @@ export default function ReportPeriodPage() {
     const [endDate, setEndDate] = useState<Date | null>(() => new Date());
     const [viewMode, setViewMode] = useState<ViewMode>('table');
 
+    // Порядок сортировки отчёта.
+    // По умолчанию — по дате выезда машины, новые сверху (exitDateDesc).
+    const [sortOrder, setSortOrder] = useState<PeriodSortOrder>(DEFAULT_SORT_ORDER);
+
     // Обработчик изменения диапазона из RangeDatePicker
     const handleDateRangeChange = (dates: [Date | null, Date | null]) => {
         const [start, end] = dates;
@@ -29,17 +57,19 @@ export default function ReportPeriodPage() {
     };
 
     // Сброс фильтра – возвращаем к диапазону по умолчанию (последние 7 дней)
+    // и порядку сортировки по умолчанию (по дате выезда, новые сверху).
     const resetFilter = () => {
         const now = new Date();
         setStartDate(subDays(now, 6));
         setEndDate(now);
+        setSortOrder(DEFAULT_SORT_ORDER);
     };
 
     // Загружаем все замеры за период
     const { measurements, loading, error, refetch } = useAllMeasurementsByDateRange(
         startDate,
         endDate,
-        100 // максимальный pageSize
+        100 // максимальный pageSize на запрос (при необходимости хук сам обходит пагинацию)
     );
 
     // При изменении дат перезапрашиваем
@@ -60,6 +90,8 @@ export default function ReportPeriodPage() {
             number: string;
             vehiclePlate: string;
             counterparty: string;
+            entryDate: string | null;
+            exitDate: string | null;
             measurements: typeof validMeasurements;
             autoCount: number;
             manualCount: number;
@@ -91,6 +123,8 @@ export default function ReportPeriodPage() {
                     number: m.vehicleNumber || '',
                     vehiclePlate: m.vehiclePlate || '',
                     counterparty: m.counterparty || '',
+                    entryDate: m.vehicleEntryDate ?? null,
+                    exitDate: m.vehicleExitDate ?? null,
                     measurements: [],
                     autoCount: 0,
                     manualCount: 0,
@@ -129,6 +163,8 @@ export default function ReportPeriodPage() {
                 number: entry.number || vehicleId.slice(0, 8),
                 vehiclePlate: entry.vehiclePlate || '—',
                 counterparty: entry.counterparty || '—',
+                entryDate: entry.entryDate,
+                exitDate: entry.exitDate,
                 measurementsCount: count,
                 averageHumidity: avg,
                 minHumidity: entry.minHumidity,
@@ -139,7 +175,39 @@ export default function ReportPeriodPage() {
             });
         }
 
-        items.sort((a, b) => b.measurementsCount - a.measurementsCount);
+        // Сортировка элементов отчёта в соответствии с выбранным порядком.
+        // Для сортировки по датам null-значения уходят в конец.
+        const compareNullableDate = (a: string | null, b: string | null, desc: boolean): number => {
+            if (a === null && b === null) return 0;
+            if (a === null) return 1;
+            if (b === null) return -1;
+            const ta = new Date(a).getTime();
+            const tb = new Date(b).getTime();
+            return desc ? tb - ta : ta - tb;
+        };
+
+        items.sort((a, b) => {
+            switch (sortOrder) {
+                case 'averageHumidityAsc':
+                    if (a.averageHumidity === null && b.averageHumidity === null) return 0;
+                    if (a.averageHumidity === null) return 1;
+                    if (b.averageHumidity === null) return -1;
+                    return a.averageHumidity - b.averageHumidity;
+                case 'averageHumidityDesc':
+                    if (a.averageHumidity === null && b.averageHumidity === null) return 0;
+                    if (a.averageHumidity === null) return 1;
+                    if (b.averageHumidity === null) return -1;
+                    return b.averageHumidity - a.averageHumidity;
+                case 'lastMeasurementDesc':
+                    return compareNullableDate(a.lastMeasurementTimestamp, b.lastMeasurementTimestamp, true);
+                case 'exitDateAsc':
+                    return compareNullableDate(a.exitDate ?? null, b.exitDate ?? null, false);
+                case 'exitDateDesc':
+                    return compareNullableDate(a.exitDate ?? null, b.exitDate ?? null, true);
+                default:
+                    return 0;
+            }
+        });
 
         const overallAverage = totalMeasurements > 0 ? sumAllHumidity / totalMeasurements : null;
         const summary: PeriodSummaryStats = {
@@ -153,7 +221,7 @@ export default function ReportPeriodPage() {
         };
 
         return { items, summary };
-    }, [measurements]);
+    }, [measurements, sortOrder]);
 
     // Формирование строки с периодом для отображения
     const periodLabel = useMemo(() => {
@@ -196,10 +264,29 @@ export default function ReportPeriodPage() {
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                     {periodLabel}
                 </div>
+
+                {/* Выбор порядка сортировки.
+                    Варианты «По замеров» удалены.
+                    По умолчанию — «По дате выезда (новые сверху)» (exitDateDesc). */}
+                <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Сортировка:</label>
+                    <select
+                        value={sortOrder}
+                        onChange={(e) => setSortOrder(e.target.value as PeriodSortOrder)}
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="exitDateDesc">По дате выезда (новые сверху)</option>
+                        <option value="exitDateAsc">По дате выезда (старые сверху)</option>
+                        <option value="averageHumidityAsc">По влажности (ниже сверху)</option>
+                        <option value="averageHumidityDesc">По влажности (выше сверху)</option>
+                        <option value="lastMeasurementDesc">По последнему замеру (новые сверху)</option>
+                    </select>
+                </div>
+
                 <button
                     onClick={resetFilter}
                     className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                    title="Сбросить фильтр к последним 7 дням"
+                    title="Сбросить фильтр к последним 7 дням и сортировке по умолчанию"
                 >
                     <RotateCcw className="w-4 h-4" />
                     Сбросить

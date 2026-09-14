@@ -16,4 +16,5 @@ export type {
     ShiftReportItem,
     ShiftSummaryStats,
     ShiftReportData,
+    ShiftSortOrder,
 } from './useShiftReport';

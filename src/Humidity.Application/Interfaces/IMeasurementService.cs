@@ -103,7 +103,8 @@ public interface IMeasurementService
     Task<MeasurementStatisticsDto> GetStatisticsByVehicleIdAsync(Guid vehicleId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Получить страницу замеров в диапазоне дат.
+    /// Получить страницу замеров в диапазоне дат (фильтр по Timestamp замера).
+    /// Используется в отчёте за период.
     /// </summary>
     /// <param name="from">Начало диапазона (включительно).</param>
     /// <param name="to">Конец диапазона (включительно).</param>
@@ -116,6 +117,26 @@ public interface IMeasurementService
         DateTimeOffset to,
         int pageNumber,
         int pageSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить страницу замеров для машин, у которых ВРЕМЯ ВЫЕЗДА (Vehicle.ExitDate)
+    /// попадает в указанный диапазон. Ключевой метод для отчёта по сменам:
+    /// все замеры машины относятся к той смене, в которую машина выехала.
+    /// </summary>
+    /// <param name="from">Начало диапазона (включительно) для времени выезда машины.</param>
+    /// <param name="to">Конец диапазона (включительно) для времени выезда машины.</param>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="sortDescending">true — сортировка по ExitDate по убыванию (новые сверху), false — по возрастанию.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Страница замеров.</returns>
+    Task<PagedResult<MeasurementDto>> GetByVehicleExitDateRangePagedAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        int pageNumber,
+        int pageSize,
+        bool sortDescending,
         CancellationToken cancellationToken = default);
 
     /// <summary>

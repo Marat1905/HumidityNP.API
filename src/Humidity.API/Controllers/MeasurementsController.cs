@@ -169,7 +169,8 @@ public class MeasurementsController : ControllerBase
     }
 
     /// <summary>
-    /// Получить страницу замеров в диапазоне дат.
+    /// Получить страницу замеров в диапазоне дат (фильтр по Timestamp замера).
+    /// Используется в отчёте за период.
     /// </summary>
     /// <param name="from">Начало диапазона (включительно) в формате ISO 8601.</param>
     /// <param name="to">Конец диапазона (включительно) в формате ISO 8601.</param>
@@ -189,6 +190,37 @@ public class MeasurementsController : ControllerBase
 
         var result = await _measurementService.GetByDateRangePagedAsync(
             from, to, pageNumber, pageSize, HttpContext.RequestAborted);
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Получить страницу замеров для машин, у которых ВРЕМЯ ВЫЕЗДА (Vehicle.ExitDate)
+    /// попадает в указанный диапазон. Ключевой эндпоинт для отчёта по сменам:
+    /// все замеры машины относятся к той смене, в которую машина выехала.
+    /// </summary>
+    /// <param name="from">Начало диапазона (включительно) для времени выезда машины.</param>
+    /// <param name="to">Конец диапазона (включительно) для времени выезда машины.</param>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="order">Порядок сортировки по дате выезда: 'desc' — новые сверху (по умолчанию), 'asc' — старые сверху.</param>
+    [HttpGet("shift")]
+    [ProducesResponseType(typeof(PagedResult<MeasurementDto>), 200)]
+    public async Task<IActionResult> GetByVehicleExitDate(
+        [FromQuery] DateTimeOffset from,
+        [FromQuery] DateTimeOffset to,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20000,
+        [FromQuery] string order = "desc")
+    {
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 20000) pageSize = 20000;
+
+        bool sortDescending = !string.Equals(order, "asc", StringComparison.OrdinalIgnoreCase);
+
+        var result = await _measurementService.GetByVehicleExitDateRangePagedAsync(
+            from, to, pageNumber, pageSize, sortDescending, HttpContext.RequestAborted);
 
         return Ok(result);
     }

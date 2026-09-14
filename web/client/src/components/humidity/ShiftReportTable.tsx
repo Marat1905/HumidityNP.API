@@ -12,8 +12,9 @@ import {
     TrendingDown,
     ChevronDown,
     ChevronRight,
+    LogOut,
 } from 'lucide-react';
-import { VehicleMeasurementsExpand } from '../humidity'
+import { VehicleMeasurementsExpand } from '../humidity';
 
 interface ShiftReportTableProps {
     items: ShiftReportItem[];
@@ -22,6 +23,13 @@ interface ShiftReportTableProps {
 
 /**
  * Табличное представление отчёта по смене с возможностью раскрытия замеров по машине.
+ *
+ * ВАЖНО: список машин уже отсортирован на сервере или в хуке useShiftReport.
+ * Компонент НЕ выполняет дополнительную сортировку — он просто отображает
+ * порядок, переданный в items.
+ *
+ * В таблицу добавлена колонка «Выезд» (дата выезда машины), так как именно
+ * по времени выезда машина привязывается к смене.
  */
 const ShiftReportTable: React.FC<ShiftReportTableProps> = ({ items, summary }) => {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -162,6 +170,15 @@ const ShiftReportTable: React.FC<ShiftReportTableProps> = ({ items, summary }) =
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Машина
                             </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Въезд
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                <div className="flex items-center gap-1">
+                                    <LogOut className="w-3 h-3" />
+                                    Выезд
+                                </div>
+                            </th>
                             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Замеров
                             </th>
@@ -198,14 +215,22 @@ const ShiftReportTable: React.FC<ShiftReportTableProps> = ({ items, summary }) =
                                         <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
                                             {item.number} ({item.vehiclePlate})
                                         </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                            {item.entryDate
+                                                ? format(new Date(item.entryDate), 'dd MMM HH:mm', { locale: ru })
+                                                : '—'}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                            {item.exitDate
+                                                ? format(new Date(item.exitDate), 'dd MMM HH:mm', { locale: ru })
+                                                : '—'}
+                                        </td>
                                         <td className="px-4 py-3 text-sm text-center font-medium text-gray-700 dark:text-gray-300">
                                             {item.measurementsCount}
                                         </td>
-                                        {/* УМЕНЬШЕНА ШИРИНА: компактная ячейка «Средняя влажность» */}
                                         <td className="px-2 py-3 text-sm text-center font-semibold text-gray-900 dark:text-white whitespace-nowrap">
                                             {item.averageHumidity !== null ? item.averageHumidity.toFixed(1) + '%' : '—'}
                                         </td>
-                                        {/* УМЕНЬШЕНА ШИРИНА: компактная ячейка «Авто / Ручные» */}
                                         <td className="px-2 py-3 text-sm text-center whitespace-nowrap">
                                             <span className="font-medium text-blue-600 dark:text-blue-400">
                                                 {item.autoCount}
@@ -262,7 +287,7 @@ const ShiftReportTable: React.FC<ShiftReportTableProps> = ({ items, summary }) =
                                     {/* Строка с раскрытыми замерами */}
                                     {isExpanded && (
                                         <tr>
-                                            <td colSpan={9} className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50">
+                                            <td colSpan={11} className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50">
                                                 <VehicleMeasurementsExpand vehicleId={item.vehicleId} compact={false} />
                                             </td>
                                         </tr>
