@@ -164,7 +164,7 @@ export default function TopSuppliersPage() {
                 <span className="font-medium text-gray-700 dark:text-gray-300">Байесовская коррекция: </span>
                 поставщики с малым числом замеров «подтягиваются» к глобальной средней, чтобы случайные
                 выбросы не искажали топ. Чем выше уровень коррекции, тем сильнее сглаживание.
-                Значение «Без коррекции» показывает «сырую» среднюю (<code>sum / count</code>).
+                Значение «Без коррекции» показывает «сырую» среднюю (<code>sum/count</code>).
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
