@@ -598,6 +598,8 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
                 MeasuredVehiclesCount = x.MeasuredVehiclesCount,
                 TotalMeasurements = x.TotalMeasurements,
                 AverageHumidity = x.AverageHumidity,
+                // Для обычного списка поставщиков байесовская коррекция не применяется —
+                // поля AdjustedAverageHumidity / PriorWeight / GlobalAverageHumidity остаются по умолчанию.
                 MinHumidity = x.MinHumidity,
                 MaxHumidity = x.MaxHumidity
             })
@@ -821,18 +823,58 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     }
 
     /// <summary>
-    /// Получить топ-N поставщиков по средней влажности за период.
+    /// Получить топ-N поставщиков по средней влажности за период с байесовской коррекцией.
+    ///
+    /// АЛГОРИТМ:
+    /// 1. Считаем глобальную среднюю влажность m по всем замерам за период (prior mean).
+    /// 2. Считаем агрегаты по каждому поставщику: sum_i, n_i, min, max, кол-во машин и т.д.
+    /// 3. Применяем байесовское сглаживание:
+    ///        adjusted_i = (C * m + sum_i) / (C + n_i)
+    ///    где C — вес prior (priorWeight).
+    /// 4. Сортируем по adjusted_i и берём top-N.
     /// </summary>
     public async Task<IEnumerable<SupplierDto>> GetTopSuppliersAsync(
         int top,
         bool ascending,
         DateTimeOffset from,
         DateTimeOffset to,
+        double priorWeight = 30,
         CancellationToken cancellationToken = default)
     {
         var fromUtc = from.ToUniversalTime();
         var toUtc = to.ToUniversalTime();
 
+        // Защита от некорректных значений.
+        if (top < 1) top = 1;
+        if (top > 100) top = 100;
+        if (priorWeight < 0) priorWeight = 0;
+        // Верхняя граница выбрана на уровне 1000 — этого достаточно для любого разумного сценария.
+        // Дальнейшее увеличение C практически не меняет результат (все средние стремятся к глобальной).
+        if (priorWeight > 1000) priorWeight = 1000;
+
+        // ШАГ 1: глобальная средняя влажность по всем замерам за период (prior mean m).
+        // Если замеров нет — возвращаем пустой список.
+        var globalStats = await Context.Measurements
+            .Where(m => m.Timestamp >= fromUtc && m.Timestamp <= toUtc)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                AverageHumidity = g.Average(m => m.HumidityValue),
+                TotalCount = g.Count()
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (globalStats == null || globalStats.TotalCount == 0)
+        {
+            // Нет замеров за период — топ пуст.
+            return Enumerable.Empty<SupplierDto>();
+        }
+
+        var globalAverage = globalStats.AverageHumidity;
+
+        // ШАГ 2: агрегаты по каждому поставщику.
+        // Используем тот же паттерн, что и в GetSuppliersSummaryAsync,
+        // но дополнительно считаем сумму влажностей (SumHumidity), чтобы применить формулу.
         var query = from vehicle in Context.Vehicles
                     join measurement in Context.Measurements
                     on new { VehicleId = vehicle.Id, TimestampRange = true }
@@ -848,46 +890,74 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
                         LastCounterparty = g.OrderByDescending(x => x.vehicle.Date)
                                             .Select(x => x.vehicle.Counterparty)
                                             .FirstOrDefault(),
-                        // Общее количество машин
                         VehiclesCount = g.Select(x => x.vehicle.Id).Distinct().Count(),
-                        // Количество машин с замерами
                         MeasuredVehiclesCount = g.Where(x => x.measurement != null)
                                                  .Select(x => x.vehicle.Id)
                                                  .Distinct()
                                                  .Count(),
                         TotalMeasurements = g.Count(x => x.measurement != null),
-                        AverageHumidity = g.Where(x => x.measurement != null)
-                                           .Average(x => x.measurement!.HumidityValue),
+                        // Сумма влажностей по всем замерам поставщика за период.
+                        // Используем Sum с приведением к nullable, чтобы EF Core корректно обработал пустой набор.
+                        SumHumidity = g.Where(x => x.measurement != null)
+                                       .Sum(x => (double?)x.measurement!.HumidityValue) ?? 0.0,
                         MinHumidity = g.Where(x => x.measurement != null)
-                                       .Min(x => x.measurement!.HumidityValue),
+                                       .Min(x => (double?)x.measurement!.HumidityValue),
                         MaxHumidity = g.Where(x => x.measurement != null)
-                                       .Max(x => x.measurement!.HumidityValue)
+                                       .Max(x => (double?)x.measurement!.HumidityValue)
                     };
 
-        // Исключаем поставщиков, у которых нет замеров за период
+        // Исключаем поставщиков, у которых нет замеров за период:
+        // байесовская коррекция для них не имеет смысла (n_i = 0).
         query = query.Where(x => x.TotalMeasurements > 0);
 
-        // Сортировка по средней влажности
-        if (ascending)
-            query = query.OrderBy(x => x.AverageHumidity);
-        else
-            query = query.OrderByDescending(x => x.AverageHumidity);
+        // Забираем «сырые» агрегаты.
+        var rawList = await query
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
 
-        var items = await query
-            .Take(top)
-            .Select(x => new SupplierDto
+        if (rawList.Count == 0)
+        {
+            return Enumerable.Empty<SupplierDto>();
+        }
+
+        // ШАГ 3: применяем байесовскую коррекцию в памяти.
+        // (Делаем это на клиенте, а не в SQL, потому что EF Core хуже транслирует
+        //  сложные формулы с делением и подстановкой глобальной средней.)
+        var items = rawList.Select(x =>
+        {
+            var n = x.TotalMeasurements;
+            var sum = x.SumHumidity;
+
+            // Наивная средняя (sum / n) — «сырая» средняя без коррекции.
+            var naiveAvg = n > 0 ? sum / n : 0.0;
+
+            // Байесовская средняя: (C * m + sum) / (C + n).
+            // При priorWeight = 0 формула превращается в наивную среднюю.
+            var adjusted = (priorWeight * globalAverage + sum) / (priorWeight + n);
+
+            return new SupplierDto
             {
                 Inn = x.Inn,
                 Counterparty = x.LastCounterparty ?? x.Inn,
                 VehiclesCount = x.VehiclesCount,
                 MeasuredVehiclesCount = x.MeasuredVehiclesCount,
-                TotalMeasurements = x.TotalMeasurements,
-                AverageHumidity = x.AverageHumidity,
+                TotalMeasurements = n,
+                AverageHumidity = naiveAvg,
+                AdjustedAverageHumidity = adjusted,
+                PriorWeight = priorWeight,
+                GlobalAverageHumidity = globalAverage,
                 MinHumidity = x.MinHumidity,
                 MaxHumidity = x.MaxHumidity
-            })
-            .ToListAsync(cancellationToken);
+            };
+        });
 
-        return items;
+        // ШАГ 4: сортировка по скорректированной средней + стабильный tie-breaker.
+        // Вторичный критерий — количество замеров (по убыванию): при равной средней
+        // впереди оказывается поставщик с более надёжными данными.
+        var sorted = ascending
+            ? items.OrderBy(x => x.AdjustedAverageHumidity).ThenByDescending(x => x.TotalMeasurements)
+            : items.OrderByDescending(x => x.AdjustedAverageHumidity).ThenByDescending(x => x.TotalMeasurements);
+
+        return sorted.Take(top).ToList();
     }
 }

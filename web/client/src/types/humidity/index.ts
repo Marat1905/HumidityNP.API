@@ -148,7 +148,22 @@ export interface SupplierDto {
     vehiclesCount: number;
     measuredVehiclesCount: number;
     totalMeasurements: number;
+    /**
+     * Наивная средняя влажность (sum / count).
+     * Используется в обычном списке поставщиков и как справочное значение в топе.
+     */
     averageHumidity: number | null;
+    /**
+     * Байесовски скорректированная средняя влажность.
+     * Заполняется ТОЛЬКО для топа поставщиков; в обычном списке — null.
+     * Формула: (C * m + sum) / (C + n), где
+     *   C — priorWeight, m — globalAverageHumidity, sum/n — агрегаты поставщика.
+     */
+    adjustedAverageHumidity: number | null;
+    /** Вес prior (C), использованный при коррекции. 0 — коррекция не применялась. */
+    priorWeight: number;
+    /** Глобальная средняя влажность по всем замерам за период (prior mean m). */
+    globalAverageHumidity: number | null;
     minHumidity: number | null;
     maxHumidity: number | null;
 }

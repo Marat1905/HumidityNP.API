@@ -3,18 +3,25 @@ import { supplierService } from '../../services/humidity/api';
 import type { SupplierDto } from '../../types/humidity';
 
 /**
- * Хук для получения топ-поставщиков по средней влажности.
+ * Хук для получения топ-поставщиков по средней влажности с байесовской коррекцией.
+ *
  * @param fromDate Начало периода (Date) или null.
  * @param toDate Конец периода (Date) или null.
- * @param top Количество записей.
- * @param order 'asc' — хорошие, 'desc' — плохие.
+ * @param top Количество записей (макс. 100).
+ * @param order 'asc' — хорошие (низкая влажность), 'desc' — плохие (высокая).
+ * @param priorWeight Вес prior (C) для байесовской коррекции:
+ *                    0 — без коррекции (наивная средняя);
+ *                    10 — слабая;
+ *                    30 — умеренная (по умолчанию);
+ *                    100 — сильная.
  * @returns Объект с данными, состоянием загрузки и ошибкой.
  */
 export const useTopSuppliers = (
     fromDate: Date | null,
     toDate: Date | null,
     top: number = 10,
-    order: 'asc' | 'desc' = 'asc'
+    order: 'asc' | 'desc' = 'asc',
+    priorWeight: number = 30
 ) => {
     const [data, setData] = useState<SupplierDto[]>([]);
     const [loading, setLoading] = useState(false);
@@ -39,7 +46,8 @@ export const useTopSuppliers = (
                 from.toISOString(),
                 to.toISOString(),
                 top,
-                order
+                order,
+                priorWeight
             );
             setData(result);
         } catch (err: any) {
@@ -47,7 +55,7 @@ export const useTopSuppliers = (
         } finally {
             setLoading(false);
         }
-    }, [fromDate, toDate, top, order]);
+    }, [fromDate, toDate, top, order, priorWeight]);
 
     useEffect(() => {
         fetchData();

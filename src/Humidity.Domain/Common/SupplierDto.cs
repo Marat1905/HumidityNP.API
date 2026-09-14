@@ -1,7 +1,7 @@
 ﻿namespace Humidity.Domain.Common;
 
 /// <summary>
-/// Краткая информация о поставщике для списка.
+/// Краткая информация о поставщике для списка и топа.
 /// </summary>
 public class SupplierDto
 {
@@ -31,9 +31,35 @@ public class SupplierDto
     public int TotalMeasurements { get; set; }
 
     /// <summary>
-    /// Средняя влажность по всем замерам за период.
+    /// Наивная средняя влажность по всем замерам за период: sum / count.
+    /// Это значение показывает «сырую» среднюю без учёта объёма данных.
     /// </summary>
     public double? AverageHumidity { get; set; }
+
+    /// <summary>
+    /// Байесовски скорректированная средняя влажность.
+    /// Формула: (C * m + sum) / (C + n), где
+    ///   C — вес prior (PriorWeight);
+    ///   m — глобальная средняя влажность (GlobalAverageHumidity);
+    ///   sum — сумма влажностей у данного поставщика за период;
+    ///   n — количество замеров у данного поставщика за период.
+    ///
+    /// Используется ТОЛЬКО в топ-поставщиках. Для обычного списка поставщиков
+    /// поле остаётся null (там применяется наивная средняя AverageHumidity).
+    /// </summary>
+    public double? AdjustedAverageHumidity { get; set; }
+
+    /// <summary>
+    /// Вес prior (C), использованный при байесовской коррекции.
+    /// Ноль означает, что коррекция не применялась, и AdjustedAverageHumidity == AverageHumidity.
+    /// </summary>
+    public double PriorWeight { get; set; }
+
+    /// <summary>
+    /// Глобальная средняя влажность по всем замерам за период (prior mean m).
+    /// Используется при байесовской коррекции.
+    /// </summary>
+    public double? GlobalAverageHumidity { get; set; }
 
     /// <summary>
     /// Минимальная влажность за период.

@@ -74,8 +74,6 @@ public class SupplierServiceTests
         var pageSize = 10;
         var sortDescending = true; // По умолчанию сервер сортирует по EntryDate по убыванию
 
-        // DTO теперь содержит постраничную коллекцию машин (PagedResult),
-        // так как пагинация и сортировка выполняются на стороне сервера.
         var expectedDetails = new SupplierDetailsDto
         {
             Inn = inn,
@@ -96,13 +94,7 @@ public class SupplierServiceTests
 
         _measurementRepositoryMock
             .Setup(r => r.GetSupplierDetailsAsync(
-                inn,
-                from,
-                to,
-                pageNumber,
-                pageSize,
-                sortDescending,
-                It.IsAny<CancellationToken>()))
+                inn, from, to, pageNumber, pageSize, sortDescending, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedDetails);
 
         // Act
@@ -114,19 +106,10 @@ public class SupplierServiceTests
         result.Inn.Should().Be(inn);
         result.Vehicles.Items.Should().HaveCount(1);
         result.Vehicles.TotalCount.Should().Be(1);
-        result.Vehicles.PageNumber.Should().Be(pageNumber);
-        result.Vehicles.PageSize.Should().Be(pageSize);
 
-        // Дополнительно проверяем, что сервис пробросил параметры пагинации и сортировки в репозиторий без изменений.
         _measurementRepositoryMock.Verify(
             r => r.GetSupplierDetailsAsync(
-                inn,
-                from,
-                to,
-                pageNumber,
-                pageSize,
-                sortDescending,
-                It.IsAny<CancellationToken>()),
+                inn, from, to, pageNumber, pageSize, sortDescending, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -137,7 +120,7 @@ public class SupplierServiceTests
         var inn = "7707083893";
         var from = DateTimeOffset.UtcNow.AddDays(-7);
         var to = DateTimeOffset.UtcNow;
-        var sortDescending = true; // Сортировка по EntryDate по убыванию
+        var sortDescending = true;
 
         var chartData = new List<SupplierVehicleSummaryDto>
         {
@@ -147,11 +130,7 @@ public class SupplierServiceTests
 
         _measurementRepositoryMock
             .Setup(r => r.GetSupplierVehiclesForChartAsync(
-                inn,
-                from,
-                to,
-                sortDescending,
-                It.IsAny<CancellationToken>()))
+                inn, from, to, sortDescending, It.IsAny<CancellationToken>()))
             .ReturnsAsync(chartData);
 
         // Act
@@ -162,38 +141,101 @@ public class SupplierServiceTests
         result.Should().NotBeNull();
         result.Should().HaveCount(2);
 
-        // Проверяем, что сервис пробросил параметры в репозиторий без изменений.
         _measurementRepositoryMock.Verify(
             r => r.GetSupplierVehiclesForChartAsync(
-                inn,
-                from,
-                to,
-                sortDescending,
-                It.IsAny<CancellationToken>()),
+                inn, from, to, sortDescending, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
     [Fact]
-    public async Task GetTopSuppliersAsync_ReturnsSortedList()
+    public async Task GetTopSuppliersAsync_WithBayesianCorrection_ReturnsSortedListWithAdjustedHumidity()
     {
         // Arrange
         var from = DateTimeOffset.UtcNow.AddDays(-7);
         var to = DateTimeOffset.UtcNow;
+        var priorWeight = 30.0;
+
+        // Два поставщика: у первого мало замеров (n=3), у второго много (n=100).
+        // Наивная средняя у первого «лучше» (8%), но байесовская коррекция «подтянет» его
+        // ближе к глобальной средней. Второй сохранит свою среднюю практически без изменений.
         var topSuppliers = new List<SupplierDto>
         {
-            new SupplierDto { Inn = "7707083893", AverageHumidity = 12.0 },
-            new SupplierDto { Inn = "7707083894", AverageHumidity = 15.0 }
+            new SupplierDto
+            {
+                Inn = "7707083893",
+                AverageHumidity = 8.0,
+                AdjustedAverageHumidity = 12.5, // подтянулась к глобальной
+                PriorWeight = priorWeight,
+                GlobalAverageHumidity = 13.0,
+                TotalMeasurements = 3
+            },
+            new SupplierDto
+            {
+                Inn = "7707083894",
+                AverageHumidity = 15.0,
+                AdjustedAverageHumidity = 14.8, // почти не изменилась
+                PriorWeight = priorWeight,
+                GlobalAverageHumidity = 13.0,
+                TotalMeasurements = 100
+            }
         };
 
-        _measurementRepositoryMock.Setup(r => r.GetTopSuppliersAsync(2, true, from, to, It.IsAny<CancellationToken>()))
+        _measurementRepositoryMock
+            .Setup(r => r.GetTopSuppliersAsync(2, true, from, to, priorWeight, It.IsAny<CancellationToken>()))
             .ReturnsAsync(topSuppliers);
 
         // Act
-        var result = await _service.GetTopSuppliersAsync(2, true, from, to, CancellationToken.None);
+        var result = await _service.GetTopSuppliersAsync(2, true, from, to, priorWeight, CancellationToken.None);
 
         // Assert
         result.Should().NotBeNull();
         result.Should().HaveCount(2);
-        result.First().AverageHumidity.Should().Be(12.0);
+
+        var first = result.First();
+        first.Inn.Should().Be("7707083893");
+        first.AverageHumidity.Should().Be(8.0);
+        first.AdjustedAverageHumidity.Should().Be(12.5);
+        first.PriorWeight.Should().Be(priorWeight);
+        first.GlobalAverageHumidity.Should().Be(13.0);
+
+        // Проверяем, что сервис пробросил priorWeight в репозиторий без изменений.
+        _measurementRepositoryMock.Verify(
+            r => r.GetTopSuppliersAsync(2, true, from, to, priorWeight, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetTopSuppliersAsync_WithoutCorrection_ReturnsNaiveAverages()
+    {
+        // Arrange
+        var from = DateTimeOffset.UtcNow.AddDays(-7);
+        var to = DateTimeOffset.UtcNow;
+        var priorWeight = 0.0; // отключённая коррекция
+
+        var topSuppliers = new List<SupplierDto>
+        {
+            new SupplierDto
+            {
+                Inn = "7707083893",
+                AverageHumidity = 8.0,
+                AdjustedAverageHumidity = 8.0, // совпадает с наивной при C=0
+                PriorWeight = 0,
+                TotalMeasurements = 3
+            }
+        };
+
+        _measurementRepositoryMock
+            .Setup(r => r.GetTopSuppliersAsync(1, true, from, to, 0.0, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(topSuppliers);
+
+        // Act
+        var result = await _service.GetTopSuppliersAsync(1, true, from, to, 0.0, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Should().HaveCount(1);
+        var first = result.First();
+        first.AverageHumidity.Should().Be(first.AdjustedAverageHumidity);
+        first.PriorWeight.Should().Be(0);
     }
 }

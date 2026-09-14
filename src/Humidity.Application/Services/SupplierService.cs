@@ -87,20 +87,27 @@ public class SupplierService : ISupplierService
     }
 
     /// <summary>
-    /// Получить топ-N поставщиков по средней влажности за период.
+    /// Получить топ-N поставщиков по средней влажности за период с байесовской коррекцией.
     /// </summary>
     public async Task<IEnumerable<SupplierDto>> GetTopSuppliersAsync(
         int top,
         bool ascending,
         DateTimeOffset from,
         DateTimeOffset to,
+        double priorWeight,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Запрос топ-{Top} поставщиков за период с {From} по {To}, сортировка: {Ascending}",
-            top, from, to, ascending ? "по возрастанию (хорошие)" : "по убыванию (плохие)");
+        _logger.LogInformation(
+            "Запрос топ-{Top} поставщиков за период с {From} по {To}, сортировка: {Ascending}, priorWeight={PriorWeight}",
+            top, from, to,
+            ascending ? "по возрастанию (хорошие)" : "по убыванию (плохие)",
+            priorWeight);
 
-        var result = await _measurementRepository.GetTopSuppliersAsync(top, ascending, from, to, cancellationToken);
-        _logger.LogInformation("Получено {Count} поставщиков", result.Count());
+        var result = await _measurementRepository.GetTopSuppliersAsync(
+            top, ascending, from, to, priorWeight, cancellationToken);
+
+        _logger.LogInformation("Получено {Count} поставщиков (байесовская коррекция: priorWeight={PriorWeight})",
+            result.Count(), priorWeight);
         return result;
     }
 }

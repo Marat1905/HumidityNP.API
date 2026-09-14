@@ -156,6 +156,7 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
 
     /// <summary>
     /// Получить сводку по поставщикам (группировка по ИНН) за период с пагинацией.
+    /// Использует наивную среднюю влажность (AverageHumidity).
     /// </summary>
     Task<PagedResult<SupplierDto>> GetSuppliersSummaryAsync(
         DateTimeOffset from,
@@ -205,18 +206,47 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Получить топ-N поставщиков по средней влажности за период.
+    /// Получить топ-N поставщиков по средней влажности за период с байесовской коррекцией.
+    ///
+    /// БАЙЕСОВСКАЯ КОРРЕКЦИЯ:
+    /// Наивная средняя влажности поставщика (sum / n) плохо работает при малом количестве
+    /// замеров — поставщик с 3 замерами может случайно оказаться «лучшим», а с 100 —
+    /// «средним». Чтобы избежать такой нестабильности, применяем credibility adjustment:
+    ///
+    ///     adjusted_i = (C * m + sum_i) / (C + n_i)
+    ///
+    /// где:
+    ///   - sum_i — сумма влажностей у поставщика i за период;
+    ///   - n_i   — количество замеров у поставщика i за период;
+    ///   - m     — глобальная средняя влажность по всем замерам за период (prior mean);
+    ///   - C     — вес prior (priorWeight), «сколько виртуальных замеров со средней m»
+    ///             добавляется к каждому поставщику.
+    ///
+    /// Чем меньше замеров у поставщика, тем сильнее его средняя тянется к глобальной m.
+    /// Чем больше замеров, тем меньше коррекция влияет на значение.
+    ///
+    /// Типичные значения C:
+    ///   - 0   — коррекция отключена (используется наивная средняя);
+    ///   - 10  — слабая коррекция;
+    ///   - 30  — умеренная (значение по умолчанию);
+    ///   - 100 — сильная (нужно много замеров, чтобы «перебить» prior).
+    ///
+    /// Сортировка выполняется по скорректированной средней (AdjustedAverageHumidity):
+    ///   - ascending = true  → по возрастанию (хорошие, низкая влажность сверху);
+    ///   - ascending = false → по убыванию (плохие, высокая влажность сверху).
     /// </summary>
-    /// <param name="top">Количество записей в топе.</param>
-    /// <param name="ascending">true — наименьшая влажность (хорошие), false — наибольшая (плохие).</param>
+    /// <param name="top">Количество записей в топе (максимум 100).</param>
+    /// <param name="ascending">true — низкая влажность сверху (хорошие), false — высокая (плохие).</param>
     /// <param name="from">Начало периода (включительно).</param>
     /// <param name="to">Конец периода (включительно).</param>
+    /// <param name="priorWeight">Вес prior (C) для байесовской коррекции. 0 — без коррекции.</param>
     /// <param name="cancellationToken">Токен отмены.</param>
-    /// <returns>Список DTO поставщиков с агрегированными данными.</returns>
+    /// <returns>Список DTO поставщиков с наивной и скорректированной средней влажностью.</returns>
     Task<IEnumerable<SupplierDto>> GetTopSuppliersAsync(
         int top,
         bool ascending,
         DateTimeOffset from,
         DateTimeOffset to,
+        double priorWeight = 30,
         CancellationToken cancellationToken = default);
 }

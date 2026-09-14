@@ -6,6 +6,17 @@ interface SuppliersTableProps {
     rankType: 'good' | 'bad';
 }
 
+/**
+ * Таблица поставщиков для топа.
+ *
+ * Показывает ДВА значения влажности:
+ *   - «Средняя (сырая)» — наивная средняя AverageHumidity (sum / count);
+ *   - «Скорректированная» — байесовски сглаженная AdjustedAverageHumidity,
+ *     по которой и построен топ.
+ *
+ * Разница между ними тем заметнее, чем меньше замеров у поставщика:
+ * у поставщиков с малым n сырая средняя сильно «подтянута» к глобальной.
+ */
 const SuppliersTable: React.FC<SuppliersTableProps> = ({ suppliers, rankType }) => {
     // ИСПРАВЛЕНИЕ: безопасная обработка пропса suppliers на случай, если он не является массивом
     const safeSuppliers = Array.isArray(suppliers) ? suppliers : [];
@@ -32,64 +43,93 @@ const SuppliersTable: React.FC<SuppliersTableProps> = ({ suppliers, rankType }) 
         );
     }
 
+    // Верхняя строка с параметрами коррекции (если они были применены).
+    // Значения одинаковые для всех строк, поэтому берём из первого элемента.
+    const priorWeight = safeSuppliers[0]?.priorWeight ?? 0;
+    const globalAvg = safeSuppliers[0]?.globalAverageHumidity ?? null;
+
     return (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-800">
-                    <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            №
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Поставщик
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Средняя влажность
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Замеров
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Всего машин
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Машин с замерами
-                        </th>
-                    </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                    {safeSuppliers.map((supplier, index) => (
-                        <tr
-                            key={supplier.inn}
-                            className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition ${getRowColor(index)}`}
-                        >
-                            <td className="px-4 py-3 text-sm font-bold text-gray-700 dark:text-gray-300">
-                                {index + 1}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                <div>
-                                    <div className="font-medium">{supplier.counterparty}</div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">ИНН: {supplier.inn}</div>
-                                </div>
-                            </td>
-                            <td className="px-4 py-3 text-sm font-semibold">
-                                <span className={rankType === 'good' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
-                                    {supplier.averageHumidity !== null ? supplier.averageHumidity.toFixed(1) + '%' : '—'}
-                                </span>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                {supplier.totalMeasurements}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                {supplier.vehiclesCount}
-                            </td>
-                            <td className="px-4 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                                {supplier.measuredVehiclesCount ?? 0}
-                            </td>
+        <div className="space-y-2">
+            {/* Информация о параметрах коррекции */}
+            {priorWeight > 0 && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 px-1">
+                    Байесовская коррекция: <span className="font-medium">C = {priorWeight}</span>
+                    {globalAvg !== null && (
+                        <>
+                            , глобальная средняя: <span className="font-medium">{globalAvg.toFixed(1)}%</span>
+                        </>
+                    )}
+                </div>
+            )}
+
+            <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                №
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Поставщик
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Скорректированная средняя
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Средняя (сырая)
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Замеров
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Всего машин
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Машин с замерами
+                            </th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                        {safeSuppliers.map((supplier, index) => (
+                            <tr
+                                key={supplier.inn}
+                                className={`hover:bg-gray-50 dark:hover:bg-gray-800 transition ${getRowColor(index)}`}
+                            >
+                                <td className="px-4 py-3 text-sm font-bold text-gray-700 dark:text-gray-300">
+                                    {index + 1}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                    <div>
+                                        <div className="font-medium">{supplier.counterparty}</div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">ИНН: {supplier.inn}</div>
+                                    </div>
+                                </td>
+                                <td className="px-4 py-3 text-sm font-semibold">
+                                    <span className={rankType === 'good' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                                        {supplier.adjustedAverageHumidity !== null
+                                            ? supplier.adjustedAverageHumidity.toFixed(1) + '%'
+                                            : '—'}
+                                    </span>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                    {supplier.averageHumidity !== null
+                                        ? supplier.averageHumidity.toFixed(1) + '%'
+                                        : '—'}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                    {supplier.totalMeasurements}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                    {supplier.vehiclesCount}
+                                </td>
+                                <td className="px-4 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                                    {supplier.measuredVehiclesCount ?? 0}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 };

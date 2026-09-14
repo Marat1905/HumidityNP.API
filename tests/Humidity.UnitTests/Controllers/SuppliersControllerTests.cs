@@ -76,15 +76,11 @@ public class SuppliersControllerTests
         var from = DateTimeOffset.UtcNow.AddDays(-7);
         var to = DateTimeOffset.UtcNow;
 
-        // Параметры пагинации и сортировки, которые тест передаёт в контроллер.
-        // order = "desc" означает сортировку по EntryDate по убыванию (новые сверху).
         var pageNumber = 1;
         var pageSize = 10;
         var order = "desc";
         var sortDescending = true; // "desc" → sortDescending = true
 
-        // SupplierDetailsDto.Vehicles теперь PagedResult<SupplierVehicleSummaryDto>,
-        // так как пагинация и сортировка выполняются на стороне сервера.
         var details = new SupplierDetailsDto
         {
             Inn = inn,
@@ -119,13 +115,7 @@ public class SuppliersControllerTests
 
         _supplierServiceMock
             .Setup(s => s.GetSupplierDetailsAsync(
-                inn,
-                from,
-                to,
-                pageNumber,
-                pageSize,
-                sortDescending,
-                It.IsAny<CancellationToken>()))
+                inn, from, to, pageNumber, pageSize, sortDescending, It.IsAny<CancellationToken>()))
             .ReturnsAsync(details);
 
         // Act
@@ -149,15 +139,13 @@ public class SuppliersControllerTests
         var order = "desc";
         var sortDescending = true;
 
-        // Пограничный случай: у поставщика нет машин за период.
-        // Контроллер ориентируется на TotalCount == 0, чтобы вернуть 404.
         var details = new SupplierDetailsDto
         {
             Inn = inn,
             Counterparty = "Test Supplier LLC",
             Vehicles = new PagedResult<SupplierVehicleSummaryDto>
             {
-                Items = new List<SupplierVehicleSummaryDto>(), // Пустой список машин
+                Items = new List<SupplierVehicleSummaryDto>(),
                 TotalCount = 0,
                 PageNumber = pageNumber,
                 PageSize = pageSize,
@@ -168,13 +156,7 @@ public class SuppliersControllerTests
 
         _supplierServiceMock
             .Setup(s => s.GetSupplierDetailsAsync(
-                inn,
-                from,
-                to,
-                pageNumber,
-                pageSize,
-                sortDescending,
-                It.IsAny<CancellationToken>()))
+                inn, from, to, pageNumber, pageSize, sortDescending, It.IsAny<CancellationToken>()))
             .ReturnsAsync(details);
 
         // Act
@@ -192,7 +174,7 @@ public class SuppliersControllerTests
         var from = DateTimeOffset.UtcNow.AddDays(-7);
         var to = DateTimeOffset.UtcNow;
         var order = "desc";
-        var sortDescending = true; // "desc" → sortDescending = true
+        var sortDescending = true;
 
         var chartData = new List<SupplierVehicleSummaryDto>
         {
@@ -209,30 +191,12 @@ public class SuppliersControllerTests
                 AutoCount = 2,
                 ManualCount = 1,
                 LastMeasurementTimestamp = DateTimeOffset.UtcNow.AddHours(-1)
-            },
-            new SupplierVehicleSummaryDto
-            {
-                VehicleId = Guid.NewGuid(),
-                Number = "V002",
-                VehiclePlate = "B456CD",
-                EntryDate = DateTimeOffset.UtcNow.AddDays(-4),
-                MeasurementsCount = 2,
-                AverageHumidity = 13.0,
-                MinHumidity = 11.0,
-                MaxHumidity = 15.0,
-                AutoCount = 1,
-                ManualCount = 1,
-                LastMeasurementTimestamp = DateTimeOffset.UtcNow.AddHours(-3)
             }
         };
 
         _supplierServiceMock
             .Setup(s => s.GetSupplierVehiclesForChartAsync(
-                inn,
-                from,
-                to,
-                sortDescending,
-                It.IsAny<CancellationToken>()))
+                inn, from, to, sortDescending, It.IsAny<CancellationToken>()))
             .ReturnsAsync(chartData);
 
         // Act
@@ -250,6 +214,8 @@ public class SuppliersControllerTests
         // Arrange
         var from = DateTimeOffset.UtcNow.AddDays(-7);
         var to = DateTimeOffset.UtcNow;
+        var priorWeight = 30.0;
+
         var topSuppliers = new List<SupplierDto>
         {
             new SupplierDto
@@ -259,21 +225,51 @@ public class SuppliersControllerTests
                 VehiclesCount = 10,
                 TotalMeasurements = 50,
                 AverageHumidity = 12.5,
+                AdjustedAverageHumidity = 12.9, // слегка подтянута к глобальной
+                PriorWeight = priorWeight,
+                GlobalAverageHumidity = 13.5,
                 MinHumidity = 8.0,
                 MaxHumidity = 17.0
             }
         };
 
         _supplierServiceMock
-            .Setup(s => s.GetTopSuppliersAsync(10, true, from, to, It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetTopSuppliersAsync(10, true, from, to, priorWeight, It.IsAny<CancellationToken>()))
             .ReturnsAsync(topSuppliers);
 
         // Act
-        var result = await _controller.GetTopSuppliers(from, to, 10, "asc");
+        var result = await _controller.GetTopSuppliers(from, to, 10, "asc", priorWeight);
 
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.StatusCode.Should().Be(200);
         okResult.Value.Should().BeEquivalentTo(topSuppliers);
+
+        // Проверяем, что контроллер пробросил priorWeight в сервис без изменений.
+        _supplierServiceMock.Verify(
+            s => s.GetTopSuppliersAsync(10, true, from, to, priorWeight, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetTopSuppliers_WithNegativePriorWeight_ClampsToZero()
+    {
+        // Arrange
+        var from = DateTimeOffset.UtcNow.AddDays(-7);
+        var to = DateTimeOffset.UtcNow;
+        var requestedPriorWeight = -50.0;
+        var clampedPriorWeight = 0.0;
+
+        _supplierServiceMock
+            .Setup(s => s.GetTopSuppliersAsync(5, true, from, to, clampedPriorWeight, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<SupplierDto>());
+
+        // Act
+        await _controller.GetTopSuppliers(from, to, 5, "asc", requestedPriorWeight);
+
+        // Assert: контроллер должен был «зажать» отрицательный вес до 0.
+        _supplierServiceMock.Verify(
+            s => s.GetTopSuppliersAsync(5, true, from, to, clampedPriorWeight, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 }

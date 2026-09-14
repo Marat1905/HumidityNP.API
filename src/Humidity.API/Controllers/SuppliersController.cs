@@ -102,25 +102,55 @@ public class SuppliersController : ControllerBase
     }
 
     /// <summary>
-    /// Получить топ-N поставщиков по средней влажности за период.
+    /// Получить топ-N поставщиков по средней влажности за период с байесовской коррекцией.
+    ///
+    /// БАЙЕСОВСКАЯ КОРРЕКЦИЯ:
+    /// Наивная средняя влажности плохо работает при малом числе замеров: поставщик с 3 замерами
+    /// может случайно оказаться «лучшим», а с 100 — «средним». Чтобы избежать этого, применяется
+    /// credibility adjustment:
+    ///
+    ///     adjusted_i = (C * m + sum_i) / (C + n_i)
+    ///
+    /// где:
+    ///   - m — глобальная средняя влажность по всем замерам за период;
+    ///   - C — priorWeight (вес prior, «сколько виртуальных замеров со средней m»);
+    ///   - sum_i — сумма влажностей у поставщика i;
+    ///   - n_i — количество замеров у поставщика i.
+    ///
+    /// Чем меньше замеров у поставщика, тем сильнее его средняя тянется к m.
     /// </summary>
     /// <param name="from">Начало периода (включительно).</param>
     /// <param name="to">Конец периода (включительно).</param>
-    /// <param name="top">Количество поставщиков в топе (по умолчанию 10).</param>
+    /// <param name="top">Количество поставщиков в топе (по умолчанию 10, максимум 100).</param>
     /// <param name="order">Порядок сортировки: 'asc' — хорошие (низкая влажность), 'desc' — плохие (высокая).</param>
+    /// <param name="priorWeight">
+    /// Вес prior для байесовской коррекции. Значение по умолчанию — 30.
+    /// Допустимые значения: 0 (без коррекции), 10 (слабая), 30 (умеренная), 100 (сильная).
+    /// Ограничивается диапазоном [0; 1000].
+    /// </param>
     [HttpGet("top")]
     [ProducesResponseType(typeof(IEnumerable<SupplierDto>), 200)]
     public async Task<IActionResult> GetTopSuppliers(
         [FromQuery] DateTimeOffset from,
         [FromQuery] DateTimeOffset to,
         [FromQuery] int top = 10,
-        [FromQuery] string order = "asc")
+        [FromQuery] string order = "asc",
+        [FromQuery] double priorWeight = 30)
     {
         if (top < 1) top = 1;
         if (top > 100) top = 100;
 
+        // Ограничиваем priorWeight разумными рамками.
+        // Отрицательный вес не имеет смысла (увеличивал бы разброс),
+        // слишком большой (тысячи) — превращает все средние в глобальную m, топ становится бесполезным.
+        if (priorWeight < 0) priorWeight = 0;
+        if (priorWeight > 1000) priorWeight = 1000;
+
         bool ascending = order?.ToLower() == "asc";
-        var result = await _supplierService.GetTopSuppliersAsync(top, ascending, from, to, HttpContext.RequestAborted);
+
+        var result = await _supplierService.GetTopSuppliersAsync(
+            top, ascending, from, to, priorWeight, HttpContext.RequestAborted);
+
         return Ok(result);
     }
 }

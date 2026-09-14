@@ -54,18 +54,31 @@ public interface ISupplierService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Получить топ-N поставщиков по средней влажности за период.
+    /// Получить топ-N поставщиков по средней влажности за период с байесовской коррекцией.
+    ///
+    /// Байесовская коррекция (credibility adjustment) сглаживает средние у поставщиков
+    /// с малым количеством замеров: их средняя «тянется» к глобальной средней m по формуле
+    ///     adjusted = (C * m + sum) / (C + n)
+    /// где C — priorWeight, n — количество замеров у поставщика, sum — сумма влажностей.
+    ///
+    /// Параметр priorWeight задаёт силу сглаживания:
+    ///   - 0   — коррекция отключена (наивная средняя);
+    ///   - 10  — слабая;
+    ///   - 30  — умеренная (по умолчанию);
+    ///   - 100 — сильная.
     /// </summary>
-    /// <param name="top">Количество записей.</param>
+    /// <param name="top">Количество записей в топе (максимум 100).</param>
     /// <param name="ascending">true — хорошие (низкая влажность), false — плохие (высокая).</param>
     /// <param name="from">Начало периода.</param>
     /// <param name="to">Конец периода.</param>
+    /// <param name="priorWeight">Вес prior (C) для байесовской коррекции.</param>
     /// <param name="cancellationToken">Токен отмены.</param>
-    /// <returns>Список DTO поставщиков.</returns>
+    /// <returns>Список DTO поставщиков с наивной и скорректированной средней влажностью.</returns>
     Task<IEnumerable<SupplierDto>> GetTopSuppliersAsync(
         int top,
         bool ascending,
         DateTimeOffset from,
         DateTimeOffset to,
+        double priorWeight,
         CancellationToken cancellationToken = default);
 }

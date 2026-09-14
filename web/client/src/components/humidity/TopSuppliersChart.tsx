@@ -20,13 +20,24 @@ interface TopSuppliersChartProps {
     maxItems?: number;
 }
 
+/**
+ * График топ-поставщиков.
+ *
+ * Отображает:
+ *   - столбцы диапазона влажности (min–max) для каждого поставщика;
+ *   - линию по скорректированной средней (AdjustedAverageHumidity),
+ *     именно по ней и отсортирован топ.
+ *
+ * В тултипе дополнительно показывается «сырая» средняя (AverageHumidity)
+ * и количество замеров, чтобы было видно, насколько байесовская коррекция
+ * изменила значение.
+ */
 const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
     suppliers,
     rankType,
     maxItems = 20,
 }) => {
-    // ИСПРАВЛЕНИЕ: добавлена проверка Array.isArray, чтобы displayData всегда был массивом,
-    // даже если в пропс suppliers пришло undefined, null или объект вместо массива.
+    // ИСПРАВЛЕНИЕ: добавлена проверка Array.isArray, чтобы displayData всегда был массивом.
     const displayData = useMemo(() => {
         if (!Array.isArray(suppliers)) {
             return [];
@@ -55,11 +66,16 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
         inn: supplier.inn,
         min: supplier.minHumidity ?? 0,
         max: supplier.maxHumidity ?? 0,
-        average: supplier.averageHumidity ?? 0,
+        // Скорректированная средняя — по ней строится линия.
+        adjusted: supplier.adjustedAverageHumidity ?? 0,
+        // Наивная средняя — показывается в тултипе для сравнения.
+        naive: supplier.averageHumidity ?? 0,
         range: [supplier.minHumidity ?? 0, supplier.maxHumidity ?? 0],
         measurements: supplier.totalMeasurements,
         vehicles: supplier.vehiclesCount,
         measuredVehicles: supplier.measuredVehiclesCount,
+        priorWeight: supplier.priorWeight,
+        globalAvg: supplier.globalAverageHumidity,
     }));
 
     const getBarColor = (index: number, total: number) => {
@@ -78,6 +94,10 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
     const CustomTooltip = ({ active, payload }: any) => {
         if (!active || !payload || payload.length === 0) return null;
         const data = payload[0].payload;
+
+        // Разница между наивной и скорректированной средней —
+        // показывает, насколько байесовское сглаживание изменило значение.
+        const delta = data.adjusted - data.naive;
 
         return (
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-4 max-w-xs">
@@ -105,12 +125,24 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
                             {data.min.toFixed(1)}% – {data.max.toFixed(1)}%
                         </span>
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 col-span-2">
                         <Droplet className="w-4 h-4 text-blue-500" />
-                        <span className="text-gray-600 dark:text-gray-300">Средняя:</span>
+                        <span className="text-gray-600 dark:text-gray-300">Скорректированная:</span>
                         <span className="font-bold text-gray-900 dark:text-white">
-                            {data.average.toFixed(1)}%
+                            {data.adjusted.toFixed(1)}%
                         </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 col-span-2">
+                        <Droplet className="w-4 h-4 text-gray-400" />
+                        <span className="text-gray-600 dark:text-gray-300">Сырая средняя:</span>
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                            {data.naive.toFixed(1)}%
+                        </span>
+                        {Math.abs(delta) > 0.05 && (
+                            <span className={`text-xs font-medium ${delta > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                ({delta > 0 ? '+' : ''}{delta.toFixed(1)}%)
+                            </span>
+                        )}
                     </div>
                     <div className="flex items-center gap-1.5">
                         <Activity className="w-4 h-4 text-indigo-500" />
@@ -178,7 +210,7 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
                         iconType="circle"
                         formatter={(value) => {
                             if (value === 'range') return 'Диапазон влажности (мин–макс)';
-                            if (value === 'average') return 'Среднее значение';
+                            if (value === 'adjusted') return 'Скорректированная средняя (байесовская)';
                             return value;
                         }}
                     />
@@ -199,8 +231,8 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
                     </Bar>
                     <Line
                         type="monotone"
-                        dataKey="average"
-                        name="average"
+                        dataKey="adjusted"
+                        name="adjusted"
                         stroke="#f59e0b"
                         strokeWidth={2}
                         dot={{ r: 4, fill: '#f59e0b' }}
@@ -209,7 +241,7 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
                 </ComposedChart>
             </ResponsiveContainer>
             <div className="mt-3 flex flex-wrap items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                <span>Столбцы – диапазон влажности (мин–макс), линия с точками – среднее значение.</span>
+                <span>Столбцы – диапазон влажности (мин–макс), линия с точками – скорректированная средняя.</span>
                 <span className="flex items-center gap-2">
                     <span className="inline-block w-3 h-3 rounded-full bg-gradient-to-r from-green-400 to-red-400" />
                     Цвет столбцов зависит от позиции в топе

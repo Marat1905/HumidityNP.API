@@ -5,6 +5,9 @@ namespace Humidity.Application.Interfaces;
 
 /// <summary>
 /// Сервис для управления записями о замерах влажности (CRUD).
+///
+/// Отвечает только за CRUD-операции над замерами и отчёты, построенные на них.
+/// Аналитика по поставщикам (включая топ) — зона ответственности ISupplierService.
 /// </summary>
 public interface IMeasurementService
 {
@@ -156,21 +159,5 @@ public interface IMeasurementService
         bool sortDescending,
         int pageNumber,
         int pageSize,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Получить топ-N поставщиков по средней влажности за период.
-    /// </summary>
-    /// <param name="top">Количество записей.</param>
-    /// <param name="ascending">true — хорошие (низкая влажность), false — плохие (высокая).</param>
-    /// <param name="from">Начало периода.</param>
-    /// <param name="to">Конец периода.</param>
-    /// <param name="cancellationToken">Токен отмены.</param>
-    /// <returns>Список DTO поставщиков.</returns>
-    Task<IEnumerable<SupplierDto>> GetTopSuppliersAsync(
-        int top,
-        bool ascending,
-        DateTimeOffset from,
-        DateTimeOffset to,
         CancellationToken cancellationToken = default);
 }

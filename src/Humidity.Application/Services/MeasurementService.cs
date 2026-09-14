@@ -11,6 +11,9 @@ namespace Humidity.Application.Services;
 
 /// <summary>
 /// Реализация сервиса для управления замерами влажности.
+///
+/// Отвечает только за CRUD-операции над замерами и отчёты, построенные на них.
+/// Аналитика по поставщикам (включая топ) — зона ответственности SupplierService.
 /// </summary>
 public class MeasurementService : IMeasurementService
 {
@@ -368,24 +371,6 @@ public class MeasurementService : IMeasurementService
             "Отчёт за период сформирован: {Count} машин на странице (всего {TotalCount}), замеров всего {TotalMeasurements}",
             result.Vehicles.Items.Count(), result.Vehicles.TotalCount, result.Summary.TotalMeasurements);
 
-        return result;
-    }
-
-    /// <summary>
-    /// Получить топ-N поставщиков по средней влажности за период.
-    /// </summary>
-    public async Task<IEnumerable<SupplierDto>> GetTopSuppliersAsync(
-        int top,
-        bool ascending,
-        DateTimeOffset from,
-        DateTimeOffset to,
-        CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("Запрос топ-{Top} поставщиков за период с {From} по {To}, сортировка: {Ascending}",
-            top, from, to, ascending ? "по возрастанию (хорошие)" : "по убыванию (плохие)");
-
-        var result = await _repository.GetTopSuppliersAsync(top, ascending, from, to, cancellationToken);
-        _logger.LogInformation("Получено {Count} поставщиков", result.Count());
         return result;
     }
 }

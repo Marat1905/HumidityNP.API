@@ -167,7 +167,8 @@ export const measurementService = {
 
 export const supplierService = {
     /**
-     * Получить список поставщиков с агрегацией за период.
+     * Получить список поставщиков с агрегацией за период (пагинированный).
+     * Используется наивная средняя влажность (AverageHumidity).
      */
     async getSuppliers(
         from: string,
@@ -228,20 +229,24 @@ export const supplierService = {
     },
 
     /**
-     * Получить топ-N поставщиков по средней влажности за период.
+     * Получить топ-N поставщиков по средней влажности за период с байесовской коррекцией.
+     *
      * @param from Начало периода (ISO-строка).
      * @param to Конец периода (ISO-строка).
-     * @param top Количество записей.
+     * @param top Количество записей в топе.
      * @param order 'asc' — хорошие (низкая влажность), 'desc' — плохие (высокая).
+     * @param priorWeight Вес prior (C) для байесовской коррекции. По умолчанию 30.
+     *                    Значения: 0 — без коррекции, 10 — слабая, 30 — умеренная, 100 — сильная.
      */
     async getTopSuppliers(
         from: string,
         to: string,
         top = 10,
-        order: 'asc' | 'desc' = 'asc'
+        order: 'asc' | 'desc' = 'asc',
+        priorWeight = 30
     ): Promise<SupplierDto[]> {
         const response = await apiClient.get('/suppliers/top', {
-            params: { from, to, top, order }
+            params: { from, to, top, order, priorWeight }
         });
         return response.data;
     }
