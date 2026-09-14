@@ -23,9 +23,6 @@ import {
     Calendar,
     Car,
     Gauge,
-    Users,
-    FileText,
-    Box,
     BarChart3,
     TrendingUp,
     TrendingDown,
@@ -467,8 +464,17 @@ export default function VehiclesPage() {
 
     return (
         <div>
-            {/* Блок фильтров — всегда виден, сворачивается только по кнопке пользователя */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 mb-6 transition-all">
+            {/* Заголовок вкладки — отдельно над панелью, как в других вкладках */}
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                Машины
+                <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+                    ({totalCount} записей)
+                </span>
+            </h2>
+
+            {/* Панель фильтров — в стиле «Отчёта за период»:
+                отдельная карточка с рамкой, фоном, скруглением и лёгкой тенью. */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6 transition-all">
                 <div
                     className="flex items-center justify-between cursor-pointer select-none"
                     onClick={toggleFilters}
@@ -662,13 +668,8 @@ export default function VehiclesPage() {
                 )}
             </div>
 
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Машины
-                    <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
-                        ({totalCount} записей)
-                    </span>
-                </h2>
+            {/* Строка с переключателем вида — отдельно, чтобы не смешивать с фильтрами */}
+            <div className="flex items-center justify-end mb-4">
                 <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">Вид:</span>
                     <button
