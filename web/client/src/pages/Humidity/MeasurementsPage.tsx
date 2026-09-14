@@ -1,0 +1,298 @@
+import { useState, useEffect } from 'react';
+import { format, subDays } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import { Pencil, Trash2, RotateCcw } from 'lucide-react';
+import { useMeasurementsByDateRange } from '../../hooks/humidity';
+import { SkeletonTable, Pagination, RangeDatePicker } from '../../components/common';
+import { DeleteConfirmationModal, MeasurementFormModal } from '../../components/humidity';
+import { measurementService } from '../../services/humidity/api';
+import toast from 'react-hot-toast';
+import type { MeasurementDto, SignType, MeasurementSource } from '../../types/humidity';
+import { useAuth } from '../../context/AuthContext';
+
+export default function MeasurementsPage() {
+    // Количество дней по умолчанию для отображения (последние 2 недели)
+    const DEFAULT_DAYS = 14;
+
+    // Состояния для выбора диапазона дат (храним объекты Date)
+    const [startDate, setStartDate] = useState<Date | null>(null);
+    const [endDate, setEndDate] = useState<Date | null>(null);
+
+    // При монтировании устанавливаем диапазон по умолчанию (последние 14 дней)
+    useEffect(() => {
+        const now = new Date();
+        const from = subDays(now, DEFAULT_DAYS);
+        setStartDate(from);
+        setEndDate(now);
+    }, []);
+
+    const handleDateRangeChange = (dates: [Date | null, Date | null]) => {
+        const [start, end] = dates;
+        setStartDate(start);
+        setEndDate(end);
+        setPageNumber(1); // сброс пагинации
+    };
+
+    // Сброс фильтра – возвращаем к диапазону по умолчанию (последние 14 дней)
+    const resetFilter = () => {
+        const now = new Date();
+        const from = subDays(now, DEFAULT_DAYS);
+        setStartDate(from);
+        setEndDate(now);
+        setPageNumber(1);
+    };
+
+    const [pageNumber, setPageNumber] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+
+    const { data, loading, error, refetch } = useMeasurementsByDateRange(
+        startDate,
+        endDate,
+        pageNumber,
+        pageSize
+    );
+
+    const [editMeasurement, setEditMeasurement] = useState<MeasurementDto | null>(null);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+
+    const { isAdminOrTcx } = useAuth();
+
+    const handleDelete = async () => {
+        if (!deleteId) return;
+        try {
+            await measurementService.delete(deleteId);
+            toast.success('Замер удалён');
+            refetch();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Ошибка удаления');
+        } finally {
+            setDeleteId(null);
+        }
+    };
+
+    const getSignSymbol = (sign: SignType) => {
+        switch (sign) {
+            case 'Less': return '<';
+            case 'Greater': return '>';
+            default: return '';
+        }
+    };
+
+    const getSourceLabel = (source: MeasurementSource) => {
+        return source === 'Auto' ? 'Авто' : 'Ручной';
+    };
+
+    // --- Обработка состояний ---
+
+    // 1. Загрузка
+    if (loading) return <SkeletonTable rows={5} columns={isAdminOrTcx ? 7 : 6} />;
+
+    // 2. Ошибка
+    if (error) return <div className="text-red-500 text-center py-10">{error.message}</div>;
+
+    // 3. Данные загружены, но их нет (пустой результат)
+    // При этом фильтры остаются видимыми и доступными.
+    const items = data?.items ?? [];
+    const totalCount = data?.totalCount ?? 0;
+    const totalPages = data?.totalPages ?? 0;
+
+    // Если данные ещё не выбраны (startDate или endDate === null) — показываем подсказку
+    if (!startDate || !endDate) {
+        return (
+            <div>
+                {/* Заголовок вкладки — отдельно, как в других обновлённых вкладках */}
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                    Все замеры
+                </h2>
+
+                {/* Панель фильтров — в стиле «Отчёта за период». */}
+                <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Период:</span>
+                        <div className="w-64">
+                            <RangeDatePicker
+                                startDate={startDate}
+                                endDate={endDate}
+                                onChange={handleDateRangeChange}
+                                size="md"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+                    <p>Выберите диапазон дат для отображения замеров.</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div>
+            {/* Заголовок вкладки — отдельно, как в других обновлённых вкладках */}
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                Все замеры
+            </h2>
+
+            {/* Панель фильтров — в стиле «Отчёта за период»:
+                отдельная карточка с рамкой, фоном, скруглением и лёгкой тенью.
+                Внутри — информация о выбранном периоде, выбор диапазона дат и кнопка сброса. */}
+            <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                {/* Текстовая информация о текущем периоде */}
+                <div className="text-sm text-gray-600 dark:text-gray-300">
+                    Показаны замеры с{' '}
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                        {format(startDate, 'dd.MM.yyyy')}
+                    </span>{' '}
+                    по{' '}
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                        {format(endDate, 'dd.MM.yyyy')}
+                    </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Период:</span>
+                    <div className="w-64">
+                        <RangeDatePicker
+                            startDate={startDate}
+                            endDate={endDate}
+                            onChange={handleDateRangeChange}
+                            size="md"
+                        />
+                    </div>
+                </div>
+
+                <button
+                    onClick={resetFilter}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                    title="Сбросить фильтр к последним 14 дням"
+                >
+                    <RotateCcw className="w-4 h-4" />
+                    Сбросить
+                </button>
+            </div>
+
+            {/* --- Отображение данных или сообщение об их отсутствии --- */}
+            {items.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
+                    <RotateCcw className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                    <p className="text-lg font-medium">Нет замеров</p>
+                    <p className="text-sm mt-1">За выбранный период замеры не найдены</p>
+                    <button
+                        onClick={resetFilter}
+                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                        Сбросить фильтр
+                    </button>
+                </div>
+            ) : (
+                <>
+                    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead className="bg-gray-50 dark:bg-gray-800">
+                                <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Время
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Машина
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Влажность
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Температура
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Материал
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Источник
+                                    </th>
+                                    {isAdminOrTcx && (
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Действия
+                                        </th>
+                                    )}
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                                {items.map((m) => (
+                                    <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                                            {format(new Date(m.timestamp), 'dd MMM yyyy HH:mm', { locale: ru })}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                            {m.vehicleNumber} ({m.vehiclePlate})
+                                        </td>
+                                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                                            {m.displayValue}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                            {m.temperatureC.toFixed(1)} °C
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                            {m.material ?? '—'}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                            {getSourceLabel(m.source)}
+                                        </td>
+                                        {isAdminOrTcx && (
+                                            <td className="px-4 py-3 text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        onClick={() => setEditMeasurement(m)}
+                                                        className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setDeleteId(m.id)}
+                                                        className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        )}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <Pagination
+                        currentPage={pageNumber}
+                        totalPages={totalPages}
+                        onPageChange={setPageNumber}
+                        pageSize={pageSize}
+                        onPageSizeChange={(size) => { setPageSize(size); setPageNumber(1); }}
+                        totalCount={totalCount}
+                    />
+                </>
+            )}
+
+            {/* Модалка редактирования замера */}
+            {editMeasurement && (
+                <MeasurementFormModal
+                    isOpen={true}
+                    onClose={() => setEditMeasurement(null)}
+                    onSuccess={() => {
+                        refetch();
+                        setEditMeasurement(null);
+                    }}
+                    vehicleId={editMeasurement.vehicleId}
+                    measurement={editMeasurement}
+                />
+            )}
+
+            <DeleteConfirmationModal
+                isOpen={!!deleteId}
+                onClose={() => setDeleteId(null)}
+                onConfirm={handleDelete}
+                message="Вы уверены, что хотите удалить этот замер?"
+            />
+        </div>
+    );
+}
