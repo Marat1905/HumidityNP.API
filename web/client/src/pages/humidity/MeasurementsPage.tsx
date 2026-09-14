@@ -99,15 +99,29 @@ export default function MeasurementsPage() {
     // Если данные ещё не выбраны (startDate или endDate === null) — показываем подсказку
     if (!startDate || !endDate) {
         return (
-            <div className="text-center py-10 text-gray-500 dark:text-gray-400">
-                <p>Выберите диапазон дат для отображения замеров.</p>
-                <div className="mt-4 max-w-xs mx-auto">
-                    <RangeDatePicker
-                        startDate={startDate}
-                        endDate={endDate}
-                        onChange={handleDateRangeChange}
-                        size="md"
-                    />
+            <div>
+                {/* Заголовок вкладки — отдельно, как в других обновлённых вкладках */}
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                    Все замеры
+                </h2>
+
+                {/* Панель фильтров — в стиле «Отчёта за период». */}
+                <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Период:</span>
+                        <div className="w-64">
+                            <RangeDatePicker
+                                startDate={startDate}
+                                endDate={endDate}
+                                onChange={handleDateRangeChange}
+                                size="md"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+                    <p>Выберите диапазон дат для отображения замеров.</p>
                 </div>
             </div>
         );
@@ -115,29 +129,47 @@ export default function MeasurementsPage() {
 
     return (
         <div>
-            {/* Фильтр по дате – пикер и кнопка справа */}
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                    Показаны замеры с {format(startDate, 'dd.MM.yyyy')} по {format(endDate, 'dd.MM.yyyy')}
-                </span>
+            {/* Заголовок вкладки — отдельно, как в других обновлённых вкладках */}
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                Все замеры
+            </h2>
+
+            {/* Панель фильтров — в стиле «Отчёта за период»:
+                отдельная карточка с рамкой, фоном, скруглением и лёгкой тенью.
+                Внутри — информация о выбранном периоде, выбор диапазона дат и кнопка сброса. */}
+            <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                {/* Текстовая информация о текущем периоде */}
+                <div className="text-sm text-gray-600 dark:text-gray-300">
+                    Показаны замеры с{' '}
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                        {format(startDate, 'dd.MM.yyyy')}
+                    </span>{' '}
+                    по{' '}
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                        {format(endDate, 'dd.MM.yyyy')}
+                    </span>
+                </div>
+
                 <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Период:</span>
                     <div className="w-64">
                         <RangeDatePicker
                             startDate={startDate}
                             endDate={endDate}
                             onChange={handleDateRangeChange}
-                            size="sm"
+                            size="md"
                         />
                     </div>
-                    <button
-                        onClick={resetFilter}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                        title="Сбросить фильтр к последним 14 дням"
-                    >
-                        <RotateCcw className="w-4 h-4" />
-                        Сбросить
-                    </button>
                 </div>
+
+                <button
+                    onClick={resetFilter}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                    title="Сбросить фильтр к последним 14 дням"
+                >
+                    <RotateCcw className="w-4 h-4" />
+                    Сбросить
+                </button>
             </div>
 
             {/* --- Отображение данных или сообщение об их отсутствии --- */}
