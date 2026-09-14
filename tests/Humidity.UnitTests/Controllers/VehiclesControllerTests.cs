@@ -45,17 +45,55 @@ public class VehiclesControllerTests
             TotalPages = 1
         };
 
+        // Контроллер теперь принимает ещё entryDateFrom и entryDateTo (оба null в этом тесте).
         _vehicleServiceMock
-            .Setup(s => s.GetFilteredPagedAsync(1, 20, null, true, null, null, It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetFilteredPagedAsync(
+                1, 20, null, true, null, null, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedResult);
 
         // Act
-        var result = await _controller.GetAll(1, 20, null, "active", null, null);
+        var result = await _controller.GetAll(1, 20, null, "active", null, null, null, null);
 
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.StatusCode.Should().Be(200);
         okResult.Value.Should().BeEquivalentTo(pagedResult);
+    }
+
+    [Fact]
+    public async Task GetAll_WithEntryDateRange_PassesRangeToService()
+    {
+        // Arrange
+        var vehicles = new List<VehicleDto> { new VehicleDto { Id = Guid.NewGuid(), VehiclePlate = "A123BC" } };
+        var pagedResult = new PagedResult<VehicleDto>
+        {
+            Items = vehicles,
+            TotalCount = 1,
+            PageNumber = 1,
+            PageSize = 20,
+            TotalPages = 1
+        };
+
+        var from = DateTimeOffset.UtcNow.AddYears(-1);
+        var to = DateTimeOffset.UtcNow;
+
+        _vehicleServiceMock
+            .Setup(s => s.GetFilteredPagedAsync(
+                1, 20, null, null, null, null, from, to, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        // Act
+        var result = await _controller.GetAll(1, 20, null, "all", null, null, from, to);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.StatusCode.Should().Be(200);
+
+        // Проверяем, что контроллер пробросил диапазон дат в сервис без изменений.
+        _vehicleServiceMock.Verify(
+            s => s.GetFilteredPagedAsync(
+                1, 20, null, null, null, null, from, to, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

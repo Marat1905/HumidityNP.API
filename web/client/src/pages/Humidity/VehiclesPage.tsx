@@ -29,7 +29,7 @@ import {
     RefreshCw,
 } from 'lucide-react';
 import { measurementService } from '../../services/humidity/api';
-import { format } from 'date-fns';
+import { format, subMonths, subYears } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
 /**
@@ -37,6 +37,66 @@ import { ru } from 'date-fns/locale';
  * 30 секунд — компромисс между актуальностью данных и нагрузкой на сервер.
  */
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
+
+/**
+ * Возможные значения периода въезда.
+ * UI хранит именно код ('3m', '6m', ...), а конкретные даты вычисляются
+ * при каждом запросе — поэтому «начало» всегда отсчитывается от текущего момента.
+ *
+ *  - '3m'  — последние 3 месяца (значение по умолчанию);
+ *  - '6m'  — последние 6 месяцев;
+ *  - '1y'  — последний год;
+ *  - '2y'  — последние 2 года;
+ *  - 'all' — всё время (без ограничения снизу).
+ */
+type PeriodCode = '3m' | '6m' | '1y' | '2y' | 'all';
+
+/**
+ * Код периода по умолчанию.
+ * Используется, если в URL нет параметра period или пришло неизвестное значение.
+ */
+const DEFAULT_PERIOD: PeriodCode = '3m';
+
+/**
+ * Человекочитаемые подписи для селекта «Период въезда».
+ */
+const PERIOD_LABELS: Record<PeriodCode, string> = {
+    '3m': 'Последние 3 месяца',
+    '6m': 'Последние 6 месяцев',
+    '1y': 'Последний год',
+    '2y': 'Последние 2 года',
+    'all': 'Всё время',
+};
+
+/**
+ * Проверяет, что пришедшая из URL строка — валидный PeriodCode.
+ * Если нет — возвращает значение по умолчанию.
+ */
+const normalizePeriodCode = (value: string | null): PeriodCode => {
+    if (value === '3m' || value === '6m' || value === '1y' || value === '2y' || value === 'all') {
+        return value;
+    }
+    return DEFAULT_PERIOD;
+};
+
+/**
+ * Преобразует код периода в границу «с какой даты показывать машины».
+ * Возвращает ISO-строку или undefined (для «всё время»).
+ *
+ * ВАЖНО: значение пересчитывается от текущего момента (new Date()),
+ * поэтому при перезагрузке страницы «начало» автоматически сдвигается.
+ */
+const periodToEntryDateFrom = (period: PeriodCode): string | undefined => {
+    if (period === 'all') return undefined;
+    const now = new Date();
+    switch (period) {
+        case '3m': return subMonths(now, 3).toISOString();
+        case '6m': return subMonths(now, 6).toISOString();
+        case '1y': return subYears(now, 1).toISOString();
+        case '2y': return subYears(now, 2).toISOString();
+        default: return undefined;
+    }
+};
 
 // Улучшенный компонент карточки для одной машины
 function VehicleCard({ vehicle, averageHumidity, isLoadingAvg }: {
@@ -260,11 +320,35 @@ export default function VehiclesPage() {
     const status = searchParams.get('status') || 'active';
     const plate = searchParams.get('plate') || '';
     const driver = searchParams.get('driver') || '';
+    // Период въезда из URL. По умолчанию — «последние 3 месяца».
+    // Если в URL пришло неизвестное значение, normalizePeriodCode вернёт '3m'.
+    const period = normalizePeriodCode(searchParams.get('period'));
 
+    // === Текстовые поля — только они хранятся в local state ===
+    //
+    // Селект периода и чипы статуса применяются мгновенно через URL
+    // (без кнопки «Поиск»), а текстовые поля — через local state до нажатия
+    // кнопки «Поиск». Это стандартный UX: одиночное действие (клик по селекту
+    // или чипу) применяется сразу, а пошаговый ввод текста требует подтверждения.
     const [localCounterparty, setLocalCounterparty] = useState(counterparty);
-    const [localStatus, setLocalStatus] = useState(status);
     const [localPlate, setLocalPlate] = useState(plate);
     const [localDriver, setLocalDriver] = useState(driver);
+
+    // === Синхронизация URL → local state без useEffect ===
+    //
+    // Раньше это делалось через useEffect с setState в теле — ESLint справедливо
+    // ругался (react-hooks/set-state-in-effect). Здесь используем рекомендованный
+    // React-паттерн «adjusting state during render»: если URL-параметры изменились,
+    // синхронно обновляем и local state, и ключ в том же рендере.
+    // Отслеживаем только текстовые поля — статус и период идут напрямую из URL.
+    const currentUrlKey = `${counterparty}|${plate}|${driver}`;
+    const [urlKey, setUrlKey] = useState(currentUrlKey);
+    if (urlKey !== currentUrlKey) {
+        setUrlKey(currentUrlKey);
+        setLocalCounterparty(counterparty);
+        setLocalPlate(plate);
+        setLocalDriver(driver);
+    }
 
     const [filtersCollapsed, setFiltersCollapsed] = useState(() => {
         const saved = localStorage.getItem('vehicles_filters_collapsed');
@@ -286,20 +370,10 @@ export default function VehiclesPage() {
         return saved === null ? true : saved === 'true';
     });
 
-    // Время последнего успешного обновления данных — для метки «Обновлено: HH:mm:ss».
-    const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
-
     const [averageHumidityMap, setAverageHumidityMap] = useState<Record<string, number | null>>({});
     const [loadingStats, setLoadingStats] = useState<Record<string, boolean>>({});
     // Добавляем реф для отслеживания уже загруженных идентификаторов машин
     const loadedIdsRef = useRef<Set<string>>(new Set());
-
-    useEffect(() => {
-        setLocalCounterparty(counterparty);
-        setLocalStatus(status);
-        setLocalPlate(plate);
-        setLocalDriver(driver);
-    }, [counterparty, status, plate, driver]);
 
     useEffect(() => {
         localStorage.setItem('vehicles_filters_collapsed', JSON.stringify(filtersCollapsed));
@@ -314,6 +388,9 @@ export default function VehiclesPage() {
         localStorage.setItem('vehicles_auto_refresh', String(isAutoRefreshEnabled));
     }, [isAutoRefreshEnabled]);
 
+    // Параметры запроса. Помимо фильтров содержит вычисленный диапазон дат въезда:
+    // при каждом изменении period (или других фильтров) from пересчитывается
+    // от текущего момента — так «начало» всегда актуально.
     const queryParams: VehiclesQueryParams = useMemo(
         () => ({
             pageNumber: page,
@@ -322,21 +399,19 @@ export default function VehiclesPage() {
             status: status as 'active' | 'exited' | 'all' | undefined,
             plate: plate || undefined,
             driver: driver || undefined,
+            entryDateFrom: periodToEntryDateFrom(period),
+            // entryDateTo не задаём — «сверху» ограничения нет, показываем всё вплоть до текущего момента.
         }),
-        [page, size, counterparty, status, plate, driver]
+        [page, size, counterparty, status, plate, driver, period]
     );
 
     // Достаём из хука:
     //  - refetch() — ручное обновление со спиннером;
     //  - silentRefetch() — тихое обновление без скелетона, но со спиннером;
     //  - isRefreshing — флаг, что идёт любой запрос (крутит спиннер на кнопке);
+    //  - lastRefreshedAt — время последнего успешного обновления;
     //  - loading — флаг первой загрузки (показывает скелетон).
-    const { data, loading, isRefreshing, error, refetch, silentRefetch } = useVehicles(queryParams);
-
-    // Обновляем timestamp при появлении новых данных (и обычных, и тихих).
-    useEffect(() => {
-        if (data) setLastRefreshedAt(new Date());
-    }, [data]);
+    const { data, loading, isRefreshing, lastRefreshedAt, error, refetch, silentRefetch } = useVehicles(queryParams);
 
     // Периодический silent-рефетч.
     // Ключевые моменты:
@@ -362,7 +437,10 @@ export default function VehiclesPage() {
         refetch();
     }, [refetch]);
 
-    // ИСПРАВЛЕННЫЙ useEffect – убрана зависимость от averageHumidityMap и добавлен loadedIdsRef
+    // Загрузка средней влажности по каждой машине.
+    // Зависимость намеренно ограничена `data`: пересчёт не должен запускаться
+    // при изменении averageHumidityMap (иначе — бесконечный цикл).
+    // Поэтому глушим предупреждение exhaustive-deps точечно.
     useEffect(() => {
         // Если данные отсутствуют или список машин пуст
         if (!data || !data.items?.length) {
@@ -387,7 +465,7 @@ export default function VehiclesPage() {
 
         // Обновляем состояние загрузки только для новых машин
         if (Object.keys(newLoadingStats).length > 0) {
-            setLoadingStats(prev => ({ ...prev, ...newLoadingStats }));
+            setLoadingStats((prev: Record<string, boolean>) => ({ ...prev, ...newLoadingStats }));
         }
 
         // Загружаем статистику для каждой новой машины
@@ -399,11 +477,11 @@ export default function VehiclesPage() {
 
             measurementService.getStatisticsByVehicle(id)
                 .then(stats => {
-                    setAverageHumidityMap(prev => ({
+                    setAverageHumidityMap((prev: Record<string, number | null>) => ({
                         ...prev,
                         [id]: stats.average,
                     }));
-                    setLoadingStats(prev => {
+                    setLoadingStats((prev: Record<string, boolean>) => {
                         const newState = { ...prev };
                         delete newState[id];
                         return newState;
@@ -412,11 +490,11 @@ export default function VehiclesPage() {
                 })
                 .catch(err => {
                     console.error(`Ошибка загрузки статистики для машины ${id}`, err);
-                    setAverageHumidityMap(prev => ({
+                    setAverageHumidityMap((prev: Record<string, number | null>) => ({
                         ...prev,
                         [id]: null,
                     }));
-                    setLoadingStats(prev => {
+                    setLoadingStats((prev: Record<string, boolean>) => {
                         const newState = { ...prev };
                         delete newState[id];
                         return newState;
@@ -424,6 +502,7 @@ export default function VehiclesPage() {
                     loadedIdsRef.current.add(id);
                 });
         });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data]); // Зависимость только от data, не от averageHumidityMap
 
     const activeFilters = [];
@@ -434,66 +513,133 @@ export default function VehiclesPage() {
         const statusLabel = status === 'exited' ? 'Выехали' : 'Все';
         activeFilters.push({ key: 'status', label: `Статус: ${statusLabel}`, value: status });
     }
+    // Показываем чип периода только если он отличается от значения по умолчанию (3 месяца).
+    if (period !== DEFAULT_PERIOD) {
+        activeFilters.push({ key: 'period', label: `Период: ${PERIOD_LABELS[period]}`, value: period });
+    }
 
     const hasActiveFilters = activeFilters.length > 0;
 
+    // === Обработчики изменений ===
+
+    /**
+     * Мгновенное применение периода въезда.
+     * Вызывается при выборе нового значения в селекте — без нажатия «Поиск».
+     * Остальные применённые фильтры берём из URL (counterparty, status, plate, driver),
+     * чтобы не подтянуть незапрошенные правки из текстовых полей.
+     * Страница сбрасывается на первую.
+     */
+    const handlePeriodChange = (newPeriod: PeriodCode) => {
+        setSearchParams({
+            page: '1',
+            size: String(size),
+            counterparty,
+            status,
+            plate,
+            driver,
+            period: newPeriod,
+        });
+    };
+
+    /**
+     * Мгновенное применение статуса.
+     * Аналогично периоду: один клик — сразу применяется.
+     * Остальные фильтры берём из URL. Страница сбрасывается на первую.
+     */
+    const handleStatusChange = (newStatus: string) => {
+        setSearchParams({
+            page: '1',
+            size: String(size),
+            counterparty,
+            status: newStatus,
+            plate,
+            driver,
+            period,
+        });
+    };
+
+    /**
+     * Снятие отдельного фильтра (крестик на чипе).
+     * Для текстовых полей — очищаем local state и применяем.
+     * Для статуса и периода — просто подставляем значение по умолчанию.
+     */
     const clearFilter = (key: string) => {
         if (key === 'counterparty') { setLocalCounterparty(''); }
         if (key === 'plate') { setLocalPlate(''); }
         if (key === 'driver') { setLocalDriver(''); }
-        if (key === 'status') { setLocalStatus('active'); }
         setSearchParams({
             page: '1',
             size: String(size),
             counterparty: key === 'counterparty' ? '' : localCounterparty,
-            status: key === 'status' ? 'active' : localStatus,
+            status: key === 'status' ? 'active' : status,
             plate: key === 'plate' ? '' : localPlate,
             driver: key === 'driver' ? '' : localDriver,
+            period: key === 'period' ? DEFAULT_PERIOD : period,
         });
     };
 
+    /**
+     * Применение текстовых фильтров по кнопке «Поиск».
+     * Статус и период берём из URL — они уже применены мгновенно.
+     * Страница сбрасывается на первую.
+     */
     const applyFilters = () => {
         setSearchParams({
             page: '1',
             size: String(size),
             counterparty: localCounterparty,
-            status: localStatus,
+            status,
             plate: localPlate,
             driver: localDriver,
+            period,
         });
     };
 
+    /**
+     * Полный сброс фильтров к значениям по умолчанию.
+     */
     const resetFilters = () => {
         setLocalCounterparty('');
-        setLocalStatus('active');
         setLocalPlate('');
         setLocalDriver('');
         setSearchParams({
             page: '1',
             size: String(size),
             status: 'active',
+            period: DEFAULT_PERIOD,
         });
     };
 
+    /**
+     * Переход на другую страницу.
+     * Применённые фильтры берём из URL (не из local state текстовых полей) —
+     * так незапрошенные правки не подтягиваются при пагинации.
+     */
     const handlePageChange = (newPage: number) => {
         setSearchParams({
             page: String(newPage),
             size: String(size),
-            counterparty: localCounterparty,
-            status: localStatus,
-            plate: localPlate,
-            driver: localDriver,
+            counterparty,
+            status,
+            plate,
+            driver,
+            period,
         });
     };
 
+    /**
+     * Смена размера страницы.
+     * Аналогично пагинации — применённые фильтры из URL, страница на первую.
+     */
     const handlePageSizeChange = (newSize: number) => {
         setSearchParams({
             page: '1',
             size: String(newSize),
-            counterparty: localCounterparty,
-            status: localStatus,
-            plate: localPlate,
-            driver: localDriver,
+            counterparty,
+            status,
+            plate,
+            driver,
+            period,
         });
     };
 
@@ -579,7 +725,24 @@ export default function VehiclesPage() {
 
                 {!filtersCollapsed && (
                     <div className="mt-4 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                            {/* Период въезда — применяется МГНОВЕННО при выборе значения.
+                                Отдельная кнопка «Поиск» не требуется. */}
+                            <div>
+                                <select
+                                    value={period}
+                                    onChange={(e) => handlePeriodChange(e.target.value as PeriodCode)}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                                    title="Период отображения машин по дате въезда. Начало периода отсчитывается от текущей даты. Применяется сразу."
+                                >
+                                    {(Object.keys(PERIOD_LABELS) as PeriodCode[]).map((code) => (
+                                        <option key={code} value={code}>
+                                            {PERIOD_LABELS[code]}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <Building2 className="h-4 w-4 text-gray-400 dark:text-gray-500" />
@@ -643,6 +806,8 @@ export default function VehiclesPage() {
                                 )}
                             </div>
 
+                            {/* Кнопка «Поиск» применяет ТОЛЬКО текстовые поля.
+                                Период и статус применяются мгновенно. */}
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={applyFilters}
@@ -660,12 +825,14 @@ export default function VehiclesPage() {
                                 Статус:
                             </span>
                             <div className="flex flex-wrap gap-2">
+                                {/* Статус — применяется МГНОВЕННО при клике.
+                                    Кнопка «Поиск» не требуется. */}
                                 {[
                                     { value: 'active', label: 'На площадке', icon: <Clock className="w-4 h-4" />, color: 'yellow' },
                                     { value: 'exited', label: 'Выехали', icon: <BadgeCheck className="w-4 h-4" />, color: 'green' },
                                     { value: 'all', label: 'Все', icon: <Filter className="w-4 h-4" />, color: 'gray' },
                                 ].map((opt) => {
-                                    const isActive = localStatus === opt.value;
+                                    const isActive = status === opt.value;
                                     const bgColor = isActive
                                         ? opt.color === 'yellow' ? 'bg-yellow-100 dark:bg-yellow-900/40 border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200'
                                             : opt.color === 'green' ? 'bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-700 text-green-800 dark:text-green-200'
@@ -675,7 +842,7 @@ export default function VehiclesPage() {
                                     return (
                                         <button
                                             key={opt.value}
-                                            onClick={() => setLocalStatus(opt.value)}
+                                            onClick={() => handleStatusChange(opt.value)}
                                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all duration-200 ${bgColor} ${isActive ? 'shadow-sm ring-2 ring-offset-1 ring-blue-500 dark:ring-offset-gray-800' : ''
                                                 }`}
                                         >
@@ -730,7 +897,9 @@ export default function VehiclesPage() {
             {/* Строка управления: слева — метка последнего обновления,
                 справа — переключатель автообновления, кнопка «Обновить» и переключатель вида. */}
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                {/* Метка последнего обновления */}
+                {/* Метка последнего обновления.
+                    lastRefreshedAt приходит из хука useVehicles и устанавливается
+                    внутри async-колбэка (не в useEffect) — поэтому ESLint не ругается. */}
                 <div className="text-xs text-gray-500 dark:text-gray-400">
                     {lastRefreshedAt
                         ? `Обновлено: ${format(lastRefreshedAt, 'HH:mm:ss')}`

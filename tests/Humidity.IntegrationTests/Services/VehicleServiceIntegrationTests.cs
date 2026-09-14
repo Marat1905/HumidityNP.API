@@ -134,6 +134,57 @@ public class VehicleServiceIntegrationTests : IClassFixture<TestContainersFixtur
     }
 
     [Fact]
+    public async Task GetFilteredPagedAsync_WithEntryDateRange_ShouldReturnOnlyVehiclesInRange()
+    {
+        // Arrange
+        var now = DateTimeOffset.UtcNow;
+
+        var recent = new Vehicle
+        {
+            Id = Guid.NewGuid(),
+            Number = "RECENT-001",
+            Date = now,
+            EntryDate = now.AddMonths(-6), // 6 месяцев назад
+            Counterparty = "Supplier Recent",
+            VehiclePlate = "R001RR77",
+            Driver = "Driver R",
+            ExitDate = null
+        };
+
+        var old = new Vehicle
+        {
+            Id = Guid.NewGuid(),
+            Number = "OLD-001",
+            Date = now,
+            EntryDate = now.AddYears(-3), // 3 года назад
+            Counterparty = "Supplier Old",
+            VehiclePlate = "O001OO77",
+            Driver = "Driver O",
+            ExitDate = null
+        };
+
+        _dbContext.Vehicles.AddRange(recent, old);
+        await _dbContext.SaveChangesAsync();
+
+        // Act — фильтр «последний год»: from = now - 1 год, to = null.
+        var from = now.AddYears(-1);
+        var result = await _vehicleService.GetFilteredPagedAsync(
+            pageNumber: 1,
+            pageSize: 10,
+            counterparty: null,
+            isActive: null,
+            plate: null,
+            driver: null,
+            entryDateFrom: from,
+            entryDateTo: null);
+
+        // Assert
+        result.TotalCount.Should().Be(1);
+        result.Items.Should().ContainSingle();
+        result.Items.First().VehiclePlate.Should().Be("R001RR77");
+    }
+
+    [Fact]
     public async Task UnloadAsync_WithValidData_ShouldUpdateVehicleMetrics()
     {
         // Arrange

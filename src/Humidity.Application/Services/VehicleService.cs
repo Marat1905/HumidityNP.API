@@ -77,7 +77,7 @@ public class VehicleService : IVehicleService
         return result;
     }
 
-    // НОВЫЙ МЕТОД С ФИЛЬТРАМИ
+    // МЕТОД С ФИЛЬТРАМИ, включая фильтр по диапазону даты въезда.
     public async Task<PagedResult<VehicleDto>> GetFilteredPagedAsync(
         int pageNumber,
         int pageSize,
@@ -85,15 +85,20 @@ public class VehicleService : IVehicleService
         bool? isActive,
         string? plate,
         string? driver,
+        DateTimeOffset? entryDateFrom = null,
+        DateTimeOffset? entryDateTo = null,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Запрос отфильтрованной страницы машин: номер {PageNumber}, размер {PageSize}, " +
-            "поставщик='{Counterparty}', статус={IsActive}, госномер='{Plate}', водитель='{Driver}'",
-            pageNumber, pageSize, counterparty, isActive, plate, driver);
+        _logger.LogInformation(
+            "Запрос отфильтрованной страницы машин: номер {PageNumber}, размер {PageSize}, " +
+            "поставщик='{Counterparty}', статус={IsActive}, госномер='{Plate}', водитель='{Driver}', " +
+            "въезд с {From} по {To}",
+            pageNumber, pageSize, counterparty, isActive, plate, driver, entryDateFrom, entryDateTo);
 
-        // Получаем данные из репозитория с фильтрами
+        // Получаем данные из репозитория с фильтрами (включая фильтр по дате въезда).
         var pagedResult = await _repository.GetFilteredPagedAsync(
-            pageNumber, pageSize, counterparty, isActive, plate, driver, cancellationToken);
+            pageNumber, pageSize, counterparty, isActive, plate, driver,
+            entryDateFrom, entryDateTo, cancellationToken);
 
         var items = _mapper.Map<IEnumerable<VehicleDto>>(pagedResult.Items).ToList();
 

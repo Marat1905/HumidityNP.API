@@ -206,8 +206,14 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
     }
 
     /// <summary>
-    /// Получить страницу машин с применением фильтров по поставщику, статусу, госномеру и водителю,
-    /// отсортированных по дате въезда (новые первыми).
+    /// Получить страницу машин с применением фильтров:
+    ///  - по поставщику (частичное совпадение, регистронезависимо);
+    ///  - по статусу (активные / выехавшие / все);
+    ///  - по государственному номеру (частичное совпадение);
+    ///  - по ФИО водителя (частичное совпадение);
+    ///  - по диапазону даты въезда (EntryDate, включительно с обеих сторон).
+    ///
+    /// Все фильтры применяются на стороне БД. Параметры с null не участвуют в отборе.
     /// </summary>
     public async Task<PagedResult<Vehicle>> GetFilteredPagedAsync(
         int pageNumber,
@@ -216,6 +222,8 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
         bool? isActive,
         string? plate,
         string? driver,
+        DateTimeOffset? entryDateFrom = null,
+        DateTimeOffset? entryDateTo = null,
         CancellationToken cancellationToken = default)
     {
         // Нормализация параметров пагинации
@@ -249,6 +257,20 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
         if (!string.IsNullOrWhiteSpace(driver))
         {
             query = query.Where(v => EF.Functions.ILike(v.Driver, $"%{driver}%"));
+        }
+
+        // Фильтр по диапазону даты въезда.
+        // Применяем только если соответствующая граница задана.
+        // Включительно с обеих сторон — это согласуется с тем, как пользователь
+        // ожидает: «с 1 января 2024 по 31 декабря 2024» должно включать обе граничные даты.
+        if (entryDateFrom.HasValue)
+        {
+            query = query.Where(v => v.EntryDate >= entryDateFrom.Value);
+        }
+
+        if (entryDateTo.HasValue)
+        {
+            query = query.Where(v => v.EntryDate <= entryDateTo.Value);
         }
 
         // Подсчёт общего количества записей с учётом фильтров

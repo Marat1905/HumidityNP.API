@@ -33,6 +33,8 @@ public interface IVehicleService
     /// <param name="isActive">Фильтр по статусу: true – активные, false – выехавшие, null – все.</param>
     /// <param name="plate">Фильтр по госномеру (частичное совпадение).</param>
     /// <param name="driver">Фильтр по водителю (частичное совпадение).</param>
+    /// <param name="entryDateFrom">Минимальная дата въезда (включительно). null — без ограничения снизу.</param>
+    /// <param name="entryDateTo">Максимальная дата въезда (включительно). null — без ограничения сверху.</param>
     /// <param name="cancellationToken">Токен отмены.</param>
     /// <returns>Страница машин, соответствующих фильтрам.</returns>
     Task<PagedResult<VehicleDto>> GetFilteredPagedAsync(
@@ -42,6 +44,8 @@ public interface IVehicleService
         bool? isActive,
         string? plate,
         string? driver,
+        DateTimeOffset? entryDateFrom = null,
+        DateTimeOffset? entryDateTo = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

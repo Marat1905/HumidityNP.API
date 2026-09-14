@@ -32,16 +32,23 @@ interface FetchOptions {
  *  - isRefreshing — «идёт любой запрос, покажи спиннер на кнопке Обновить».
  *    Ставится всегда, независимо от silent/force.
  *
- * Это даёт возможность:
- *  - при автообновлении крутить спиннер, но не мигать скелетоном;
- *  - при ручном обновлении крутить спиннер;
- *  - при первой загрузке показать скелетон.
+ * Дополнительно возвращается lastRefreshedAt — время последнего успешного
+ * получения данных (устанавливается внутри асинхронного колбэка, а не в useEffect,
+ * чтобы не нарушать правило react-hooks/set-state-in-effect).
  */
 export const useVehicles = (params: VehiclesQueryParams) => {
     const [data, setData] = useState<PagedResult<VehicleDto> | null>(null);
     const [loading, setLoading] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState<Error | null>(null);
+
+    /**
+     * Время последнего успешного обновления данных.
+     * Ставится внутри асинхронного колбэка после await — это НЕ считается
+     * setState в теле useEffect, поэтому правило react-hooks/set-state-in-effect
+     * не нарушается.
+     */
+    const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
 
     // Ref для сравнения params между вызовами: если params не изменились,
     // обычный вызов fetchData не будет повторять запрос.
@@ -72,6 +79,10 @@ export const useVehicles = (params: VehiclesQueryParams) => {
             try {
                 const result = await vehicleService.getAll(params);
                 setData(result);
+                // Обновляем время последнего успешного обновления.
+                // Это происходит внутри async-колбэка после await — не в теле useEffect,
+                // поэтому ESLint не ругается на setState-in-effect.
+                setLastRefreshedAt(new Date());
             } catch (err: any) {
                 setError(
                     err instanceof Error
@@ -100,5 +111,5 @@ export const useVehicles = (params: VehiclesQueryParams) => {
         [fetchData]
     );
 
-    return { data, loading, isRefreshing, error, refetch, silentRefetch };
+    return { data, loading, isRefreshing, lastRefreshedAt, error, refetch, silentRefetch };
 };

@@ -55,7 +55,10 @@ public class VehicleServiceTests
             TotalPages = 1
         };
 
-        _vehicleRepositoryMock.Setup(r => r.GetFilteredPagedAsync(1, 20, null, true, null, null, It.IsAny<CancellationToken>()))
+        // Метод репозитория теперь принимает ещё entryDateFrom и entryDateTo (оба null в этом тесте).
+        _vehicleRepositoryMock
+            .Setup(r => r.GetFilteredPagedAsync(
+                1, 20, null, true, null, null, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedEntities);
 
         _mapperMock.Setup(m => m.Map<IEnumerable<VehicleDto>>(It.IsAny<IEnumerable<Vehicle>>()))
@@ -65,13 +68,60 @@ public class VehicleServiceTests
             .ReturnsAsync(new Dictionary<Guid, int> { { vehicleId, 5 } });
 
         // Act
-        var result = await _service.GetFilteredPagedAsync(1, 20, null, true, null, null, CancellationToken.None);
+        var result = await _service.GetFilteredPagedAsync(
+            1, 20, null, true, null, null, cancellationToken: CancellationToken.None);
 
         // Assert
         result.Should().NotBeNull();
         result.TotalCount.Should().Be(1);
         result.Items.Should().HaveCount(1);
         result.Items.First().MeasurementsCount.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task GetFilteredPagedAsync_WithEntryDateRange_PassesRangeToRepository()
+    {
+        // Arrange
+        var vehicleId = Guid.NewGuid();
+        var vehicleEntity = new Vehicle { Id = vehicleId, VehiclePlate = "A123BC" };
+        var vehicleDto = new VehicleDto { Id = vehicleId, VehiclePlate = "A123BC", MeasurementsCount = 0 };
+
+        var from = DateTimeOffset.UtcNow.AddYears(-1);
+        var to = DateTimeOffset.UtcNow;
+
+        var pagedEntities = new PagedResult<Vehicle>
+        {
+            Items = new List<Vehicle> { vehicleEntity },
+            TotalCount = 1,
+            PageNumber = 1,
+            PageSize = 20,
+            TotalPages = 1
+        };
+
+        // Проверяем, что сервис пробрасывает диапазон дат в репозиторий без изменений.
+        _vehicleRepositoryMock
+            .Setup(r => r.GetFilteredPagedAsync(
+                1, 20, null, null, null, null, from, to, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedEntities);
+
+        _mapperMock.Setup(m => m.Map<IEnumerable<VehicleDto>>(It.IsAny<IEnumerable<Vehicle>>()))
+            .Returns(new List<VehicleDto> { vehicleDto });
+
+        _measurementRepositoryMock
+            .Setup(r => r.GetCountsByVehicleIdsAsync(It.IsAny<List<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, int>());
+
+        // Act
+        var result = await _service.GetFilteredPagedAsync(
+            1, 20, null, null, null, null, from, to, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+
+        _vehicleRepositoryMock.Verify(
+            r => r.GetFilteredPagedAsync(
+                1, 20, null, null, null, null, from, to, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

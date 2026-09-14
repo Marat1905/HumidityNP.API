@@ -196,6 +196,10 @@ export interface SupplierDetailsDto {
     overallStatistics: MeasurementStatisticsDto;
 }
 
+/**
+ * Параметры запроса списка машин.
+ * Используются на странице «Машины» для фильтрации и пагинации.
+ */
 export interface VehiclesQueryParams {
     pageNumber?: number;
     pageSize?: number;
@@ -203,6 +207,16 @@ export interface VehiclesQueryParams {
     status?: 'active' | 'exited' | 'all';
     plate?: string;
     driver?: string;
+    /**
+     * Минимальная дата въезда (включительно), ISO-строка.
+     * Если не задана — фильтр по нижней границе не применяется.
+     */
+    entryDateFrom?: string;
+    /**
+     * Максимальная дата въезда (включительно), ISO-строка.
+     * Если не задана — фильтр по верхней границе не применяется.
+     */
+    entryDateTo?: string;
 }
 
 // ===== Отчёт за период =====

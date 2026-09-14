@@ -30,6 +30,8 @@ public class VehiclesController : ControllerBase
     /// <param name="status">Фильтр по статусу: active, exited, all (по умолчанию active).</param>
     /// <param name="plate">Фильтр по госномеру (частичное совпадение).</param>
     /// <param name="driver">Фильтр по водителю (частичное совпадение).</param>
+    /// <param name="entryDateFrom">Минимальная дата въезда (включительно), ISO 8601. Пусто — без ограничения снизу.</param>
+    /// <param name="entryDateTo">Максимальная дата въезда (включительно), ISO 8601. Пусто — без ограничения сверху.</param>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<VehicleDto>), 200)]
     public async Task<IActionResult> GetAll(
@@ -38,7 +40,9 @@ public class VehiclesController : ControllerBase
         [FromQuery] string? counterparty = null,
         [FromQuery] string? status = "active",
         [FromQuery] string? plate = null,
-        [FromQuery] string? driver = null)
+        [FromQuery] string? driver = null,
+        [FromQuery] DateTimeOffset? entryDateFrom = null,
+        [FromQuery] DateTimeOffset? entryDateTo = null)
     {
         // Нормализация пагинации
         if (pageNumber < 1) pageNumber = 1;
@@ -63,6 +67,8 @@ public class VehiclesController : ControllerBase
             isActive,
             plate,
             driver,
+            entryDateFrom,
+            entryDateTo,
             HttpContext.RequestAborted);
 
         return Ok(result);

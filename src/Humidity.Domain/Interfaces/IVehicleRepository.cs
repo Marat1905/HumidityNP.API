@@ -69,10 +69,15 @@ public interface IVehicleRepository : IRepository<Vehicle>
     /// <returns>Сущность Vehicle или null, если не найдена.</returns>
     Task<Vehicle?> GetByOneCGuidAsync(string oneCGuid, CancellationToken cancellationToken = default);
 
-    // НОВЫЙ МЕТОД для фильтрации с пагинацией
     /// <summary>
-    /// Получить страницу машин с применением фильтров по поставщику, статусу, госномеру и водителю.
-    /// Фильтрация выполняется на стороне базы данных.
+    /// Получить страницу машин с применением фильтров:
+    ///  - по поставщику (частичное совпадение, регистронезависимо);
+    ///  - по статусу (активные / выехавшие / все);
+    ///  - по государственному номеру (частичное совпадение);
+    ///  - по ФИО водителя (частичное совпадение);
+    ///  - по диапазону даты въезда (EntryDate, включительно с обеих сторон).
+    ///
+    /// Все фильтры применяются на стороне БД. Параметры с null не участвуют в отборе.
     /// </summary>
     /// <param name="pageNumber">Номер страницы.</param>
     /// <param name="pageSize">Размер страницы.</param>
@@ -80,6 +85,8 @@ public interface IVehicleRepository : IRepository<Vehicle>
     /// <param name="isActive">true – только активные (ExitDate == null), false – только выехавшие, null – все.</param>
     /// <param name="plate">Частичное совпадение с госномером (регистронезависимо).</param>
     /// <param name="driver">Частичное совпадение с ФИО водителя (регистронезависимо).</param>
+    /// <param name="entryDateFrom">Минимальная дата въезда (включительно). null — без ограничения снизу.</param>
+    /// <param name="entryDateTo">Максимальная дата въезда (включительно). null — без ограничения сверху.</param>
     /// <param name="cancellationToken">Токен отмены.</param>
     /// <returns>Страница машин, соответствующих фильтрам.</returns>
     Task<PagedResult<Vehicle>> GetFilteredPagedAsync(
@@ -89,5 +96,7 @@ public interface IVehicleRepository : IRepository<Vehicle>
         bool? isActive,
         string? plate,
         string? driver,
+        DateTimeOffset? entryDateFrom = null,
+        DateTimeOffset? entryDateTo = null,
         CancellationToken cancellationToken = default);
 }
