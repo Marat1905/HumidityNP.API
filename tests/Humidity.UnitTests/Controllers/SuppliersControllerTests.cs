@@ -55,17 +55,57 @@ public class SuppliersControllerTests
             TotalPages = 1
         };
 
+        // Контроллер теперь принимает search (string?) и передаёт его в сервис.
+        // В этом тесте поиск не задан — контроллер передаёт null в сервис.
         _supplierServiceMock
-            .Setup(s => s.GetSuppliersAsync(from, to, 1, 20, It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetSuppliersAsync(from, to, 1, 20, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedResult);
 
         // Act
-        var result = await _controller.GetSuppliers(from, to, 1, 20);
+        var result = await _controller.GetSuppliers(from, to, 1, 20, search: null);
 
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.StatusCode.Should().Be(200);
         okResult.Value.Should().BeEquivalentTo(pagedResult);
+    }
+
+    [Fact]
+    public async Task GetSuppliers_WithSearch_PassesSearchToService()
+    {
+        // Arrange
+        var from = DateTimeOffset.UtcNow.AddDays(-7);
+        var to = DateTimeOffset.UtcNow;
+        var search = "ром";
+
+        var pagedResult = new PagedResult<SupplierDto>
+        {
+            Items = new List<SupplierDto>
+            {
+                new SupplierDto { Inn = "7707083893", Counterparty = "ООО Ромашка" }
+            },
+            TotalCount = 1,
+            PageNumber = 1,
+            PageSize = 20,
+            TotalPages = 1
+        };
+
+        _supplierServiceMock
+            .Setup(s => s.GetSuppliersAsync(from, to, 1, 20, search, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        // Act
+        var result = await _controller.GetSuppliers(from, to, 1, 20, search);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.StatusCode.Should().Be(200);
+        okResult.Value.Should().BeEquivalentTo(pagedResult);
+
+        // Проверяем, что контроллер пробросил search в сервис без изменений.
+        _supplierServiceMock.Verify(
+            s => s.GetSuppliersAsync(from, to, 1, 20, search, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

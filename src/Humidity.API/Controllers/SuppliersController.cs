@@ -22,20 +22,32 @@ public class SuppliersController : ControllerBase
 
     /// <summary>
     /// Получить список поставщиков с агрегированными данными за период (пагинированный).
+    ///
+    /// Параметр <paramref name="search"/> позволяет фильтровать поставщиков по частичному
+    /// совпадению ИНН или наименования (регистронезависимо). Пустая строка или отсутствие
+    /// параметра — поиск не применяется.
     /// </summary>
+    /// <param name="from">Начало периода.</param>
+    /// <param name="to">Конец периода.</param>
+    /// <param name="pageNumber">Номер страницы (начиная с 1).</param>
+    /// <param name="pageSize">Размер страницы (макс. 100).</param>
+    /// <param name="search">Строка поиска по ИНН или наименованию поставщика.</param>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<SupplierDto>), 200)]
     public async Task<IActionResult> GetSuppliers(
         [FromQuery] DateTimeOffset from,
         [FromQuery] DateTimeOffset to,
         [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 20)
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null)
     {
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 20;
         if (pageSize > 100) pageSize = 100;
 
-        var result = await _supplierService.GetSuppliersAsync(from, to, pageNumber, pageSize, HttpContext.RequestAborted);
+        var result = await _supplierService.GetSuppliersAsync(
+            from, to, pageNumber, pageSize, search, HttpContext.RequestAborted);
+
         return Ok(result);
     }
 

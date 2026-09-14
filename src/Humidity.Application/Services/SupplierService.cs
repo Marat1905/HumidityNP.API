@@ -27,12 +27,15 @@ public class SupplierService : ISupplierService
         DateTimeOffset to,
         int pageNumber,
         int pageSize,
+        string? search = null,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Запрос списка поставщиков за период с {From} по {To}, страница {Page}, размер {Size}",
-            from, to, pageNumber, pageSize);
+        _logger.LogInformation(
+            "Запрос списка поставщиков за период с {From} по {To}, страница {Page}, размер {Size}, поиск '{Search}'",
+            from, to, pageNumber, pageSize, search ?? "<нет>");
 
-        var result = await _measurementRepository.GetSuppliersSummaryAsync(from, to, pageNumber, pageSize, cancellationToken);
+        var result = await _measurementRepository.GetSuppliersSummaryAsync(
+            from, to, pageNumber, pageSize, search, cancellationToken);
 
         _logger.LogInformation("Получено {Count} поставщиков из {TotalCount}", result.Items.Count(), result.TotalCount);
         return result;

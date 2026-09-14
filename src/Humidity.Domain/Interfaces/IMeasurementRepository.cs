@@ -155,14 +155,28 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Получить сводку по поставщикам (группировка по ИНН) за период с пагинацией.
-    /// Использует наивную среднюю влажность (AverageHumidity).
+    /// Получить сводку по поставщикам (группировка по ИНН) за период с пагинацией и поиском.
+    ///
+    /// ПОИСК:
+    /// Параметр <paramref name="search"/> позволяет фильтровать поставщиков по частичному совпадению
+    /// ИНН или наименования (Counterparty) — регистронезависимо (через ILIKE).
+    /// Фильтр применяется к «сырым» машинам до группировки: поставщик попадает в выборку,
+    /// если хотя бы одна его машина за период удовлетворяет условию поиска.
+    /// Пустая строка или null — поиск не применяется.
     /// </summary>
+    /// <param name="from">Начало периода (включительно).</param>
+    /// <param name="to">Конец периода (включительно).</param>
+    /// <param name="pageNumber">Номер страницы.</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="search">Строка поиска по ИНН или наименованию поставщика (частичное совпадение, регистронезависимо).</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Постраничная сводка по поставщикам.</returns>
     Task<PagedResult<SupplierDto>> GetSuppliersSummaryAsync(
         DateTimeOffset from,
         DateTimeOffset to,
         int pageNumber,
         int pageSize,
+        string? search = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

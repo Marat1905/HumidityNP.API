@@ -77,7 +77,9 @@ export default function TopSuppliersPage() {
     if (isLoading) {
         return (
             <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Топ поставщиков по влажности</h2>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                    Топ поставщиков по влажности
+                </h2>
                 <SkeletonTable rows={5} columns={5} />
             </div>
         );
@@ -99,72 +101,82 @@ export default function TopSuppliersPage() {
 
     return (
         <div>
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Топ поставщиков по влажности</h2>
-                <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600 dark:text-gray-300">Период:</span>
-                        <div className="w-64">
-                            <RangeDatePicker
-                                startDate={startDate}
-                                endDate={endDate}
-                                onChange={handleDateRangeChange}
-                                size="md"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <label className="text-sm text-gray-600 dark:text-gray-300">Топ:</label>
-                        <select
-                            value={topCount}
-                            onChange={(e) => setTopCount(Number(e.target.value))}
-                            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value={3}>3</option>
-                            <option value={5}>5</option>
-                            <option value={10}>10</option>
-                            <option value={20}>20</option>
-                            <option value={50}>50</option>
-                        </select>
-                    </div>
+            {/* Заголовок вкладки — отдельно, как в ReportPeriodPage и SuppliersPage */}
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                Топ поставщиков по влажности
+            </h2>
 
-                    {/* Выбор силы байесовской коррекции.
-                        priorWeight = C в формуле adjusted = (C * m + sum) / (C + n).
-                        Чем больше C, тем сильнее средняя поставщика тянется к глобальной,
-                        что уменьшает случайность при малом числе замеров. */}
-                    <div className="flex items-center gap-2">
-                        <label className="text-sm text-gray-600 dark:text-gray-300" title="Вес prior (C) для байесовской коррекции. Чем больше значение, тем сильнее средние у поставщиков с малым числом замеров сглаживаются к глобальной средней.">
-                            Коррекция:
-                        </label>
-                        <select
-                            value={priorWeight}
-                            onChange={(e) => setPriorWeight(Number(e.target.value))}
-                            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value={0}>Без коррекции (C=0)</option>
-                            <option value={10}>Слабая (C=10)</option>
-                            <option value={30}>Умеренная (C=30)</option>
-                            <option value={100}>Сильная (C=100)</option>
-                        </select>
+            {/* Панель фильтров — в стиле «Отчёта за период»:
+                отдельная карточка с рамкой, фоном, скруглением и лёгкой тенью.
+                Внутри размещены период, размер топа, сила байесовской коррекции и кнопка сброса. */}
+            <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Период:</span>
+                    <div className="w-64">
+                        <RangeDatePicker
+                            startDate={startDate}
+                            endDate={endDate}
+                            onChange={handleDateRangeChange}
+                            size="md"
+                        />
                     </div>
-
-                    <button
-                        onClick={resetFilters}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                        title="Сбросить фильтры к последним 30 дням, топ-10 и умеренной коррекции"
-                    >
-                        <RotateCcw className="w-4 h-4" />
-                        Сбросить
-                    </button>
                 </div>
+
+                <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Топ:</label>
+                    <select
+                        value={topCount}
+                        onChange={(e) => setTopCount(Number(e.target.value))}
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value={3}>3</option>
+                        <option value={5}>5</option>
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                    </select>
+                </div>
+
+                {/* Выбор силы байесовской коррекции.
+                    priorWeight = C в формуле adjusted = (C * m + sum) / (C + n).
+                    Чем больше C, тем сильнее средняя поставщика тянется к глобальной,
+                    что уменьшает случайность при малом числе замеров. */}
+                <div className="flex items-center gap-2">
+                    <label
+                        className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                        title="Вес prior (C) для байесовской коррекции. Чем больше значение, тем сильнее средние у поставщиков с малым числом замеров сглаживаются к глобальной средней."
+                    >
+                        Коррекция:
+                    </label>
+                    <select
+                        value={priorWeight}
+                        onChange={(e) => setPriorWeight(Number(e.target.value))}
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value={0}>Без коррекции (C=0)</option>
+                        <option value={10}>Слабая (C=10)</option>
+                        <option value={30}>Умеренная (C=30)</option>
+                        <option value={100}>Сильная (C=100)</option>
+                    </select>
+                </div>
+
+                <button
+                    onClick={resetFilters}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                    title="Сбросить фильтры к последним 30 дням, топ-10 и умеренной коррекции"
+                >
+                    <RotateCcw className="w-4 h-4" />
+                    Сбросить
+                </button>
             </div>
 
-            {/* Пояснение о байесовской коррекции */}
+            {/* Пояснение о байесовской коррекции — тоже внутри отдельной карточки,
+                визуально чуть легче, чем панель фильтров. */}
             <div className="mb-4 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
                 <span className="font-medium text-gray-700 dark:text-gray-300">Байесовская коррекция: </span>
                 поставщики с малым числом замеров «подтягиваются» к глобальной средней, чтобы случайные
                 выбросы не искажали топ. Чем выше уровень коррекции, тем сильнее сглаживание.
-                Значение «Без коррекции» показывает «сырую» среднюю (<code>sum/count</code>).
+                Значение «Без коррекции» показывает «сырую» среднюю (<code>sum / count</code>).
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -50,17 +50,58 @@ public class SupplierServiceTests
             TotalPages = 1
         };
 
-        _measurementRepositoryMock.Setup(r => r.GetSuppliersSummaryAsync(from, to, 1, 20, It.IsAny<CancellationToken>()))
+        // Сервис теперь принимает search (string?) перед cancellationToken.
+        // В этом тесте search не задан — передаём null.
+        _measurementRepositoryMock
+            .Setup(r => r.GetSuppliersSummaryAsync(from, to, 1, 20, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedPagedResult);
 
         // Act
-        var result = await _service.GetSuppliersAsync(from, to, 1, 20, CancellationToken.None);
+        var result = await _service.GetSuppliersAsync(from, to, 1, 20, search: null, CancellationToken.None);
 
         // Assert
         result.Should().NotBeNull();
         result.TotalCount.Should().Be(1);
         result.Items.Should().HaveCount(1);
         result.Items.First().Inn.Should().Be("7707083893");
+    }
+
+    [Fact]
+    public async Task GetSuppliersAsync_WithSearch_PassesSearchToRepository()
+    {
+        // Arrange
+        var from = DateTimeOffset.UtcNow.AddDays(-7);
+        var to = DateTimeOffset.UtcNow;
+        var search = "ром";
+
+        var expectedPagedResult = new PagedResult<SupplierDto>
+        {
+            Items = new List<SupplierDto>
+            {
+                new SupplierDto { Inn = "7707083893", Counterparty = "ООО Ромашка" }
+            },
+            TotalCount = 1,
+            PageNumber = 1,
+            PageSize = 20,
+            TotalPages = 1
+        };
+
+        // Проверяем, что сервис передаёт search в репозиторий без изменений.
+        _measurementRepositoryMock
+            .Setup(r => r.GetSuppliersSummaryAsync(from, to, 1, 20, search, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedPagedResult);
+
+        // Act
+        var result = await _service.GetSuppliersAsync(from, to, 1, 20, search, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(1);
+        result.Items.First().Counterparty.Should().Be("ООО Ромашка");
+
+        _measurementRepositoryMock.Verify(
+            r => r.GetSuppliersSummaryAsync(from, to, 1, 20, search, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

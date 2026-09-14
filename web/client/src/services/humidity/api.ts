@@ -32,7 +32,6 @@ apiClient.interceptors.request.use(requestInterceptor, requestErrorInterceptor);
 apiClient.interceptors.response.use(responseInterceptor, responseErrorInterceptor);
 
 export const vehicleService = {
-    // Изменяем метод getAll, добавляем параметры фильтрации
     async getAll(params: VehiclesQueryParams = {}): Promise<PagedResult<VehicleDto>> {
         const response = await apiClient.get('/vehicles', { params });
         return response.data;
@@ -168,16 +167,31 @@ export const measurementService = {
 export const supplierService = {
     /**
      * Получить список поставщиков с агрегацией за период (пагинированный).
-     * Используется наивная средняя влажность (AverageHumidity).
+     * Использует наивную среднюю влажность (AverageHumidity).
+     *
+     * @param from Начало периода (ISO-строка).
+     * @param to Конец периода (ISO-строка).
+     * @param pageNumber Номер страницы (начиная с 1).
+     * @param pageSize Размер страницы.
+     * @param search Строка поиска по ИНН или наименованию поставщика (частичное совпадение).
+     *               Пустая строка или undefined — поиск не применяется.
      */
     async getSuppliers(
         from: string,
         to: string,
         pageNumber = 1,
-        pageSize = 20
+        pageSize = 20,
+        search?: string
     ): Promise<PagedResult<SupplierDto>> {
         const response = await apiClient.get('/suppliers', {
-            params: { from, to, pageNumber, pageSize }
+            params: {
+                from,
+                to,
+                pageNumber,
+                pageSize,
+                // Не отправляем пустую строку — иначе axios добавит ?search=, что не нужно.
+                search: search?.trim() || undefined,
+            }
         });
         return response.data;
     },

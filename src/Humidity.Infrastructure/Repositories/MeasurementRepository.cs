@@ -535,14 +535,20 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     }
 
     /// <summary>
-    /// Получить сводку по поставщикам (группировка по ИНН) за период.
-    /// Включает все машины, въехавшие в период, даже без замеров.
+    /// Получить сводку по поставщикам (группировка по ИНН) за период с пагинацией и поиском.
+    ///
+    /// ПОИСК: параметр search фильтрует «сырые» машины до группировки по ИНН:
+    ///   - ИНН машины содержит подстроку search (регистронезависимо);
+    ///   - ИЛИ наименование поставщика (Counterparty) машины содержит подстроку search.
+    /// Поставщик попадает в выборку, если хотя бы одна его машина за период совпала.
+    /// Пустая строка / null — поиск не применяется.
     /// </summary>
     public async Task<PagedResult<SupplierDto>> GetSuppliersSummaryAsync(
         DateTimeOffset from,
         DateTimeOffset to,
         int pageNumber,
         int pageSize,
+        string? search = null,
         CancellationToken cancellationToken = default)
     {
         var fromUtc = from.ToUniversalTime();
@@ -552,7 +558,14 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
         if (pageSize < 1) pageSize = 10;
         if (pageSize > 100) pageSize = 100;
 
-        // Основной запрос: все машины, въехавшие в период, с левым присоединением замеров за тот же период
+        // Нормализуем поисковую строку: обрезаем пробелы и превращаем пустую в null,
+        // чтобы в SQL не подставлять бессмысленный ILIKE '%%' (это лишняя нагрузка).
+        var searchPattern = string.IsNullOrWhiteSpace(search)
+            ? null
+            : $"%{search.Trim()}%";
+
+        // Основной запрос: все машины, въехавшие в период, с левым присоединением замеров за тот же период.
+        // Если search задан — фильтруем машины по частичному совпадению ИНН или наименования.
         var query = from vehicle in Context.Vehicles
                     join measurement in Context.Measurements
                     on new { VehicleId = vehicle.Id, TimestampRange = true }
@@ -561,6 +574,11 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
                     from measurement in measurementsGroup.DefaultIfEmpty()
                     where vehicle.EntryDate >= fromUtc && vehicle.EntryDate <= toUtc
                           && vehicle.Inn != null && vehicle.Inn != string.Empty
+                          // Поиск по ИНН или наименованию поставщика (регистронезависимо).
+                          // EF.Functions.ILike использует PostgreSQL-оператор ILIKE и не чувствителен к регистру.
+                          && (searchPattern == null
+                              || EF.Functions.ILike(vehicle.Inn, searchPattern)
+                              || EF.Functions.ILike(vehicle.Counterparty, searchPattern))
                     group new { vehicle, measurement } by vehicle.Inn into g
                     select new
                     {

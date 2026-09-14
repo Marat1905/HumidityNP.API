@@ -9,12 +9,22 @@ public interface ISupplierService
 {
     /// <summary>
     /// Получить список поставщиков с агрегированными данными за период (пагинированный).
+    ///
+    /// Параметр <paramref name="search"/> позволяет фильтровать поставщиков по частичному
+    /// совпадению ИНН или наименования (регистронезависимо). Пустая строка / null — без фильтра.
     /// </summary>
+    /// <param name="from">Начало периода.</param>
+    /// <param name="to">Конец периода.</param>
+    /// <param name="pageNumber">Номер страницы (начиная с 1).</param>
+    /// <param name="pageSize">Размер страницы.</param>
+    /// <param name="search">Строка поиска по ИНН или наименованию поставщика.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
     Task<PagedResult<SupplierDto>> GetSuppliersAsync(
         DateTimeOffset from,
         DateTimeOffset to,
         int pageNumber,
         int pageSize,
+        string? search = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
