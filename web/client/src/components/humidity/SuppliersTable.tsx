@@ -10,9 +10,9 @@ interface SuppliersTableProps {
  * Таблица поставщиков для топа.
  *
  * Показывает ДВА значения влажности:
- *   - «Средняя (сырая)» — наивная средняя AverageHumidity (sum / count);
- *   - «Скорректированная» — байесовски сглаженная AdjustedAverageHumidity,
- *     по которой и построен топ.
+ *   - «Сглаженная» — байесовски сглаженная AdjustedAverageHumidity,
+ *     по которой и построен топ;
+ *   - «Средняя (сырая)» — наивная средняя AverageHumidity (sum / count).
  *
  * Разница между ними тем заметнее, чем меньше замеров у поставщика:
  * у поставщиков с малым n сырая средняя сильно «подтянута» к глобальной.
@@ -73,7 +73,7 @@ const SuppliersTable: React.FC<SuppliersTableProps> = ({ suppliers, rankType }) 
                                 Поставщик
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Скорректированная средняя
+                                Сглаженная
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Средняя (сырая)

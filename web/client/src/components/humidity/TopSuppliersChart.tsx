@@ -25,7 +25,7 @@ interface TopSuppliersChartProps {
  *
  * Отображает:
  *   - столбцы диапазона влажности (min–max) для каждого поставщика;
- *   - линию по скорректированной средней (AdjustedAverageHumidity),
+ *   - линию по сглаженной средней (AdjustedAverageHumidity),
  *     именно по ней и отсортирован топ.
  *
  * В тултипе дополнительно показывается «сырая» средняя (AverageHumidity)
@@ -66,7 +66,7 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
         inn: supplier.inn,
         min: supplier.minHumidity ?? 0,
         max: supplier.maxHumidity ?? 0,
-        // Скорректированная средняя — по ней строится линия.
+        // Сглаженная средняя — по ней строится линия.
         adjusted: supplier.adjustedAverageHumidity ?? 0,
         // Наивная средняя — показывается в тултипе для сравнения.
         naive: supplier.averageHumidity ?? 0,
@@ -95,7 +95,7 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
         if (!active || !payload || payload.length === 0) return null;
         const data = payload[0].payload;
 
-        // Разница между наивной и скорректированной средней —
+        // Разница между наивной и сглаженной средней —
         // показывает, насколько байесовское сглаживание изменило значение.
         const delta = data.adjusted - data.naive;
 
@@ -127,7 +127,7 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
                     </div>
                     <div className="flex items-center gap-1.5 col-span-2">
                         <Droplet className="w-4 h-4 text-blue-500" />
-                        <span className="text-gray-600 dark:text-gray-300">Скорректированная:</span>
+                        <span className="text-gray-600 dark:text-gray-300">Сглаженная:</span>
                         <span className="font-bold text-gray-900 dark:text-white">
                             {data.adjusted.toFixed(1)}%
                         </span>
@@ -210,7 +210,7 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
                         iconType="circle"
                         formatter={(value) => {
                             if (value === 'range') return 'Диапазон влажности (мин–макс)';
-                            if (value === 'adjusted') return 'Скорректированная средняя (байесовская)';
+                            if (value === 'adjusted') return 'Сглаженная';
                             return value;
                         }}
                     />
@@ -241,7 +241,7 @@ const TopSuppliersChart: React.FC<TopSuppliersChartProps> = ({
                 </ComposedChart>
             </ResponsiveContainer>
             <div className="mt-3 flex flex-wrap items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                <span>Столбцы – диапазон влажности (мин–макс), линия с точками – скорректированная средняя.</span>
+                <span>Столбцы – диапазон влажности (мин–макс), линия с точками – сглаженная средняя.</span>
                 <span className="flex items-center gap-2">
                     <span className="inline-block w-3 h-3 rounded-full bg-gradient-to-r from-green-400 to-red-400" />
                     Цвет столбцов зависит от позиции в топе
