@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { VehiclesPage, MeasurementsPage, ShiftReportsPage, ReportPeriodPage, SuppliersPage, TopSuppliersPage } from '../humidity'
+import { VehiclesPage, MeasurementsPage, ShiftReportsPage, ReportPeriodPage, SuppliersPage, TopSuppliersPage } from '../Humidity'
 
 export default function HumidityPage() {
     const [activeTab, setActiveTab] = useState<'vehicles' | 'measurements' | 'reports' | 'period' | 'suppliers' | 'top'>('vehicles');
