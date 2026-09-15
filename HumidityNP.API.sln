@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.37111.16
+# Visual Studio Version 18
+VisualStudioVersion = 18.9.12120.119 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{36D591C7-65C7-A0D1-1CBC-10CDE441BDC8}"
 EndProject
@@ -33,6 +33,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "k8s", "k8s", "{DFF34247-70E
 		humidity-db-deployment.yaml = humidity-db-deployment.yaml
 		humidity-db-service.yaml = humidity-db-service.yaml
 	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "keycloak", "keycloak", "{31F59D27-33B8-4F88-BBF6-BAECAB8D708A}"
+	ProjectSection(SolutionItems) = preProject
+		keycloak\humidity-realm.json = keycloak\humidity-realm.json
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Humidity.Contracts", "src\Humidity.Contracts\Humidity.Contracts.csproj", "{07F32F42-00ED-4D66-90AD-9197CF91F7A1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Humidity.ApiGateway", "src\Humidity.ApiGateway\Humidity.ApiGateway.csproj", "{226F4DC2-3E75-47F2-AB24-308412043087}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Humidity.Notification.Service", "src\Humidity.Notification.Service\Humidity.Notification.Service.csproj", "{80E7B60F-F49F-4715-9A43-0AB4563DE5A3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -74,6 +85,18 @@ Global
 		{1FBFEE06-D524-4A2A-B890-2C0DF9C1854E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1FBFEE06-D524-4A2A-B890-2C0DF9C1854E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1FBFEE06-D524-4A2A-B890-2C0DF9C1854E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{07F32F42-00ED-4D66-90AD-9197CF91F7A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{07F32F42-00ED-4D66-90AD-9197CF91F7A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{07F32F42-00ED-4D66-90AD-9197CF91F7A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{07F32F42-00ED-4D66-90AD-9197CF91F7A1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{226F4DC2-3E75-47F2-AB24-308412043087}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{226F4DC2-3E75-47F2-AB24-308412043087}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{226F4DC2-3E75-47F2-AB24-308412043087}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{226F4DC2-3E75-47F2-AB24-308412043087}.Release|Any CPU.Build.0 = Release|Any CPU
+		{80E7B60F-F49F-4715-9A43-0AB4563DE5A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{80E7B60F-F49F-4715-9A43-0AB4563DE5A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{80E7B60F-F49F-4715-9A43-0AB4563DE5A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{80E7B60F-F49F-4715-9A43-0AB4563DE5A3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -86,6 +109,9 @@ Global
 		{485E3DE1-D647-BD96-1022-EA1E7CDE81E7} = {994FC2FC-22F8-4592-999F-399E0B438986}
 		{27DACA6E-CFF0-42C8-8738-1A47457AB525} = {FAE6BBB7-639B-4E0F-873B-003F432A6F5A}
 		{1FBFEE06-D524-4A2A-B890-2C0DF9C1854E} = {FAE6BBB7-639B-4E0F-873B-003F432A6F5A}
+		{07F32F42-00ED-4D66-90AD-9197CF91F7A1} = {36D591C7-65C7-A0D1-1CBC-10CDE441BDC8}
+		{226F4DC2-3E75-47F2-AB24-308412043087} = {36D591C7-65C7-A0D1-1CBC-10CDE441BDC8}
+		{80E7B60F-F49F-4715-9A43-0AB4563DE5A3} = {36D591C7-65C7-A0D1-1CBC-10CDE441BDC8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {FBB9E7E3-0D1A-414C-BD0A-88A98E689C9B}
