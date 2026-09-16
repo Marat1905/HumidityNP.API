@@ -1,29 +1,27 @@
-# См. статью по ссылке https://aka.ms/customizecontainer, чтобы узнать как настроить контейнер отладки и как Visual Studio использует этот Dockerfile для создания образов для ускорения отладки.
-
-# Этот этап используется при запуске из VS в быстром режиме (по умолчанию для конфигурации отладки)
+# Этап 1: базовый образ для запуска
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
-USER $APP_UID
 WORKDIR /app
 EXPOSE 8080
-EXPOSE 8081
+ENV ASPNETCORE_HTTP_PORTS=8080
 
-
-# Этот этап используется для сборки проекта службы
+# Этап 2: сборка
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Humidity.ApiGateway.csproj", "."]
-RUN dotnet restore "./Humidity.ApiGateway.csproj"
-COPY . .
-WORKDIR "/src/."
-RUN dotnet build "./Humidity.ApiGateway.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
-# Этот этап используется для публикации проекта службы, который будет скопирован на последний этап
+COPY ["src/Humidity.ApiGateway/Humidity.ApiGateway.csproj", "src/Humidity.ApiGateway/"]
+RUN dotnet restore "src/Humidity.ApiGateway/Humidity.ApiGateway.csproj"
+
+COPY . .
+WORKDIR "/src/src/Humidity.ApiGateway"
+RUN dotnet build "Humidity.ApiGateway.csproj" -c $BUILD_CONFIGURATION -o /app/build
+
+# Этап 3: публикация
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./Humidity.ApiGateway.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "Humidity.ApiGateway.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
-# Этот этап используется в рабочей среде или при запуске из VS в обычном режиме (по умолчанию, когда конфигурация отладки не используется)
+# Этап 4: финальный образ
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .

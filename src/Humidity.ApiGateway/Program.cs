@@ -1,4 +1,18 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using System.Text.Json;
+
+// ============================================================
+// Точка входа API Gateway (YARP).
+// Задачи:
+//  1. Единая точка входа для фронтенда (порт 8090 в docker-compose).
+//  2. Валидация JWT, выданного Keycloak, до попадания запроса в сервисы.
+//  3. Проксирование REST-запросов на Humidity.API и Notification.Service.
+//  4. Проброс user-контекста (sub, roles) во внутренние сервисы
+//     через заголовки X-User-Id, X-User-Roles — упрощает жизнь внизу.
+//  5. CORS для React-клиента.
+// ============================================================
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,15 +25,84 @@ var builder = WebApplication.CreateBuilder(args);
 // проблем в распределенной системе.
 builder.Host.UseSerilog((context, configuration) =>
 {
-    configuration.ReadFrom.Configuration(context.Configuration)
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
         .Enrich.FromLogContext()
         .Enrich.WithMachineName()
         .Enrich.WithThreadId()
-        .WriteTo.Console(outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}");
+        .WriteTo.Console()
+        .WriteTo.File("logs/gateway-.txt", rollingInterval: RollingInterval.Day);
+});
+
+// ------------------------------------------------------------
+// 2. Аутентификация через Keycloak (JWT Bearer)
+// ------------------------------------------------------------
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        // Authority — адрес realm-а. MetadataAddress — явный путь к .well-known,
+        // потому что внутри docker-сети authority может отличаться от внешнего.
+        options.Authority = builder.Configuration["Keycloak:Authority"];
+        options.MetadataAddress = builder.Configuration["Keycloak:MetadataAddress"]
+            ?? $"{options.Authority}/.well-known/openid-configuration";
+        options.RequireHttpsMetadata = bool.Parse(
+            builder.Configuration["Keycloak:RequireHttpsMetadata"] ?? "true");
+
+        // Внутри docker-сети между сервисами используется HTTP, поэтому
+        // audience не всегда приходит — валидируем только issuer и подпись.
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Keycloak:Authority"],
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ClockSkew = TimeSpan.FromSeconds(30),
+            NameClaimType = "preferred_username",
+            RoleClaimType = "roles"
+        };
+
+        // Не отдаём стандартный WWW-Authenticate challenge в HTML-формате,
+        // чтобы фронтенд получал 401 JSON-ом.
+        options.Events = new JwtBearerEvents
+        {
+            OnChallenge = context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = 401;
+                context.Response.ContentType = "application/json";
+                return context.Response.WriteAsync(
+                    JsonSerializer.Serialize(new
+                    {
+                        statusCode = 401,
+                        message = "Unauthorized. Требуется действительный токен Keycloak."
+                    }));
+            }
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+// ------------------------------------------------------------
+// 3. CORS для React-клиента
+// ------------------------------------------------------------
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("FrontendPolicy", policy =>
+    {
+        policy
+            .WithOrigins(
+                "http://localhost:3000",
+                "http://localhost:8090")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
 });
 
 // ==============================================================================
-// 2. ДОБАВЛЕНИЕ СЕРВИСОВ YARP (REVERSE PROXY)
+// 4. ДОБАВЛЕНИЕ СЕРВИСОВ YARP (REVERSE PROXY)
 // ==============================================================================
 // Загружаем конфигурацию маршрутов (Routes) и кластеров (Clusters) из секции 
 // "ReverseProxy" в файле appsettings.json. YARP использует эти данные для 
@@ -28,7 +111,7 @@ builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
 // ==============================================================================
-// 3. ДОБАВЛЕНИЕ HEALTH CHECKS
+// 5. ДОБАВЛЕНИЕ HEALTH CHECKS
 // ==============================================================================
 // Добавляем базовую проверку состояния (health checks) для мониторинга 
 // доступности самого шлюза. В дальнейшем сюда можно добавить проверки 
@@ -38,8 +121,35 @@ builder.Services.AddHealthChecks();
 var app = builder.Build();
 
 // ==============================================================================
-// 4. НАСТРОЙКА КОНВЕЙЕРА ОБРАБОТКИ ЗАПРОСОВ (MIDDLEWARE PIPELINE)
+// 6. НАСТРОЙКА КОНВЕЙЕРА ОБРАБОТКИ ЗАПРОСОВ (MIDDLEWARE PIPELINE)
 // ==============================================================================
+app.UseSerilogRequestLogging();
+
+app.UseCors("FrontendPolicy");
+
+// Валидируем токен, но не блокируем анонимные запросы:
+// например, /health должен быть доступен без токена.
+app.UseAuthentication();
+
+// Пробрасываем идентификатор пользователя и его роли во внутренние
+// сервисы через заголовки — упрощает построение audit-логов и
+// позволяет микросервисам не парсить JWT повторно.
+app.Use(async (context, next) =>
+{
+    if (context.User?.Identity?.IsAuthenticated == true)
+    {
+        var userId = context.User.FindFirst("sub")?.Value
+                     ?? context.User.FindFirst("preferred_username")?.Value
+                     ?? "unknown";
+        var roles = string.Join(",", context.User.FindAll("roles").Select(c => c.Value));
+        context.Request.Headers["X-User-Id"] = userId;
+        context.Request.Headers["X-User-Roles"] = roles;
+    }
+
+    await next();
+});
+
+app.UseAuthorization();
 
 // Добавляем конечную точку для проверки состояния (health checks) по пути /health.
 // Это позволяет оркестраторам (например, Kubernetes или Docker Compose) 
@@ -47,7 +157,7 @@ var app = builder.Build();
 app.MapHealthChecks("/health");
 
 // ==============================================================================
-// 5. МАРШРУТИЗАЦИЯ ЗАПРОСОВ ЧЕРЕЗ YARP
+// 7. МАРШРУТИЗАЦИЯ ЗАПРОСОВ ЧЕРЕЗ YARP
 // ==============================================================================
 // Метод MapReverseProxy() добавляет конечные точки для всех маршрутов, 
 // определенных в конфигурации. Это должно быть одним из последних вызовов 
@@ -56,7 +166,7 @@ app.MapHealthChecks("/health");
 app.MapReverseProxy();
 
 // ==============================================================================
-// 6. ИНИЦИАЛИЗАЦИЯ И ЗАПУСК ПРИЛОЖЕНИЯ
+// 8. ИНИЦИАЛИЗАЦИЯ И ЗАПУСК ПРИЛОЖЕНИЯ
 // ==============================================================================
 try
 {
