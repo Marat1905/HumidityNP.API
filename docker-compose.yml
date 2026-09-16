@@ -126,12 +126,15 @@ services:
       - Keycloak__MetadataAddress=http://keycloak:8080/realms/humidity/.well-known/openid-configuration
       - Keycloak__RequireHttpsMetadata=false
       - ReverseProxy__Clusters__humidity-api__Destinations__primary__Address=http://api:8080
+      - ReverseProxy__Clusters__notification-service__Destinations__primary__Address=http://notification:8080
     ports:
       - "8090:8080"
     depends_on:
       keycloak:
         condition: service_healthy
       api:
+        condition: service_started
+      notification:
         condition: service_started
     networks:
       - humidity_network
@@ -161,6 +164,7 @@ services:
       - Keycloak__Authority=http://keycloak:8080/realms/humidity
       - Keycloak__MetadataAddress=http://keycloak:8080/realms/humidity/.well-known/openid-configuration
       - Keycloak__RequireHttpsMetadata=false
+      - NotificationService__GrpcAddress=http://notification:8080
     ports:
       - "5000:8080"
     depends_on:
@@ -170,5 +174,52 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+    networks:
+      - humidity_network
+
+  # ============================================================
+  # Humidity.Notification.Service — микросервис уведомлений.
+  # ============================================================
+  notification:
+    build:
+      context: .
+      dockerfile: src/Humidity.Notification.Service/Dockerfile
+    container_name: humidity_notification
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - RabbitMq__Host=rabbitmq
+      - RabbitMq__Port=5672
+      - RabbitMq__Username=humidity
+      - RabbitMq__Password=humidity
+      - RabbitMq__VirtualHost=/
+      - Smtp__Host=mailhog
+      - Smtp__Port=1025
+      - Smtp__From=humidity@local
+      - Smtp__UseSsl=false
+      - Recipients__Default=dispatcher@example.com,manager@example.com
+      - HumidityApi__GrpcAddress=http://api:8080
+    ports:
+      - "5002:8080"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      api:
+        condition: service_started
+    networks:
+      - humidity_network
+
+  # ============================================================
+  # MailHog — SMTP-ловушка для локальной разработки.
+  # Web UI доступен на http://localhost:8025
+  # ============================================================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: humidity_mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
     networks:
       - humidity_network
