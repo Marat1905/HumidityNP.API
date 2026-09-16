@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+option csharp_namespace = "Humidity.Contracts.Protos";
+
+package measurement;
+
+// gRPC-сервис агрегированной статистики по смене.
+// Вызывается из Notification.Service, чтобы получить данные для письма,
+// не дёргая REST-контроллеры.
+service MeasurementGrpc {
+  rpc GetShiftStatistics (GetShiftStatisticsRequest) returns (GetShiftStatisticsResponse);
+}
+
+message GetShiftStatisticsRequest {
+  // ISO 8601 UTC (включительно)
+  string from_date = 1;
+  // ISO 8601 UTC (включительно)
+  string to_date = 2;
+}
+
+message VehicleHumidityDto {
+  string vehicle_id = 1;
+  string number = 2;
+  string vehicle_plate = 3;
+  string counterparty = 4;
+  int32 measurements_count = 5;
+  double average_humidity = 6;
+  double min_humidity = 7;
+  double max_humidity = 8;
+}
+
+message GetShiftStatisticsResponse {
+  repeated VehicleHumidityDto vehicles = 1;
+  double overall_average = 2;
+  double overall_min = 3;
+  double overall_max = 4;
+  int32 total_measurements = 5;
+}

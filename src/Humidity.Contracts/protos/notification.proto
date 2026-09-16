@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+option csharp_namespace = "Humidity.Contracts.Protos";
+
+package notification;
+
+// Сервис журнала уведомлений. Используется основным API
+// и внутренними административными панелями для просмотра истории
+// отправленных писем и тестирования SMTP.
+service NotificationService {
+  // Получить страницу журнала уведомлений.
+  rpc GetNotificationLogs (GetNotificationLogsRequest) returns (GetNotificationLogsResponse);
+
+  // Отправить тестовое письмо на указанный адрес.
+  rpc SendTestNotification (SendTestNotificationRequest) returns (SendTestNotificationResponse);
+}
+
+message GetNotificationLogsRequest {
+  // ISO 8601 UTC
+  string from_date = 1;
+  // ISO 8601 UTC
+  string to_date = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message NotificationLogDto {
+  string id = 1;
+  string shift_type = 2;       // "day" | "night"
+  string shift_date = 3;       // ISO 8601 UTC (начало смены)
+  string sent_at = 4;          // ISO 8601 UTC
+  int32 recipient_count = 5;
+  string status = 6;           // "Success" | "Failure"
+  string error_message = 7;
+  int32 vehicles_count = 8;
+  int32 total_measurements = 9;
+  double overall_average_humidity = 10;
+}
+
+message GetNotificationLogsResponse {
+  repeated NotificationLogDto items = 1;
+  int32 total_count = 2;
+}
+
+message SendTestNotificationRequest {
+  string email = 1;
+}
+
+message SendTestNotificationResponse {
+  bool success = 1;
+  string message = 2;
+}
