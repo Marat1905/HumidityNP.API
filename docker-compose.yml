@@ -42,6 +42,23 @@ services:
     networks:
       - humidity_network
 
+  # Сервис API Gateway (YARP)
+  gateway:
+    build:
+      context: .
+      dockerfile: src/Humidity.ApiGateway/Dockerfile
+    container_name: humidity_gateway
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "5050:8080"
+      - "5051:8081"
+    depends_on:
+      - api
+    networks:
+      - humidity_network
+
 volumes:
   pgdata:
     name: humidity_pgdata
