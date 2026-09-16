@@ -27,11 +27,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Humidity.IntegrationTests",
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "k8s", "k8s", "{DFF34247-70EB-4666-AC9D-60CD0D3AE373}"
 	ProjectSection(SolutionItems) = preProject
-		humidity-api-deployment.yaml = humidity-api-deployment.yaml
-		humidity-api-service.yaml = humidity-api-service.yaml
-		humidity-db-data-persistentvolumeclaim.yaml = humidity-db-data-persistentvolumeclaim.yaml
-		humidity-db-deployment.yaml = humidity-db-deployment.yaml
-		humidity-db-service.yaml = humidity-db-service.yaml
+		k8s\humidity-api-deployment.yaml = k8s\humidity-api-deployment.yaml
+		k8s\humidity-api-service.yaml = k8s\humidity-api-service.yaml
+		k8s\humidity-db-data-persistentvolumeclaim.yaml = k8s\humidity-db-data-persistentvolumeclaim.yaml
+		k8s\humidity-db-deployment.yaml = k8s\humidity-db-deployment.yaml
+		k8s\humidity-db-service.yaml = k8s\humidity-db-service.yaml
 	EndProjectSection
 EndProject
 Global
