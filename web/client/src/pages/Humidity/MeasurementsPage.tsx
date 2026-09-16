@@ -3,6 +3,7 @@ import { format, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Pencil, Trash2, RotateCcw } from 'lucide-react';
 import { useMeasurementsByDateRange } from '../../hooks/humidity';
+import { useSignalREvents } from '../../hooks/useSignalREvents';
 import { SkeletonTable, Pagination, RangeDatePicker } from '../../components/common';
 import { DeleteConfirmationModal, MeasurementFormModal } from '../../components/humidity';
 import { measurementService } from '../../services/humidity/api';
@@ -51,6 +52,21 @@ export default function MeasurementsPage() {
         pageNumber,
         pageSize
     );
+
+    // ============================================================
+    // Live-обновления через SignalR.
+    // ============================================================
+    useSignalREvents({
+        onMeasurementCreated: () => {
+            refetch();
+        },
+        onMeasurementDeleted: () => {
+            refetch();
+        },
+        onShiftEnded: () => {
+            refetch();
+        },
+    });
 
     const [editMeasurement, setEditMeasurement] = useState<MeasurementDto | null>(null);
     const [deleteId, setDeleteId] = useState<string | null>(null);

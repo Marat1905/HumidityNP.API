@@ -16,6 +16,7 @@
     "axios": "^1.7.9",
     "date-fns": "^3.6.0",
     "keycloak-js": "26.0.0",
+    "@microsoft/signalr": "^8.0.7",
     "lucide-react": "^0.468.0",
     "react": "^19.2.6",
     "react-date-range": "^2.0.1",

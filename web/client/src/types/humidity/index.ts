@@ -268,3 +268,43 @@ export interface PeriodReportResponseDto {
  * Соответствует серверному параметру sortBy.
  */
 export type PeriodReportSortBy = 'exitDate' | 'averageHumidity' | 'lastMeasurement';
+
+/**
+ * Событие «создана новая машина», приходящее по SignalR.
+ */
+export interface VehicleCreatedEvent {
+    eventId: string;
+    vehicleId: string;
+    number: string;
+    vehiclePlate: string;
+    counterparty: string;
+    entryDate: string;
+    publishedAt: string;
+}
+
+/**
+ * Событие «создан новый замер».
+ */
+export interface MeasurementCreatedEvent {
+    eventId: string;
+    measurementId: string;
+    vehicleId: string;
+    vehicleNumber: string;
+    vehiclePlate: string;
+    humidityValue: number;
+    temperatureC: number;
+    source: string;
+    timestamp: string;
+    publishedAt: string;
+}
+
+/**
+ * Событие «смена закончилась».
+ */
+export interface ShiftEndedEvent {
+    eventId: string;
+    shiftType: 'day' | 'night';
+    shiftStart: string;
+    shiftEnd: string;
+    publishedAt: string;
+}

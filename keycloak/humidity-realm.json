@@ -3,14 +3,23 @@
   "enabled": true,
   "displayName": "Humidity Control",
   "accessTokenLifespan": 900,
+  "accessTokenLifespanForImplicitFlow": 900,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
+  "offlineSessionIdleTimeout": 2592000,
+  "offlineSessionMaxLifespanEnabled": false,
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
   "editUsernameAllowed": false,
-  "sslRequired": "external",
+  "rememberMe": true,
+  "verifyEmail": false,
+  "loginTheme": "keycloak",
+  "internationalizationEnabled": true,
+  "supportedLocales": [ "ru", "en" ],
+  "defaultLocale": "ru",
+  "sslRequired": "none",
   "roles": {
     "realm": [
       {
@@ -55,27 +64,45 @@
       "publicClient": true,
       "protocol": "openid-connect",
       "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
+      "consentRequired": false,
+      "fullScopeAllowed": true,
+      "frontchannelLogout": true,
       "rootUrl": "http://localhost:3000",
-      "baseUrl": "/",
+      "adminUrl": "http://localhost:3000",
       "redirectUris": [
         "http://localhost:3000/*",
-        "http://localhost:8090/*"
+        "http://localhost:3000/humidity",
+        "http://localhost:3000/humidity/*",
+        "http://localhost:8090/*",
+        "http://localhost:8090/humidity",
+        "http://localhost:8090/humidity/*"
       ],
       "webOrigins": [
         "http://localhost:3000",
         "http://localhost:8090"
       ],
       "attributes": {
-        "pkce.code.challenge.method": "S256"
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/*##http://localhost:3000/humidity##http://localhost:8090/*##http://localhost:8090/humidity",
+        "backchannel.logout.session.required": "true",
+        "backchannel.logout.revoke.offline.tokens": "false"
       },
       "defaultClientScopes": [
         "web-origins",
         "acr",
         "profile",
         "roles",
-        "email"
+        "email",
+        "basic"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
       ]
     },
     {
@@ -86,7 +113,13 @@
       "bearerOnly": true,
       "protocol": "openid-connect",
       "standardFlowEnabled": false,
-      "serviceAccountsEnabled": false
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
     },
     {
       "clientId": "humidity-gateway",
@@ -95,7 +128,14 @@
       "publicClient": false,
       "bearerOnly": true,
       "protocol": "openid-connect",
-      "standardFlowEnabled": false
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
     },
     {
       "clientId": "humidity-notification-service",
@@ -104,7 +144,14 @@
       "publicClient": false,
       "bearerOnly": true,
       "protocol": "openid-connect",
-      "standardFlowEnabled": false
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
     }
   ],
   "users": [
@@ -122,7 +169,8 @@
           "temporary": false
         }
       ],
-      "realmRoles": [ "User" ]
+      "realmRoles": [ "User" ],
+      "requiredActions": []
     },
     {
       "username": "tcx",
@@ -138,7 +186,8 @@
           "temporary": false
         }
       ],
-      "realmRoles": [ "TCX", "User" ]
+      "realmRoles": [ "TCX", "User" ],
+      "requiredActions": []
     },
     {
       "username": "admin",
@@ -154,13 +203,8 @@
           "temporary": false
         }
       ],
-      "realmRoles": [ "Admin", "TCX", "User", "Manager" ]
-    },
-    {
-      "username": "service-account-notification",
-      "enabled": true,
-      "serviceAccountClientId": "humidity-notification-service",
-      "realmRoles": [ "User" ]
+      "realmRoles": [ "Admin", "TCX", "User", "Manager" ],
+      "requiredActions": []
     }
   ]
 }

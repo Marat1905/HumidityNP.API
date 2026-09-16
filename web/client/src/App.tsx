@@ -4,7 +4,7 @@
  * Содержит кнопки в правом верхнем углу: профиль пользователя, выход и переключение темы.
  */
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { Toaster } from 'react-hot-toast';
 import { FiSun, FiMoon, FiLogOut, FiUser } from 'react-icons/fi';
 import Layout from './components/humidity/Layout';
@@ -17,14 +17,15 @@ import './index.css';
  * поэтому может использовать useAuth().
  */
 const AppInner: React.FC = () => {
-    // Состояние темы: 'light' или 'dark'
+    // Состояние темы: 'light' или 'dark'.
+    // Приоритет: сохранённое в localStorage → системная тема → 'light'.
     const [theme, setTheme] = useState<'light' | 'dark'>(() => {
         const saved = localStorage.getItem('theme');
         if (saved === 'light' || saved === 'dark') return saved;
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     });
 
-    // Применяем класс `dark` к корневому элементу при изменении темы
+    // Применяем класс `dark` к корневому элементу при изменении темы.
     useEffect(() => {
         const root = document.documentElement;
         if (theme === 'dark') {
@@ -35,37 +36,33 @@ const AppInner: React.FC = () => {
         localStorage.setItem('theme', theme);
     }, [theme]);
 
-    // Переключение темы
+    // Переключение темы.
     const toggleTheme = () => {
         setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
     };
 
-    // Получаем реальные данные пользователя и функции управления сессией из Keycloak
-    const { user, isAuthenticated, loading, login, logout } = useAuth();
+    // Данные пользователя и функции аутентификации.
+    const { user, isAdmin, isTcx, logout, loading } = useAuth();
 
-    // Показываем индикатор загрузки, пока Keycloak инициализируется
+    // Пока Keycloak не инициализирован — показываем экран загрузки.
+    // Это единственный момент, когда приложение не рендерит роутер;
+    // после этого пользователь уже либо аутентифицирован, либо
+    // находится в процессе редиректа на Keycloak login.
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
-                <div className="text-xl text-gray-700 dark:text-gray-200">Загрузка и проверка сессии...</div>
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                <div className="text-gray-700 dark:text-gray-300">Загрузка...</div>
             </div>
         );
     }
 
-    // Если пользователь не авторизован, предлагаем войти
-    if (!isAuthenticated) {
-        return (
-            <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-gray-900 gap-4">
-                <div className="text-xl text-gray-700 dark:text-gray-200">Для работы необходимо авторизоваться</div>
-                <button
-                    onClick={login}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
-                >
-                    Войти через Keycloak
-                </button>
-            </div>
-        );
-    }
+    // Метка и цвет роли для отображения в правом верхнем углу.
+    const roleLabel = isAdmin ? 'Админ' : isTcx ? 'TCX' : 'Пользователь';
+    const roleColor = isAdmin
+        ? 'text-purple-600 dark:text-purple-400'
+        : isTcx
+            ? 'text-green-600 dark:text-green-400'
+            : 'text-gray-700 dark:text-gray-200';
 
     return (
         <BrowserRouter>
@@ -81,22 +78,14 @@ const AppInner: React.FC = () => {
                 }}
             />
 
-            {/* Панель кнопок в правом верхнем углу: профиль + тема */}
+            {/* Панель кнопок в правом верхнем углу: пользователь + тема + logout */}
             <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
-                {/* Информация о пользователе и кнопка выхода */}
+                {/* Информация о пользователе */}
                 <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg border border-gray-200 dark:border-gray-700">
-                    <FiUser className="w-5 h-5 text-gray-700 dark:text-gray-200" />
-                    <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
-                        {user?.firstName || user?.username}
+                    <FiUser className={roleColor} />
+                    <span className={`text-xs font-medium ${roleColor}`}>
+                        {user?.firstName} {user?.lastName} ({roleLabel})
                     </span>
-                    <button
-                        onClick={logout}
-                        className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-                        aria-label="Выйти"
-                        title="Выйти из аккаунта"
-                    >
-                        <FiLogOut className="w-4 h-4 text-red-600 dark:text-red-400" />
-                    </button>
                 </div>
 
                 {/* Кнопка переключения темы */}
@@ -111,22 +100,42 @@ const AppInner: React.FC = () => {
                         <FiSun className="w-5 h-5 text-yellow-500" />
                     )}
                 </button>
+
+                {/* Кнопка выхода — вызывает Keycloak logout */}
+                <button
+                    onClick={logout}
+                    className="p-2 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg border border-gray-200 dark:border-gray-700 transition-all hover:scale-110"
+                    aria-label="Выйти"
+                    title="Выйти из системы"
+                >
+                    <FiLogOut className="w-5 h-5 text-red-500" />
+                </button>
             </div>
 
             {/* Основное приложение */}
             <Layout>
                 <Routes>
+                    {/* Основная страница контроля влажности */}
                     <Route path="/humidity" element={<HumidityPage />} />
+
+                    {/* Детали машины */}
                     <Route path="/humidity/vehicles/:id" element={<VehicleDetailsPage />} />
-                    {/* Редирект на главную страницу по умолчанию */}
-                    <Route path="/" element={<HumidityPage />} />
+
+                    {/* Корень → редирект на /humidity */}
+                    <Route path="/" element={<Navigate to="/humidity" replace />} />
+
+                    {/* Любой другой путь → редирект на /humidity.
+                        Защищает от 404 и опечаток в URL. */}
+                    <Route path="*" element={<Navigate to="/humidity" replace />} />
                 </Routes>
             </Layout>
         </BrowserRouter>
     );
 };
 
-/** Обёртка с AuthProvider — здесь и только здесь создаётся контекст */
+/**
+ * Обёртка с AuthProvider — здесь и только здесь создаётся контекст.
+ */
 function App() {
     return (
         <AuthProvider>

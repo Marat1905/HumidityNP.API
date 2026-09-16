@@ -26,6 +26,7 @@ using Polly.Extensions.Http;
 using Serilog;
 using StackExchange.Redis;
 using Swashbuckle.AspNetCore.SwaggerGen;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 
@@ -158,40 +159,99 @@ builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrateg
 // ==============================================================================
 // 8. РЕГИСТРАЦИЯ СЛОЁВ И ЗАВИСИМОСТЕЙ
 // ==============================================================================
+var keycloakAuthority = builder.Configuration["Keycloak:Authority"];
+var keycloakExternalAuthority = builder.Configuration["Keycloak:ExternalAuthority"];
+
+var validIssuers = new List<string>();
+if (!string.IsNullOrWhiteSpace(keycloakAuthority))
+{
+    validIssuers.Add(keycloakAuthority);
+}
+if (!string.IsNullOrWhiteSpace(keycloakExternalAuthority))
+{
+    validIssuers.Add(keycloakExternalAuthority);
+}
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        options.Authority = builder.Configuration["Keycloak:Authority"];
+        // Authority — адрес realm-а, к которому сервис обращается внутри Docker.
+        options.Authority = keycloakAuthority;
+
+        // MetadataAddress — явный путь к .well-known конфигурации.
+        // Внутри Docker авторити может отличаться от внешнего, поэтому
+        // указываем явно.
         options.MetadataAddress = builder.Configuration["Keycloak:MetadataAddress"]
-            ?? $"{options.Authority}/.well-known/openid-configuration";
+            ?? $"{keycloakAuthority}/.well-known/openid-configuration";
+
+        // В dev-режиме Keycloak работает по HTTP без TLS.
         options.RequireHttpsMetadata = bool.Parse(
             builder.Configuration["Keycloak:RequireHttpsMetadata"] ?? "true");
 
         options.TokenValidationParameters = new TokenValidationParameters
         {
+            // Валидируем издателя (обязательно!)
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Keycloak:Authority"],
+
+            // Список допустимых издателей: internal + external.
+            ValidIssuers = validIssuers,
+
+            // Audience не валидируем — у SPA может быть несколько клиентов,
+            // которые обращаются с одним и тем же access-токеном.
             ValidateAudience = false,
+
+            // Валидируем время жизни токена
             ValidateLifetime = true,
+
+            // Подпись валидируется через JWKS (публичные ключи Keycloak)
             ValidateIssuerSigningKey = true,
+
+            // Небольшой дрейф часов — 30 секунд (у контейнеров может быть
+            // расхождение времени).
             ClockSkew = TimeSpan.FromSeconds(30),
+
+            // Имя пользователя в токене приходит как preferred_username.
             NameClaimType = "preferred_username",
-            RoleClaimType = "roles"
+
+            // Роль ищем среди ClaimTypes.Role — туда её добавит
+            // KeycloakRoleClaimsTransformation (см. ниже).
+            RoleClaimType = ClaimTypes.Role
         };
 
-        // Для SignalR-клиентов токен может приходить в query string (?access_token=)
         options.Events = new JwtBearerEvents
         {
+            // SignalR не может выставить Authorization header при WebSocket
+            // handshake, поэтому токен передаётся в query string.
+            // Извлекаем его только для эндпоинтов /hubs/humidity,
+            // чтобы не давать возможность передавать токен в query для
+            // обычных API-запросов (это было бы небезопасно).
             OnMessageReceived = context =>
             {
                 var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
+
                 if (!string.IsNullOrEmpty(accessToken) &&
                     path.StartsWithSegments("/hubs/humidity"))
                 {
                     context.Token = accessToken;
                 }
+
+                return Task.CompletedTask;
+            },
+
+            // Диагностика: пишем причину отказа аутентификации.
+            // В dev-режиме это сильно ускоряет поиск проблем.
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices
+                    .GetRequiredService<ILogger<Program>>();
+
+                logger.LogWarning(context.Exception,
+                    "JWT authentication failed на {Path}: {Message}",
+                    context.HttpContext.Request.Path,
+                    context.Exception.Message);
+
                 return Task.CompletedTask;
             }
         };

@@ -1,18 +1,47 @@
 /**
- * Реальный AuthContext, интегрированный с Keycloak.
- * Управляет состоянием аутентификации, извлекает данные пользователя из JWT-токена
- * и предоставляет методы для входа (login) и выхода (logout).
+ * AuthContext на базе Keycloak (keycloak-js).
  */
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
-import keycloak from '../keycloak.ts';
+import React, {
+    createContext,
+    useContext,
+    useState,
+    useEffect,
+    useMemo,
+    useCallback,
+    useRef,
+    type ReactNode,
+} from 'react';
+import type { KeycloakTokenParsed } from 'keycloak-js';
+import { createSignalRClient, type HumiditySignalRClient } from '../services/signalr';
+import {
+    getOrCreateKeycloak,
+    initKeycloak,
+    getAccessToken,
+    logoutFromKeycloak,
+} from '../services/keycloak';
 
-/** Упрощённая модель пользователя (совпадает с UserDto из бэкенда) */
+/**
+ * Расширенный набор полей JWT, которые отдаёт Keycloak.
+ */
+export interface KeycloakRealmAccess {
+    roles: string[];
+}
+
+export interface ParsedToken extends KeycloakTokenParsed {
+    sub: string;
+    preferred_username: string;
+    given_name?: string;
+    family_name?: string;
+    email?: string;
+    realm_access?: KeycloakRealmAccess;
+}
+
 export interface UserDto {
     id: string;
     username: string;
     firstName: string;
     lastName: string;
-    patronymic?: string;
+    email?: string;
     roles: string[];
 }
 
@@ -22,9 +51,11 @@ interface AuthContextType {
     isAdmin: boolean;
     isTcx: boolean;
     isAdminOrTcx: boolean;
+    getToken: () => Promise<string>;
+    logout: () => Promise<void>;
+    hasRole: (role: string) => boolean;
     loading: boolean;
-    login: () => void;
-    logout: () => void;
+    signalR: HumiditySignalRClient | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,106 +68,200 @@ export const useAuth = () => {
     return ctx;
 };
 
-interface AuthProviderProps {
-    children: ReactNode;
-}
+const TOKEN_REFRESH_INTERVAL_MS = 30_000;
+const TOKEN_MIN_VALIDITY_SECONDS = 60;
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(keycloak.authenticated || false);
-    const [loading, setLoading] = useState<boolean>(!keycloak.authenticated);
+/**
+ * Сравнение двух пользователей по значимым полям.
+ * Нужно, чтобы не создавать новый объект user, если данные не изменились.
+ */
+const isSameUser = (a: UserDto | null, b: UserDto | null): boolean => {
+    if (a === b) return true;
+    if (!a || !b) return false;
+
+    return (
+        a.id === b.id &&
+        a.username === b.username &&
+        a.firstName === b.firstName &&
+        a.lastName === b.lastName &&
+        a.email === b.email &&
+        a.roles.length === b.roles.length &&
+        a.roles.every((r, i) => r === b.roles[i])
+    );
+};
+
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const [user, setUserState] = useState<UserDto | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [signalR, setSignalR] = useState<HumiditySignalRClient | null>(null);
+
+    const refreshIntervalRef = useRef<number | null>(null);
+
+    /**
+     * Безопасный сеттер: не создаёт новый объект, если пользователь
+     * не изменился. Предотвращает лишние ре-рендеры и перезапуск
+     * SignalR-эффекта при обновлении токена.
+     */
+    const setUser = useCallback((next: UserDto | null) => {
+        setUserState(prev => (isSameUser(prev, next) ? prev : next));
+    }, []);
+
+    /**
+     * Извлечение информации о пользователе из распарсенного JWT.
+     */
+    const extractUser = useCallback((tokenParsed: ParsedToken): UserDto => {
+        const roles = tokenParsed.realm_access?.roles ?? [];
+        return {
+            id: tokenParsed.sub,
+            username: tokenParsed.preferred_username,
+            firstName: tokenParsed.given_name ?? '',
+            lastName: tokenParsed.family_name ?? '',
+            email: tokenParsed.email,
+            roles: [...roles].sort(), // стабильный порядок для сравнения
+        };
+    }, []);
+
+    // ============================================================
+    // 1. Инициализация Keycloak — через singleton, идемпотентно.
+    // ============================================================
+    useEffect(() => {
+        let cancelled = false;
+
+        initKeycloak()
+            .then((authenticated) => {
+                if (cancelled) return;
+
+                const kc = getOrCreateKeycloak();
+                if (authenticated && kc.tokenParsed) {
+                    setUser(extractUser(kc.tokenParsed as ParsedToken));
+                }
+            })
+            .catch((err) => {
+                if (cancelled) return;
+                console.error('[Auth] Keycloak init error', err);
+            })
+            .finally(() => {
+                if (cancelled) return;
+                setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [extractUser, setUser]);
+
+    // ============================================================
+    // 2. Фоновое обновление токена.
+    // Запускается только после того, как Keycloak инициализирован.
+    // ============================================================
+    useEffect(() => {
+        if (loading) return;
+
+        const kc = getOrCreateKeycloak();
+        if (!kc.authenticated) return;
+
+        refreshIntervalRef.current = window.setInterval(async () => {
+            try {
+                await kc.updateToken(TOKEN_MIN_VALIDITY_SECONDS);
+                if (kc.tokenParsed) {
+                    // setUser пропустит ре-рендер, если данные не изменились.
+                    setUser(extractUser(kc.tokenParsed as ParsedToken));
+                }
+            } catch (err) {
+                console.warn('[Auth] Не удалось обновить токен', err);
+                await kc.logout();
+            }
+        }, TOKEN_REFRESH_INTERVAL_MS);
+
+        // Обработчик истечения токена — срабатывает, если между тиками
+        // токен всё-таки протух.
+        kc.onTokenExpired = async () => {
+            try {
+                await kc.updateToken(30);
+            } catch {
+                await kc.logout();
+            }
+        };
+
+        return () => {
+            if (refreshIntervalRef.current !== null) {
+                clearInterval(refreshIntervalRef.current);
+                refreshIntervalRef.current = null;
+            }
+        };
+    }, [loading, extractUser, setUser]);
+
+    // ============================================================
+    // 3. SignalR-клиент.
+    //
+    // ВАЖНО: зависимость от user?.id, а не от user целиком.
+    // Иначе каждое обновление токена (каждые 30 сек) будет
+    // останавливать и пересоздавать SignalR — экран мерцает.
+    // ============================================================
+    const userId = user?.id ?? null;
 
     useEffect(() => {
-        // Обработчик успешного входа
-        const onAuthSuccess = () => {
-            setIsAuthenticated(true);
-            setLoading(false);
-        };
+        if (!userId) return;
 
-        // Обработчик выхода
-        const onAuthLogout = () => {
-            setIsAuthenticated(false);
-            setLoading(false);
-        };
+        const kc = getOrCreateKeycloak();
+        if (!kc.authenticated) return;
 
-        // Обработчик успешного обновления токена (refresh)
-        const onAuthRefreshSuccess = () => {
-            setIsAuthenticated(true);
-        };
+        let cancelled = false;
+        const client = createSignalRClient(async () => {
+            await kc.updateToken(30);
+            return kc.token ?? '';
+        });
 
-        // Обработчик ошибки обновления токена (сессия истекла)
-        const onAuthRefreshError = () => {
-            setIsAuthenticated(false);
-        };
+        client.start()
+            .then(() => {
+                if (!cancelled) setSignalR(client);
+            })
+            .catch(err => console.error('[Auth] SignalR start error', err));
 
-        // Подписываемся на события Keycloak
-        keycloak.onAuthSuccess = onAuthSuccess;
-        keycloak.onAuthLogout = onAuthLogout;
-        keycloak.onAuthRefreshSuccess = onAuthRefreshSuccess;
-        keycloak.onAuthRefreshError = onAuthRefreshError;
-
-        // Если на момент монтирования компонента Keycloak уже инициализирован и авторизован
-        if (keycloak.authenticated) {
-            setIsAuthenticated(true);
-            setLoading(false);
-        } else {
-            setLoading(false);
-        }
-
-        // Очистка обработчиков при размонтировании
         return () => {
-            keycloak.onAuthSuccess = undefined;
-            keycloak.onAuthLogout = undefined;
-            keycloak.onAuthRefreshSuccess = undefined;
-            keycloak.onAuthRefreshError = undefined;
+            cancelled = true;
+            client.stop().catch(() => { /* игнорируем */ });
+            setSignalR(null);
         };
+    }, [userId]);
+
+    // ============================================================
+    // 4. Публичные методы.
+    // ============================================================
+    const getToken = useCallback(async (): Promise<string> => {
+        return getAccessToken(30);
     }, []);
 
-    // Функция принудительного входа (редирект на страницу логина Keycloak)
-    const login = useCallback(() => {
-        keycloak.login();
+    const logout = useCallback(async (): Promise<void> => {
+        await logoutFromKeycloak(window.location.origin);
     }, []);
 
-    // Функция выхода (очистка сессии в Keycloak и редирект)
-    const logout = useCallback(() => {
-        keycloak.logout();
-    }, []);
+    const hasRole = useCallback((role: string): boolean => {
+        return user?.roles.includes(role) ?? false;
+    }, [user]);
 
-    // Извлекаем данные пользователя из распарсенного JWT-токена Keycloak
-    const user = useMemo<UserDto | null>(() => {
-        if (!isAuthenticated || !keycloak.tokenParsed) return null;
-
-        const token = keycloak.tokenParsed;
-
-        // Keycloak хранит роли в token.realm_access.roles и token.resource_access.{client_id}.roles
-        const realmRoles: string[] = token.realm_access?.roles || [];
-        const clientRoles: string[] = token.resource_access?.[keycloak.clientId as string]?.roles || [];
-        const allRoles = [...new Set([...realmRoles, ...clientRoles])];
-
-        return {
-            id: token.sub as string,
-            username: token.preferred_username as string || 'unknown',
-            firstName: token.given_name as string || '',
-            lastName: token.family_name as string || '',
-            patronymic: undefined, // Keycloak стандартно не хранит отчество
-            roles: allRoles,
-        };
-    }, [isAuthenticated, keycloak.tokenParsed]);
-
-    // Вычисляемые флаги ролей для удобной проверки прав в компонентах
-    const isAdmin = useMemo(() => user?.roles.includes('Admin') || false, [user]);
-    const isTcx = useMemo(() => user?.roles.includes('TCX') || false, [user]);
+    // ============================================================
+    // 5. Вычисляемые флаги ролей.
+    // ============================================================
+    const isAdmin = useMemo(() => hasRole('Admin'), [hasRole]);
+    const isTcx = useMemo(() => hasRole('TCX'), [hasRole]);
     const isAdminOrTcx = useMemo(() => isAdmin || isTcx, [isAdmin, isTcx]);
 
-    const value: AuthContextType = {
+    // ============================================================
+    // 6. Значение контекста.
+    // ============================================================
+    const value: AuthContextType = useMemo(() => ({
         user,
-        isAuthenticated,
+        isAuthenticated: !!user,
         isAdmin,
         isTcx,
         isAdminOrTcx,
-        loading,
-        login,
+        getToken,
         logout,
-    };
+        hasRole,
+        loading,
+        signalR,
+    }), [user, isAdmin, isTcx, isAdminOrTcx, getToken, logout, hasRole, loading, signalR]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

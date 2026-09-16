@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
+using System.Security.Claims;
 
 namespace Humidity.API.Auth;
+
 
 public class DynamicAuthorizationPolicyProvider : IAuthorizationPolicyProvider
 {
@@ -16,29 +18,31 @@ public class DynamicAuthorizationPolicyProvider : IAuthorizationPolicyProvider
         _fallbackPolicyProvider = new DefaultAuthorizationPolicyProvider(options);
     }
 
-    public async Task<AuthorizationPolicy> GetPolicyAsync(string policyName)
+    public Task<AuthorizationPolicy> GetPolicyAsync(string policyName)
     {
         var roles = _configuration
             .GetSection($"AuthorizationPolicies:{policyName}")
             .Get<string[]>();
 
-        if (roles != null && roles.Any())
+        if (roles != null && roles.Length > 0)
         {
             var builder = new AuthorizationPolicyBuilder();
+
             builder.RequireRole(roles);
-            return builder.Build();
+
+            return Task.FromResult(builder.Build());
         }
 
-        return await _fallbackPolicyProvider.GetPolicyAsync(policyName);
+        return _fallbackPolicyProvider.GetPolicyAsync(policyName);
     }
 
-    public async Task<AuthorizationPolicy> GetDefaultPolicyAsync()
+    public Task<AuthorizationPolicy> GetDefaultPolicyAsync()
     {
-        return await _fallbackPolicyProvider.GetDefaultPolicyAsync();
+        return _fallbackPolicyProvider.GetDefaultPolicyAsync();
     }
 
-    public async Task<AuthorizationPolicy> GetFallbackPolicyAsync()
+    public Task<AuthorizationPolicy?> GetFallbackPolicyAsync()
     {
-        return await _fallbackPolicyProvider.GetFallbackPolicyAsync();
+        return _fallbackPolicyProvider.GetFallbackPolicyAsync();
     }
 }
