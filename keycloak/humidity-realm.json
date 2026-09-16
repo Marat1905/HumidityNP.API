@@ -1,0 +1,166 @@
+{
+  "realm": "humidity",
+  "enabled": true,
+  "displayName": "Humidity Control",
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "sslRequired": "external",
+  "roles": {
+    "realm": [
+      {
+        "name": "User",
+        "description": "Обычный пользователь (просмотр)"
+      },
+      {
+        "name": "TCX",
+        "description": "Технолог-контролёр (создание/редактирование)"
+      },
+      {
+        "name": "Admin",
+        "description": "Администратор"
+      },
+      {
+        "name": "Manager",
+        "description": "Руководитель"
+      },
+      {
+        "name": "Safety",
+        "description": "Охрана труда"
+      },
+      {
+        "name": "Electric",
+        "description": "Электрик"
+      },
+      {
+        "name": "Diagnost",
+        "description": "Диагност"
+      },
+      {
+        "name": "Service",
+        "description": "Сервисный инженер"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "humidity-frontend",
+      "name": "Humidity Frontend (React)",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "http://localhost:3000",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:8090/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:8090"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ]
+    },
+    {
+      "clientId": "humidity-api",
+      "name": "Humidity API (backend)",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
+      "clientId": "humidity-gateway",
+      "name": "YARP Gateway",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false
+    },
+    {
+      "clientId": "humidity-notification-service",
+      "name": "Notification Service",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false
+    }
+  ],
+  "users": [
+    {
+      "username": "user",
+      "enabled": true,
+      "email": "user@example.com",
+      "emailVerified": true,
+      "firstName": "Иван",
+      "lastName": "Иванов",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [ "User" ]
+    },
+    {
+      "username": "tcx",
+      "enabled": true,
+      "email": "tcx@example.com",
+      "emailVerified": true,
+      "firstName": "Пётр",
+      "lastName": "Петров",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "tcx",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [ "TCX", "User" ]
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@example.com",
+      "emailVerified": true,
+      "firstName": "Сидор",
+      "lastName": "Сидоров",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [ "Admin", "TCX", "User", "Manager" ]
+    },
+    {
+      "username": "service-account-notification",
+      "enabled": true,
+      "serviceAccountClientId": "humidity-notification-service",
+      "realmRoles": [ "User" ]
+    }
+  ]
+}

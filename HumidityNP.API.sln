@@ -35,6 +35,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "k8s", "k8s", "{DFF34247-70E
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "keycloak", "keycloak", "{31F59D27-33B8-4F88-BBF6-BAECAB8D708A}"
+	ProjectSection(SolutionItems) = preProject
+		keycloak\humidity-realm.json = keycloak\humidity-realm.json
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Humidity.Contracts", "src\Humidity.Contracts\Humidity.Contracts.csproj", "{07F32F42-00ED-4D66-90AD-9197CF91F7A1}"
 EndProject

@@ -1,26 +1,16 @@
 /**
  * Главный компонент приложения (humidity).
  * Управляет темой оформления (светлая/тёмная) и отображает глобальные уведомления.
- * Содержит две кнопки в правом верхнем углу:
- *   • переключение тестовой роли (User / TCX / Admin);
- *   • переключение темы.
- * Также оборачивает приложение в AuthProvider (тестовый).
+ * Содержит кнопки в правом верхнем углу: профиль пользователя, выход и переключение темы.
  */
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router';
 import { Toaster } from 'react-hot-toast';
-import { FiSun, FiMoon, FiUser, FiShield, FiUserCheck } from 'react-icons/fi';
+import { FiSun, FiMoon, FiLogOut, FiUser } from 'react-icons/fi';
 import Layout from './components/humidity/Layout';
 import { HumidityPage, VehicleDetailsPage } from './pages/Humidity';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import './index.css';
-
-/** Иконка для текущей тестовой роли */
-const RoleIcon: React.FC<{ role: string }> = ({ role }) => {
-    if (role === 'Admin') return <FiShield className="w-5 h-5" />;
-    if (role === 'TCX') return <FiUserCheck className="w-5 h-5" />;
-    return <FiUser className="w-5 h-5" />;
-};
 
 /**
  * Внутренний компонент — внутри AuthProvider,
@@ -50,21 +40,32 @@ const AppInner: React.FC = () => {
         setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
     };
 
-    // Текущая тестовая роль и функция её переключения
-    const { testRole, cycleTestRole } = useAuth();
+    // Получаем реальные данные пользователя и функции управления сессией из Keycloak
+    const { user, isAuthenticated, loading, login, logout } = useAuth();
 
-    // Подписи и цвета для кнопки роли
-    const roleLabel =
-        testRole === 'Admin' ? 'Админ' :
-            testRole === 'TCX' ? 'TCX' :
-                'Пользователь';
+    // Показываем индикатор загрузки, пока Keycloak инициализируется
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
+                <div className="text-xl text-gray-700 dark:text-gray-200">Загрузка и проверка сессии...</div>
+            </div>
+        );
+    }
 
-    const roleColor =
-        testRole === 'Admin'
-            ? 'text-purple-600 dark:text-purple-400'
-            : testRole === 'TCX'
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-gray-700 dark:text-gray-200';
+    // Если пользователь не авторизован, предлагаем войти
+    if (!isAuthenticated) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-gray-100 dark:bg-gray-900 gap-4">
+                <div className="text-xl text-gray-700 dark:text-gray-200">Для работы необходимо авторизоваться</div>
+                <button
+                    onClick={login}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
+                >
+                    Войти через Keycloak
+                </button>
+            </div>
+        );
+    }
 
     return (
         <BrowserRouter>
@@ -80,20 +81,23 @@ const AppInner: React.FC = () => {
                 }}
             />
 
-            {/* Панель кнопок в правом верхнем углу: роль + тема */}
+            {/* Панель кнопок в правом верхнем углу: профиль + тема */}
             <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
-                {/* Кнопка смены тестовой роли (User → TCX → Admin → User) */}
-                <button
-                    onClick={cycleTestRole}
-                    className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg border border-gray-200 dark:border-gray-700 transition-all hover:scale-105"
-                    aria-label="Переключить тестовую роль"
-                    title={`Тестовая роль: ${roleLabel} (клик — следующая)`}
-                >
-                    <span className={roleColor}>
-                        <RoleIcon role={testRole} />
+                {/* Информация о пользователе и кнопка выхода */}
+                <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg border border-gray-200 dark:border-gray-700">
+                    <FiUser className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
+                        {user?.firstName || user?.username}
                     </span>
-                    <span className={`text-xs font-medium ${roleColor}`}>{roleLabel}</span>
-                </button>
+                    <button
+                        onClick={logout}
+                        className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                        aria-label="Выйти"
+                        title="Выйти из аккаунта"
+                    >
+                        <FiLogOut className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    </button>
+                </div>
 
                 {/* Кнопка переключения темы */}
                 <button
@@ -114,6 +118,8 @@ const AppInner: React.FC = () => {
                 <Routes>
                     <Route path="/humidity" element={<HumidityPage />} />
                     <Route path="/humidity/vehicles/:id" element={<VehicleDetailsPage />} />
+                    {/* Редирект на главную страницу по умолчанию */}
+                    <Route path="/" element={<HumidityPage />} />
                 </Routes>
             </Layout>
         </BrowserRouter>

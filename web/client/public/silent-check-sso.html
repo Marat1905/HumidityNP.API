@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Silent SSO Check</title>
+</head>
+<body>
+    <!--
+      Этот скрипт выполняется внутри скрытого iframe, созданного keycloak-js.
+      Он передает URL с токенами обратно в родительское окно (наше React-приложение).
+    -->
+    <script>
+        parent.postMessage(location.href, location.origin);
+    </script>
+</body>
+</html>

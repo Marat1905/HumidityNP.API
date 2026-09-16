@@ -1,17 +1,25 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosResponse } from 'axios';
 import toast from 'react-hot-toast';
+import keycloak from '../keycloak.ts';
 
 /**
- * Request interceptor: добавляет токен авторизации из localStorage.
- * В текущем проекте используется ключ 'access_token'.
- * Дополнительно поддерживаем 'accessToken' на случай миграции.
+ * Request interceptor: добавляет токен авторизации из Keycloak.
+ * Перед каждым запросом проверяем, не истек ли токен, и обновляем его при необходимости.
  */
-export const requestInterceptor = (
+export const requestInterceptor = async (
     config: InternalAxiosRequestConfig
-): InternalAxiosRequestConfig => {
-    const token =
-        localStorage.getItem('access_token') ||
-        localStorage.getItem('accessToken');
+): Promise<InternalAxiosRequestConfig> => {
+    // Если токен скоро истечет (менее 5 секунд до конца), принудительно обновляем его
+    if (keycloak.authenticated && keycloak.isTokenExpired(5)) {
+        try {
+            await keycloak.updateToken(5);
+        } catch (error) {
+            console.error('[Keycloak] Не удалось обновить токен, требуется повторный вход', error);
+            keycloak.login(); // Принудительный логин, если refresh token тоже истек
+        }
+    }
+
+    const token = keycloak.token;
 
     if (token) {
         config.headers = config.headers || {};
@@ -41,22 +49,19 @@ export const responseInterceptor = (response: AxiosResponse) => {
 
 /**
  * Response error interceptor: обрабатывает ошибки (401, 403, 404, 500 и т.д.).
- * При 401 показывает тост, удаляет токен и перенаправляет на страницу входа.
+ * При 401 показывает тост и инициирует процесс повторного входа через Keycloak.
  */
 export const responseErrorInterceptor = (error: any) => {
     if (error.response) {
         const { status, data } = error.response;
 
         if (status === 401) {
-            toast.error('Сессия истекла. Пожалуйста, войдите заново.');
+            toast.error('Сессия истекла. Перенаправление на страницу входа...');
 
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-
+            // Небольшая задержка, чтобы пользователь увидел тост, затем редирект в Keycloak
             setTimeout(() => {
-                window.location.href = '/login';
-            }, 1500);
+                keycloak.login();
+            }, 1000);
 
             return Promise.reject(error);
         }

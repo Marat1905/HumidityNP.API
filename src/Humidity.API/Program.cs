@@ -25,7 +25,12 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. НАСТРОЙКА SERILOG (Исправленный и безопасный паттерн)
+// ==============================================================================
+// 1. НАСТРОЙКА SERILOG
+// ==============================================================================
+// Конфигурируем Serilog для структурированного логирования с обогащением контекста, 
+// имени машины и идентификатора потока. Это обеспечивает детальное отслеживание 
+// всех запросов и событий аутентификации.
 builder.Host.UseSerilog((context, configuration) =>
 {
     configuration.ReadFrom.Configuration(context.Configuration)
@@ -34,23 +39,26 @@ builder.Host.UseSerilog((context, configuration) =>
         .Enrich.WithThreadId();
 });
 
+// ==============================================================================
 // 2. РЕГИСТРАЦИЯ FLUENT VALIDATION
+// ==============================================================================
 // Автоматически находит все классы, наследующие AbstractValidator, в указанной сборке
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateVehicleRequestValidator>();
 
-// Add services to the container.
+// ==============================================================================
+// 3. НАСТРОЙКА КОНТРОЛЛЕРОВ И СЕРИАЛИЗАЦИИ
+// ==============================================================================
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         // Сериализуем все enum как строки ("Auto", "Manual", "Less", "Greater", "None")
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-
-        // Опционально: формат camelCase для имен свойств (опционально, зависит от фронтенда)
-        // options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
     });
 
-// 3. НАСТРОЙКА ВЕРСИОНИРОВАНИЯ API
+// ==============================================================================
+// 4. НАСТРОЙКА ВЕРСИОНИРОВАНИЯ API
+// ==============================================================================
 builder.Services.AddApiVersioning(options =>
 {
     options.DefaultApiVersion = new ApiVersion(1, 0);
@@ -65,33 +73,55 @@ builder.Services.AddApiVersioning(options =>
     options.SubstituteApiVersionInUrl = true;
 });
 
-// 4. НАСТРОЙКА SWAGGER
+// ==============================================================================
+// 5. НАСТРОЙКА SWAGGER
+// ==============================================================================
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Humidity API", Version = "v1" });
-    // Добавляем фильтр для замены {version} в путях
     c.DocumentFilter<ReplaceVersionWithExactValueInPathFilter>();
+
+    // Добавляем возможность авторизации через Swagger UI с использованием Bearer токена
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Введите JWT токен, полученный от Keycloak, в формате: Bearer {ваш_токен}",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
 });
 
-// 5. НАСТРОЙКА CORS
-// Читаем настройки CORS из конфигурации
+// ==============================================================================
+// 6. НАСТРОЙКА CORS
+// ==============================================================================
 var corsSettings = builder.Configuration.GetSection("CorsSettings").Get<CorsSettings>()
     ?? new CorsSettings();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins", policy =>
     {
-        // Если в режиме разработки и список разрешённых источников не задан — разрешаем любые
         if (builder.Environment.IsDevelopment() && corsSettings.AllowedOrigins == null)
         {
-            policy.AllowAnyOrigin()
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
+            policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
         }
         else
         {
-            // В продакшене используем строго определённые источники, методы и заголовки
             policy.WithOrigins(corsSettings.AllowedOrigins ?? Array.Empty<string>())
                   .WithMethods(corsSettings.AllowedMethods ?? new[] { "GET", "POST", "PUT", "DELETE", "OPTIONS" })
                   .WithHeaders(corsSettings.AllowedHeaders ?? new[] { "Content-Type", "Authorization", "X-Requested-With" })
@@ -100,7 +130,9 @@ builder.Services.AddCors(options =>
     });
 });
 
-// ========== НАСТРОЙКА RATE LIMITING ==========
+// ==============================================================================
+// 7. НАСТРОЙКА RATE LIMITING
+// ==============================================================================
 builder.Services.AddMemoryCache();
 builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
 builder.Services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
@@ -108,23 +140,42 @@ builder.Services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounte
 builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
 builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrategy>();
 
-// ========== РЕГИСТРАЦИЯ СЛОЁВ ==========
+// ==============================================================================
+// 8. РЕГИСТРАЦИЯ СЛОЁВ И ЗАВИСИМОСТЕЙ
+// ==============================================================================
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, DynamicAuthorizationPolicyProvider>();
 
-// ========== НАСТРОЙКА ИНТЕГРАЦИИ С 1С ==========
-// Регистрация настроек
-builder.Services.Configure<OneCIntegrationSettings>(
-    builder.Configuration.GetSection("OneCIntegration"));
+// ==============================================================================
+// 9. НАСТРОЙКА АУТЕНТИФИКАЦИИ И АВТОРИЗАЦИИ ЧЕРЕЗ KEYCLOAK
+// ==============================================================================
+// Используем новый метод расширения для настройки JWT валидации через метаданные Keycloak
+builder.Services.AddKeycloakJwtAuthentication(builder.Configuration);
 
-// Регистрация HTTP-клиента для 1С с политикой повторных попыток
+builder.Services.AddAuthorization(options =>
+{
+    // Чтение политик авторизации из конфигурации и их динамическая регистрация
+    var authPoliciesSection = builder.Configuration.GetSection("AuthorizationPolicies");
+    foreach (var policySection in authPoliciesSection.GetChildren())
+    {
+        var roles = policySection.Get<string[]>() ?? Array.Empty<string>();
+        options.AddPolicy(policySection.Key, policyBuilder =>
+        {
+            policyBuilder.RequireRole(roles);
+        });
+    }
+});
+
+// ==============================================================================
+// 10. НАСТРОЙКА ИНТЕГРАЦИИ С 1С
+// ==============================================================================
+builder.Services.Configure<OneCIntegrationSettings>(builder.Configuration.GetSection("OneCIntegration"));
+
 builder.Services.AddHttpClient<IOneCClient, OneCClient>((serviceProvider, client) =>
 {
     var settings = serviceProvider.GetRequiredService<IOptions<OneCIntegrationSettings>>().Value;
     client.BaseAddress = new Uri(settings.ServiceUrl);
-
-    // Базовая аутентификация
     var byteArray = Encoding.ASCII.GetBytes($"{settings.Username}:{settings.Password}");
     client.DefaultRequestHeaders.Authorization =
         new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(byteArray));
@@ -139,27 +190,24 @@ builder.Services.AddHttpClient<IOneCClient, OneCClient>((serviceProvider, client
     var logger = serviceProvider.GetRequiredService<ILogger<OneCClient>>();
 
     return HttpPolicyExtensions
-        .HandleTransientHttpError() // обрабатывает HTTP 5xx, 408, HttpRequestException
-        .Or<TaskCanceledException>() // ДОБАВЛЕНО: перехватывает TaskCanceledException, который выбрасывается при таймауте HttpClient
-        .OrResult(r => !r.IsSuccessStatusCode && (int)r.StatusCode >= 500) // явно серверные ошибки
+        .HandleTransientHttpError()
+        .Or<TaskCanceledException>()
+        .OrResult(r => !r.IsSuccessStatusCode && (int)r.StatusCode >= 500)
         .WaitAndRetryAsync(
             settings.RetryCount,
             retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt) * settings.RetryBaseDelaySeconds),
             onRetry: (outcome, timespan, retryCount, context) =>
             {
                 logger.LogWarning("Попытка {RetryCount} вызова 1С не удалась, повтор через {Delay:F0} мс. Ошибка: {Error}",
-                    retryCount,
-                    timespan.TotalMilliseconds,
-                    outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString());
+                    retryCount, timespan.TotalMilliseconds, outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString());
             });
 });
 
-// Регистрация фонового сервиса синхронизации
 builder.Services.AddHostedService<OneCSyncBackgroundService>();
 
-// Logging - уже настроен Serilog, дополнительная регистрация не требуется
-
-// Health Checks with database connectivity check
+// ==============================================================================
+// 11. HEALTH CHECKS
+// ==============================================================================
 builder.Services.AddHealthChecks()
     .AddNpgSql(
         builder.Configuration.GetConnectionString("DefaultConnection"),
@@ -167,21 +215,15 @@ builder.Services.AddHealthChecks()
         failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy,
         tags: new[] { "db", "postgresql" });
 
-builder.Services.AddCustomJWTAuthentification();
-
 var app = builder.Build();
 
-// ========== MIDDLEWARE PIPELINE ==========
-
-// ========== ДОБАВЛЯЕМ ПРОМЕЖУТОЧНОЕ ПО RATE LIMITING ==========
-// Должно быть добавлено до других middleware, но после использования CORS.
+// ==============================================================================
+// 12. MIDDLEWARE PIPELINE
+// ==============================================================================
 app.UseIpRateLimiting();
-
 app.UseCors("AllowSpecificOrigins");
-
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -192,11 +234,11 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// Порядок важен: аутентификация должна идти перед авторизацией
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Карта health checks
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
     ResponseWriter = async (context, report) =>
@@ -218,25 +260,15 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
     }
 });
 
-// ========== ИНИЦИАЛИЗАЦИЯ И ЗАПУСК (ИСПРАВЛЕНО) ==========
+// ==============================================================================
+// 13. ИНИЦИАЛИЗАЦИЯ И ЗАПУСК
+// ==============================================================================
 try
 {
-    // 1. Инициализируем базу данных
     using (var scope = app.Services.CreateScope())
     {
         var context = scope.ServiceProvider.GetRequiredService<HumidityDbContext>();
         context.Database.Migrate();
-        //if (app.Environment.IsDevelopment())
-        //{
-        // // Только для разработки - пересоздание БД
-        // context.Database.EnsureCreated();
-        // //await DataSeeder.SeedAsync(context);
-        //}
-        //else
-        //{
-        // // Для production - применяем миграции
-        // context.Database.Migrate();
-        //}
     }
 
     // 2. Логируем успешный запуск (теперь этот лог ГАРАНТИРОВАННО запишется)
@@ -256,11 +288,9 @@ finally
     Log.CloseAndFlush();
 }
 
-// ========== ВСПОМОГАТЕЛЬНЫЕ КЛАССЫ ==========
-
-/// <summary>
-/// Фильтр для Swagger, который заменяет {version} в пути на актуальное значение версии.
-/// </summary>
+// ==============================================================================
+// ВСПОМОГАТЕЛЬНЫЕ КЛАССЫ
+// ==============================================================================
 public class ReplaceVersionWithExactValueInPathFilter : IDocumentFilter
 {
     public void Apply(OpenApiDocument swaggerDoc, DocumentFilterContext context)

@@ -8,7 +8,7 @@ export default defineConfig({
         port: 3000,
         proxy: {
             '/humidity/api': {
-                target: 'http://localhost:5050',
+                target: 'http://localhost:8090',
                 changeOrigin: true,
             }
         }

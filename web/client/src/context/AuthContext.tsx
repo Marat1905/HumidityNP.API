@@ -1,28 +1,12 @@
 /**
- * ТЕСТОВЫЙ AuthContext.
- * Не содержит реальной аутентификации: пользователь и его роли
- * подставляются из фиксированного набора TEST_USERS.
- *
- * Роль можно переключать в рантайме через cycleTestRole() / setTestRole().
- * Текущая роль сохраняется в localStorage (ключ 'test_role'),
- * чтобы переживать перезагрузку страницы.
- *
- * В продакшене замените этот файл на полноценный AuthContext
- * (с login/logout/refreshUser и обращением к authService).
+ * Реальный AuthContext, интегрированный с Keycloak.
+ * Управляет состоянием аутентификации, извлекает данные пользователя из JWT-токена
+ * и предоставляет методы для входа (login) и выхода (logout).
  */
-import React, {
-    createContext,
-    useContext,
-    useState,
-    useMemo,
-    useCallback,
-    type ReactNode,
-} from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import keycloak from '../keycloak.ts';
 
-/** Доступные тестовые роли */
-export type TestRole = 'User' | 'TCX' | 'Admin';
-
-/** Упрощённая модель пользователя (совпадает с UserDto из прода) */
+/** Упрощённая модель пользователя (совпадает с UserDto из бэкенда) */
 export interface UserDto {
     id: string;
     username: string;
@@ -38,15 +22,9 @@ interface AuthContextType {
     isAdmin: boolean;
     isTcx: boolean;
     isAdminOrTcx: boolean;
-
-    /** Текущая тестовая роль ('User' | 'TCX' | 'Admin') */
-    testRole: TestRole;
-    /** Установить роль явно */
-    setTestRole: (role: TestRole) => void;
-    /** Переключить роль по кругу: User → TCX → Admin → User */
-    cycleTestRole: () => void;
-    /** Флаг загрузки — в тестовом режиме всегда false */
     loading: boolean;
+    login: () => void;
+    logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,91 +37,105 @@ export const useAuth = () => {
     return ctx;
 };
 
-/** Предустановленные тестовые пользователи для каждой роли */
-const TEST_USERS: Record<TestRole, UserDto> = {
-    User: {
-        id: 'test-user',
-        username: 'user',
-        firstName: 'Иван',
-        lastName: 'Иванов',
-        patronymic: 'Иванович',
-        roles: ['User'],
-    },
-    TCX: {
-        id: 'test-tcx',
-        username: 'tcx',
-        firstName: 'Пётр',
-        lastName: 'Петров',
-        patronymic: 'Петрович',
-        roles: ['TCX'],
-    },
-    Admin: {
-        id: 'test-admin',
-        username: 'admin',
-        firstName: 'Сидор',
-        lastName: 'Сидоров',
-        patronymic: 'Сидорович',
-        roles: ['Admin'],
-    },
-};
-
-/** Порядок переключения ролей по кнопке */
-const ROLE_CYCLE: TestRole[] = ['User', 'TCX', 'Admin'];
-
-/** Ключ в localStorage для сохранения выбранной роли */
-const STORAGE_KEY = 'test_role';
-
-/** Прочитать сохранённую роль, либо вернуть 'User' по умолчанию */
-const readStoredRole = (): TestRole => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved && (ROLE_CYCLE as string[]).includes(saved)
-        ? (saved as TestRole)
-        : 'User';
-};
-
 interface AuthProviderProps {
     children: ReactNode;
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-    // Текущая роль хранится в состоянии — это и есть триггер ре-рендера
-    const [testRole, setTestRoleState] = useState<TestRole>(readStoredRole);
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(keycloak.authenticated || false);
+    const [loading, setLoading] = useState<boolean>(!keycloak.authenticated);
 
-    /** Явная установка роли */
-    const setTestRole = useCallback((role: TestRole) => {
-        localStorage.setItem(STORAGE_KEY, role);
-        setTestRoleState(role);
+    useEffect(() => {
+        // Обработчик успешного входа
+        const onAuthSuccess = () => {
+            setIsAuthenticated(true);
+            setLoading(false);
+        };
+
+        // Обработчик выхода
+        const onAuthLogout = () => {
+            setIsAuthenticated(false);
+            setLoading(false);
+        };
+
+        // Обработчик успешного обновления токена (refresh)
+        const onAuthRefreshSuccess = () => {
+            setIsAuthenticated(true);
+        };
+
+        // Обработчик ошибки обновления токена (сессия истекла)
+        const onAuthRefreshError = () => {
+            setIsAuthenticated(false);
+        };
+
+        // Подписываемся на события Keycloak
+        keycloak.onAuthSuccess = onAuthSuccess;
+        keycloak.onAuthLogout = onAuthLogout;
+        keycloak.onAuthRefreshSuccess = onAuthRefreshSuccess;
+        keycloak.onAuthRefreshError = onAuthRefreshError;
+
+        // Если на момент монтирования компонента Keycloak уже инициализирован и авторизован
+        if (keycloak.authenticated) {
+            setIsAuthenticated(true);
+            setLoading(false);
+        } else {
+            setLoading(false);
+        }
+
+        // Очистка обработчиков при размонтировании
+        return () => {
+            keycloak.onAuthSuccess = undefined;
+            keycloak.onAuthLogout = undefined;
+            keycloak.onAuthRefreshSuccess = undefined;
+            keycloak.onAuthRefreshError = undefined;
+        };
     }, []);
 
-    /** Переключение роли по кругу */
-    const cycleTestRole = useCallback(() => {
-        setTestRoleState((prev) => {
-            const idx = ROLE_CYCLE.indexOf(prev);
-            const next = ROLE_CYCLE[(idx + 1) % ROLE_CYCLE.length];
-            localStorage.setItem(STORAGE_KEY, next);
-            return next;
-        });
+    // Функция принудительного входа (редирект на страницу логина Keycloak)
+    const login = useCallback(() => {
+        keycloak.login();
     }, []);
 
-    // Пользователь пересобирается при смене роли — ссылка на объект меняется,
-    // поэтому все зависимые useMemo ниже пересчитываются корректно.
-    const user = useMemo<UserDto | null>(() => TEST_USERS[testRole], [testRole]);
+    // Функция выхода (очистка сессии в Keycloak и редирект)
+    const logout = useCallback(() => {
+        keycloak.logout();
+    }, []);
 
-    // Вычисляемые флаги ролей — ровно как в продакшене
+    // Извлекаем данные пользователя из распарсенного JWT-токена Keycloak
+    const user = useMemo<UserDto | null>(() => {
+        if (!isAuthenticated || !keycloak.tokenParsed) return null;
+
+        const token = keycloak.tokenParsed;
+
+        // Keycloak хранит роли в token.realm_access.roles и token.resource_access.{client_id}.roles
+        const realmRoles: string[] = token.realm_access?.roles || [];
+        const clientRoles: string[] = token.resource_access?.[keycloak.clientId as string]?.roles || [];
+        const allRoles = [...new Set([...realmRoles, ...clientRoles])];
+
+        return {
+            id: token.sub as string,
+            username: token.preferred_username as string || 'unknown',
+            firstName: token.given_name as string || '',
+            lastName: token.family_name as string || '',
+            patronymic: undefined, // Keycloak стандартно не хранит отчество
+            roles: allRoles,
+        };
+    }, [isAuthenticated, keycloak.tokenParsed]);
+
+    // Вычисляемые флаги ролей для удобной проверки прав в компонентах
     const isAdmin = useMemo(() => user?.roles.includes('Admin') || false, [user]);
     const isTcx = useMemo(() => user?.roles.includes('TCX') || false, [user]);
     const isAdminOrTcx = useMemo(() => isAdmin || isTcx, [isAdmin, isTcx]);
 
     const value: AuthContextType = {
         user,
-        isAuthenticated: true,
+        isAuthenticated,
         isAdmin,
         isTcx,
         isAdminOrTcx,
-        testRole,
-        setTestRole,
-        cycleTestRole,
-        loading: false,
+        loading,
+        login,
+        logout,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
