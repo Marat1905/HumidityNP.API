@@ -4,6 +4,7 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Humidity.API.Auth;
 using Humidity.API.BackgroundServices;
+using Humidity.API.gRPC;
 using Humidity.API.Hubs;
 using Humidity.API.Middleware;
 using Humidity.API.Services;
@@ -262,6 +263,7 @@ builder.Services.AddSingleton<IAuthorizationPolicyProvider, DynamicAuthorization
 // ============================================================
 // 9. SignalR
 // ============================================================
+var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
 
 var signalRBuilder = builder.Services.AddSignalR(options =>
 {
@@ -337,6 +339,9 @@ builder.Services.AddHttpClient<IOneCClient, OneCClient>((serviceProvider, client
 // 14. Фоновые сервисы
 // ============================================================
 builder.Services.AddHostedService<OneCSyncBackgroundService>();
+builder.Services.Configure<ShiftSchedulerOptions>(
+    builder.Configuration.GetSection(ShiftSchedulerOptions.SectionName));
+builder.Services.AddHostedService<ShiftEndedScheduler>();
 
 // ==============================================================================
 // 15. HEALTH CHECKS
@@ -348,7 +353,6 @@ builder.Services.AddHealthChecks()
         failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy,
         tags: new[] { "db", "postgresql" });
 
-//builder.Services.AddCustomJWTAuthentification();
 
 // ============================================================
 // 16. Сборка приложения
@@ -380,6 +384,9 @@ app.MapControllers();
 
 // SignalR
 app.MapHub<HumidityHub>("/hubs/humidity");
+
+// gRPC
+app.MapGrpcService<MeasurementGrpcService>();
 
 // Health
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
@@ -434,6 +441,7 @@ finally
 // ==============================================================================
 // ВСПОМОГАТЕЛЬНЫЕ КЛАССЫ
 // ==============================================================================
+
 public class ReplaceVersionWithExactValueInPathFilter : IDocumentFilter
 {
     public void Apply(OpenApiDocument swaggerDoc, DocumentFilterContext context)
