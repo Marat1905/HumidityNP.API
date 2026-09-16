@@ -4,21 +4,27 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Humidity.API.Auth;
 using Humidity.API.BackgroundServices;
+using Humidity.API.Hubs;
 using Humidity.API.Middleware;
+using Humidity.API.Services;
 using Humidity.Application;
 using Humidity.Application.Common.Models;
 using Humidity.Application.Interfaces;
 using Humidity.Application.Services;
 using Humidity.Application.Validators;
+using Humidity.Contracts.Protos;
 using Humidity.Infrastructure;
 using Humidity.Infrastructure.Data;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Polly;
 using Polly.Extensions.Http;
 using Serilog;
+using StackExchange.Redis;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -31,6 +37,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Конфигурируем Serilog для структурированного логирования с обогащением контекста, 
 // имени машины и идентификатора потока. Это обеспечивает детальное отслеживание 
 // всех запросов и событий аутентификации.
+
 builder.Host.UseSerilog((context, configuration) =>
 {
     configuration.ReadFrom.Configuration(context.Configuration)
@@ -79,18 +86,23 @@ builder.Services.AddApiVersioning(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Humidity API", Version = "v1" });
-    c.DocumentFilter<ReplaceVersionWithExactValueInPathFilter>();
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Humidity API",
+        Version = "v1",
+        Description = "API контроля влажности макулатуры. " +
+                      "Аутентификация — Keycloak (OIDC). Real-time — SignalR."
+    });
 
-    // Добавляем возможность авторизации через Swagger UI с использованием Bearer токена
+    // Схема безопасности Bearer
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "Введите JWT токен, полученный от Keycloak, в формате: Bearer {ваш_токен}",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "Введите JWT-токен, полученный от Keycloak."
     });
+
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -105,6 +117,8 @@ builder.Services.AddSwaggerGen(c =>
             Array.Empty<string>()
         }
     });
+
+    c.DocumentFilter<ReplaceVersionWithExactValueInPathFilter>();
 });
 
 // ==============================================================================
@@ -112,6 +126,7 @@ builder.Services.AddSwaggerGen(c =>
 // ==============================================================================
 var corsSettings = builder.Configuration.GetSection("CorsSettings").Get<CorsSettings>()
     ?? new CorsSettings();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins", policy =>
@@ -143,39 +158,93 @@ builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrateg
 // ==============================================================================
 // 8. РЕГИСТРАЦИЯ СЛОЁВ И ЗАВИСИМОСТЕЙ
 // ==============================================================================
-builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = builder.Configuration["Keycloak:Authority"];
+        options.MetadataAddress = builder.Configuration["Keycloak:MetadataAddress"]
+            ?? $"{options.Authority}/.well-known/openid-configuration";
+        options.RequireHttpsMetadata = bool.Parse(
+            builder.Configuration["Keycloak:RequireHttpsMetadata"] ?? "true");
+
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Keycloak:Authority"],
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ClockSkew = TimeSpan.FromSeconds(30),
+            NameClaimType = "preferred_username",
+            RoleClaimType = "roles"
+        };
+
+        // Для SignalR-клиентов токен может приходить в query string (?access_token=)
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    path.StartsWithSegments("/hubs/humidity"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
+    });
+
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, DynamicAuthorizationPolicyProvider>();
 
-// ==============================================================================
-// 9. НАСТРОЙКА АУТЕНТИФИКАЦИИ И АВТОРИЗАЦИИ ЧЕРЕЗ KEYCLOAK
-// ==============================================================================
-// Используем новый метод расширения для настройки JWT валидации через метаданные Keycloak
-builder.Services.AddKeycloakJwtAuthentication(builder.Configuration);
+// ============================================================
+// 9. SignalR
+// ============================================================
 
-builder.Services.AddAuthorization(options =>
+var signalRBuilder = builder.Services.AddSignalR(options =>
 {
-    // Чтение политик авторизации из конфигурации и их динамическая регистрация
-    var authPoliciesSection = builder.Configuration.GetSection("AuthorizationPolicies");
-    foreach (var policySection in authPoliciesSection.GetChildren())
-    {
-        var roles = policySection.Get<string[]>() ?? Array.Empty<string>();
-        options.AddPolicy(policySection.Key, policyBuilder =>
-        {
-            policyBuilder.RequireRole(roles);
-        });
-    }
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+});
+
+builder.Services.AddSingleton<IHumidityRealtimeNotifier, HumidityRealtimeNotifier>();
+
+// ============================================================
+// 10. RabbitMQ
+// ============================================================
+builder.Services.Configure<RabbitMqOptions>(
+    builder.Configuration.GetSection(RabbitMqOptions.SectionName));
+builder.Services.AddSingleton<IRabbitMqPublisher, RabbitMqPublisher>();
+
+// ============================================================
+// 11. Слои приложения и инфраструктуры
+// ============================================================
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
+
+// ============================================================
+// 12. gRPC-сервер (MeasurementGrpc для Notification.Service)
+// ============================================================
+builder.Services.AddGrpc(options =>
+{
+    options.EnableDetailedErrors = true;
+    options.MaxReceiveMessageSize = 4 * 1024 * 1024;
 });
 
 // ==============================================================================
-// 10. НАСТРОЙКА ИНТЕГРАЦИИ С 1С
+// 13. НАСТРОЙКА ИНТЕГРАЦИИ С 1С
 // ==============================================================================
-builder.Services.Configure<OneCIntegrationSettings>(builder.Configuration.GetSection("OneCIntegration"));
+builder.Services.Configure<OneCIntegrationSettings>(
+    builder.Configuration.GetSection("OneCIntegration"));
 
 builder.Services.AddHttpClient<IOneCClient, OneCClient>((serviceProvider, client) =>
 {
     var settings = serviceProvider.GetRequiredService<IOptions<OneCIntegrationSettings>>().Value;
     client.BaseAddress = new Uri(settings.ServiceUrl);
+
     var byteArray = Encoding.ASCII.GetBytes($"{settings.Username}:{settings.Password}");
     client.DefaultRequestHeaders.Authorization =
         new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(byteArray));
@@ -199,26 +268,35 @@ builder.Services.AddHttpClient<IOneCClient, OneCClient>((serviceProvider, client
             onRetry: (outcome, timespan, retryCount, context) =>
             {
                 logger.LogWarning("Попытка {RetryCount} вызова 1С не удалась, повтор через {Delay:F0} мс. Ошибка: {Error}",
-                    retryCount, timespan.TotalMilliseconds, outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString());
+                    retryCount, timespan.TotalMilliseconds,
+                    outcome.Exception?.Message ?? outcome.Result?.StatusCode.ToString());
             });
 });
 
+// ============================================================
+// 14. Фоновые сервисы
+// ============================================================
 builder.Services.AddHostedService<OneCSyncBackgroundService>();
 
 // ==============================================================================
-// 11. HEALTH CHECKS
+// 15. HEALTH CHECKS
 // ==============================================================================
 builder.Services.AddHealthChecks()
     .AddNpgSql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
+        builder.Configuration.GetConnectionString("DefaultConnection")!,
         name: "PostgreSQL",
         failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy,
         tags: new[] { "db", "postgresql" });
 
+//builder.Services.AddCustomJWTAuthentification();
+
+// ============================================================
+// 16. Сборка приложения
+// ============================================================
 var app = builder.Build();
 
 // ==============================================================================
-// 12. MIDDLEWARE PIPELINE
+// 17. MIDDLEWARE PIPELINE
 // ==============================================================================
 app.UseIpRateLimiting();
 app.UseCors("AllowSpecificOrigins");
@@ -237,8 +315,13 @@ if (app.Environment.IsDevelopment())
 // Порядок важен: аутентификация должна идти перед авторизацией
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 
+// SignalR
+app.MapHub<HumidityHub>("/hubs/humidity");
+
+// Health
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
     ResponseWriter = async (context, report) =>
@@ -261,7 +344,7 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
 });
 
 // ==============================================================================
-// 13. ИНИЦИАЛИЗАЦИЯ И ЗАПУСК
+// 18. ИНИЦИАЛИЗАЦИЯ И ЗАПУСК
 // ==============================================================================
 try
 {
