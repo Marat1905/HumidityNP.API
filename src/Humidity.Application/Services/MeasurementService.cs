@@ -2,6 +2,7 @@
 using FluentValidation;
 using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
+using Humidity.Contracts.Events;
 using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
@@ -22,19 +23,25 @@ public class MeasurementService : IMeasurementService
     private readonly IMapper _mapper;
     private readonly ILogger<MeasurementService> _logger;
     private readonly IValidator<CreateMeasurementRequest> _validator;
+    private readonly IHumidityRealtimeNotifier _realtime;
+    private readonly IRabbitMqPublisher _publisher;
 
     public MeasurementService(
         IMeasurementRepository repository,
         IVehicleRepository vehicleRepository,
         IMapper mapper,
         ILogger<MeasurementService> logger,
-        IValidator<CreateMeasurementRequest> validator)
+        IValidator<CreateMeasurementRequest> validator,
+        IHumidityRealtimeNotifier realtime,
+        IRabbitMqPublisher publisher)
     {
         _repository = repository;
         _vehicleRepository = vehicleRepository;
         _mapper = mapper;
         _logger = logger;
         _validator = validator;
+        _realtime = realtime;
+        _publisher = publisher;
     }
 
     public async Task<IEnumerable<MeasurementDto>> GetByVehicleIdAsync(Guid vehicleId, CancellationToken cancellationToken = default)
@@ -124,10 +131,57 @@ public class MeasurementService : IMeasurementService
 
         var measurement = _mapper.Map<HumidityMeasurement>(request);
         var created = await _repository.AddAsync(measurement, cancellationToken);
+
+        var vehicle = await _vehicleRepository.GetByIdAsync(created.VehicleId, cancellationToken);
+        created.Vehicle = vehicle!;
+
         var result = _mapper.Map<MeasurementDto>(created);
 
-        _logger.LogInformation("Замер создан с id {MeasurementId} для машины {VehicleId}", created.Id, request.VehicleId);
+        _logger.LogInformation("Замер создан с id {MeasurementId} для машины {VehicleId}",
+            created.Id, request.VehicleId);
+
+        var evt = new MeasurementCreatedEvent
+        {
+            EventId = Guid.NewGuid(),
+            MeasurementId = created.Id,
+            VehicleId = created.VehicleId,
+            VehicleNumber = vehicle?.Number ?? string.Empty,
+            VehiclePlate = vehicle?.VehiclePlate ?? string.Empty,
+            HumidityValue = created.HumidityValue,
+            TemperatureC = created.TemperatureC,
+            Source = created.Source.ToString(),
+            Timestamp = created.Timestamp,
+            PublishedAt = DateTimeOffset.UtcNow
+        };
+
+        await PublishMeasurementCreatedAsync(evt, cancellationToken);
+
         return result;
+    }
+
+    private async Task PublishMeasurementCreatedAsync(
+        MeasurementCreatedEvent evt,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // 1. SignalR — мгновенное обновление UI.
+            await _realtime.NotifyMeasurementCreatedAsync(evt, cancellationToken);
+
+            // 2. RabbitMQ — для асинхронных подписчиков.
+            await _publisher.PublishAsync(evt, "measurement.created", cancellationToken);
+
+            _logger.LogInformation(
+                "Событие MeasurementCreated опубликовано: EventId={EventId}, MeasurementId={MeasurementId}",
+                evt.EventId, evt.MeasurementId);
+        }
+        catch (Exception ex)
+        {
+            // Ошибка публикации не откатывает создание замера.
+            _logger.LogError(ex,
+                "Ошибка публикации события MeasurementCreated для замера {MeasurementId}",
+                evt.MeasurementId);
+        }
     }
 
     public async Task<MeasurementDto> UpdateAsync(Guid id, UpdateMeasurementRequest request, CancellationToken cancellationToken = default)
@@ -143,9 +197,39 @@ public class MeasurementService : IMeasurementService
         // Используем AutoMapper для обновления только переданных полей (настроено игнорирование null)
         _mapper.Map(request, existing);
         var updated = await _repository.UpdateAsync(existing, cancellationToken);
+
+        var vehicle = await _vehicleRepository.GetByIdAsync(updated.VehicleId, cancellationToken);
+        updated.Vehicle = vehicle!;
+
         var result = _mapper.Map<MeasurementDto>(updated);
 
         _logger.LogInformation("Замер с id {MeasurementId} успешно обновлён", id);
+
+        try
+        {
+            var evt = new MeasurementCreatedEvent
+            {
+                EventId = Guid.NewGuid(),
+                MeasurementId = updated.Id,
+                VehicleId = updated.VehicleId,
+                VehicleNumber = vehicle?.Number ?? string.Empty,
+                VehiclePlate = vehicle?.VehiclePlate ?? string.Empty,
+                HumidityValue = updated.HumidityValue,
+                TemperatureC = updated.TemperatureC,
+                Source = updated.Source.ToString(),
+                Timestamp = updated.Timestamp,
+                PublishedAt = DateTimeOffset.UtcNow
+            };
+
+            await _realtime.NotifyMeasurementCreatedAsync(evt, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Ошибка публикации SignalR-уведомления об обновлении замера {MeasurementId}",
+                updated.Id);
+        }
+
         return result;
     }
 
@@ -159,8 +243,20 @@ public class MeasurementService : IMeasurementService
             throw new KeyNotFoundException($"Замер с id {id} не найден");
         }
 
+        var vehicleId = existing.VehicleId;
         await _repository.DeleteAsync(existing, cancellationToken);
         _logger.LogInformation("Замер с id {MeasurementId} успешно удалён", id);
+
+        try
+        {
+            await _realtime.NotifyMeasurementDeletedAsync(id, vehicleId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Ошибка публикации SignalR-уведомления об удалении замера {MeasurementId}",
+                id);
+        }
     }
 
     /// <summary>
@@ -244,6 +340,41 @@ public class MeasurementService : IMeasurementService
         if (errors.Any())
         {
             _logger.LogWarning("Пропущено {SkippedCount} замеров из-за ошибок валидации или отсутствия машины", errors.Count);
+        }
+
+        if (created.Any())
+        {
+            var createdVehicleIds = created.Select(m => m.VehicleId).Distinct().ToList();
+            var vehiclesById = new Dictionary<Guid, Vehicle>();
+            foreach (var vid in createdVehicleIds)
+            {
+                var v = await _vehicleRepository.GetByIdAsync(vid, cancellationToken);
+                if (v != null)
+                {
+                    vehiclesById[vid] = v;
+                }
+            }
+
+            foreach (var m in created)
+            {
+                vehiclesById.TryGetValue(m.VehicleId, out var vehicle);
+
+                var evt = new MeasurementCreatedEvent
+                {
+                    EventId = Guid.NewGuid(),
+                    MeasurementId = m.Id,
+                    VehicleId = m.VehicleId,
+                    VehicleNumber = vehicle?.Number ?? string.Empty,
+                    VehiclePlate = vehicle?.VehiclePlate ?? string.Empty,
+                    HumidityValue = m.HumidityValue,
+                    TemperatureC = m.TemperatureC,
+                    Source = m.Source.ToString(),
+                    Timestamp = m.Timestamp,
+                    PublishedAt = DateTimeOffset.UtcNow
+                };
+
+                await PublishMeasurementCreatedAsync(evt, cancellationToken);
+            }
         }
 
         return new BulkMeasurementResult

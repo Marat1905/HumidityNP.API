@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
+using Humidity.Contracts.Events;
 using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
@@ -17,17 +18,23 @@ public class VehicleService : IVehicleService
     private readonly IMeasurementRepository _measurementRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<VehicleService> _logger;
+    private readonly IHumidityRealtimeNotifier _realtime;
+    private readonly IRabbitMqPublisher _publisher;
 
     public VehicleService(
         IVehicleRepository repository,
         IMeasurementRepository measurementRepository,
         IMapper mapper,
-        ILogger<VehicleService> logger)
+        ILogger<VehicleService> logger,
+        IHumidityRealtimeNotifier realtime,
+        IRabbitMqPublisher publisher)
     {
         _repository = repository;
         _measurementRepository = measurementRepository;
         _mapper = mapper;
         _logger = logger;
+        _realtime = realtime;
+        _publisher = publisher;
     }
 
     public async Task<IEnumerable<VehicleDto>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -77,7 +84,7 @@ public class VehicleService : IVehicleService
         return result;
     }
 
-    // МЕТОД С ФИЛЬТРАМИ, включая фильтр по диапазону даты въезда.
+
     public async Task<PagedResult<VehicleDto>> GetFilteredPagedAsync(
         int pageNumber,
         int pageSize,
@@ -170,10 +177,42 @@ public class VehicleService : IVehicleService
     public async Task<VehicleDto> CreateAsync(CreateVehicleRequest request, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Создание новой машины с номером пропуска: {Number}", request.Number);
+
         var vehicle = _mapper.Map<Vehicle>(request);
         var created = await _repository.AddAsync(vehicle, cancellationToken);
         var result = _mapper.Map<VehicleDto>(created);
+
         _logger.LogInformation("Машина создана с id {VehicleId}", created.Id);
+
+        var evt = new VehicleCreatedEvent
+        {
+            EventId = Guid.NewGuid(),
+            VehicleId = created.Id,
+            Number = created.Number,
+            VehiclePlate = created.VehiclePlate,
+            Counterparty = created.Counterparty,
+            EntryDate = created.EntryDate,
+            PublishedAt = DateTimeOffset.UtcNow
+        };
+
+        try
+        {
+            await _realtime.NotifyVehicleCreatedAsync(evt, cancellationToken);
+
+            await _publisher.PublishAsync(evt, "vehicle.created", cancellationToken);
+
+            _logger.LogInformation(
+                "Событие VehicleCreated опубликовано: EventId={EventId}, VehicleId={VehicleId}",
+                evt.EventId, evt.VehicleId);
+        }
+        catch (Exception ex)
+        {
+            // Публикация — best-effort: если упала, не откатываем создание машины.
+            _logger.LogError(ex,
+                "Ошибка публикации события VehicleCreated для машины {VehicleId}",
+                created.Id);
+        }
+
         return result;
     }
 
@@ -214,6 +253,18 @@ public class VehicleService : IVehicleService
         var updated = await _repository.UpdateAsync(existing, cancellationToken);
         var result = _mapper.Map<VehicleDto>(updated);
         _logger.LogInformation("Машина с id {VehicleId} успешно обновлена", id);
+
+        try
+        {
+            await _realtime.NotifyVehicleUpdatedAsync(updated.Id, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Ошибка публикации события VehicleUpdated для машины {VehicleId}",
+                updated.Id);
+        }
+
         return result;
     }
 
@@ -229,10 +280,21 @@ public class VehicleService : IVehicleService
 
         await _repository.DeleteAsync(existing, cancellationToken);
         _logger.LogInformation("Машина с id {VehicleId} успешно удалена", id);
+
+        try
+        {
+            await _realtime.NotifyVehicleUpdatedAsync(id, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Ошибка публикации события удаления машины {VehicleId}",
+                id);
+        }
     }
 
     /// <summary>
-    /// Зафиксировать разгрузку машины: количество тюков, порванных тюков, вес и номер штабеля.
+    /// Зафиксировать разгрузку машины: количество тюков, порванных тюков,вес и номер штабеля.
     /// </summary>
     public async Task<VehicleDto> UnloadAsync(Guid id, UnloadVehicleRequest request, CancellationToken cancellationToken = default)
     {
@@ -258,6 +320,17 @@ public class VehicleService : IVehicleService
 
         _logger.LogInformation("Разгрузка для машины {VehicleId} успешно зафиксирована: тюков {BaleCount}, порванных {DamagedBaleCount}, вес {WeightKg} кг, штабель {StackNumber}",
             id, request.BaleCount, request.DamagedBaleCount, request.WeightKg, request.StackNumber);
+
+        try
+        {
+            await _realtime.NotifyVehicleUpdatedAsync(updated.Id, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Ошибка публикации события разгрузки машины {VehicleId}",
+                updated.Id);
+        }
 
         return result;
     }
