@@ -13,6 +13,8 @@ networks:
 volumes:
   pgdata:
     name: humidity_pgdata
+  mongodata:
+    name: humidity_mongodata
   rabbitmqdata:
     name: humidity_rabbitmqdata
   keycloakdata:
@@ -42,6 +44,28 @@ services:
     networks:
       - humidity_network
 
+  # ============================================================
+  # MongoDB — NoSQL-хранилище журнала уведомлений.
+  # ============================================================
+  mongo:
+    image: mongo:7.0
+    container_name: humidity_mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongo
+      MONGO_INITDB_ROOT_PASSWORD: mongo
+      MONGO_INITDB_DATABASE: humidity_notifications
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - humidity_network
 
   # ============================================================
   # RabbitMQ — брокер сообщений.
@@ -162,11 +186,13 @@ services:
       - RabbitMq__Password=humidity
       - RabbitMq__VirtualHost=/
       - Keycloak__Authority=http://keycloak:8080/realms/humidity
+      - Keycloak__ExternalAuthority=http://localhost:8080/realms/humidity
       - Keycloak__MetadataAddress=http://keycloak:8080/realms/humidity/.well-known/openid-configuration
       - Keycloak__RequireHttpsMetadata=false
       - NotificationService__GrpcAddress=http://notification:8080
     ports:
       - "5000:8080"
+      - "5001:8081"
     depends_on:
       db:
         condition: service_healthy
@@ -189,20 +215,24 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
+      - MongoDb__ConnectionString=mongodb://mongo:mongo@mongo:27017
+      - MongoDb__DatabaseName=humidity_notifications
       - RabbitMq__Host=rabbitmq
       - RabbitMq__Port=5672
       - RabbitMq__Username=humidity
       - RabbitMq__Password=humidity
       - RabbitMq__VirtualHost=/
-      - Smtp__Host=mailhog
+      - Smtp__Host=mailpit
       - Smtp__Port=1025
       - Smtp__From=humidity@local
       - Smtp__UseSsl=false
       - Recipients__Default=dispatcher@example.com,manager@example.com
-      - HumidityApi__GrpcAddress=http://api:8080
+      - HumidityApi__GrpcAddress=http://api:8081
     ports:
       - "5002:8080"
     depends_on:
+      mongo:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       api:
@@ -211,15 +241,19 @@ services:
       - humidity_network
 
   # ============================================================
-  # MailHog — SMTP-ловушка для локальной разработки.
+  # Mailpit — SMTP-ловушка для локальной разработки.
   # Web UI доступен на http://localhost:8025
   # ============================================================
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: humidity_mailhog
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: humidity_mailpit
     restart: unless-stopped
     ports:
       - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI
+      - "8025:8025"   # Web UI + REST API
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
     networks:
       - humidity_network

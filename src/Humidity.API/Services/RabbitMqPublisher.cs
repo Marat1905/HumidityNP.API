@@ -1,5 +1,6 @@
 ﻿using Humidity.Application.Interfaces;
 using Humidity.Contracts.Events;
+using Humidity.Contracts.Serialization;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Options;
@@ -119,7 +120,7 @@ public class RabbitMqPublisher : IRabbitMqPublisher, IDisposable
             return Task.CompletedTask;
         }
 
-        var json = JsonSerializer.Serialize(@event);
+        var json = JsonSerializer.Serialize(@event, JsonDefaults.Options);
         var body = Encoding.UTF8.GetBytes(json);
 
         var props = _channel.CreateBasicProperties();

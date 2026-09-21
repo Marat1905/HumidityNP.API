@@ -290,6 +290,21 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // ============================================================
 // 12. gRPC-сервер (MeasurementGrpc для Notification.Service)
 // ============================================================
+builder.WebHost.ConfigureKestrel(options =>
+{
+    // REST + SignalR (HTTP/1.1 + WebSocket)
+    options.ListenAnyIP(8080, listenOptions =>
+    {
+        listenOptions.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1;
+    });
+
+    // gRPC (HTTP/2 без TLS)
+    options.ListenAnyIP(8081, listenOptions =>
+    {
+        listenOptions.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http2;
+    });
+});
+
 builder.Services.AddGrpc(options =>
 {
     options.EnableDetailedErrors = true;
