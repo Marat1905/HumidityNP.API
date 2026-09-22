@@ -1,9 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
+  name: humidity-db
+  namespace: uchaly
   labels:
     io.kompose.service: humidity-db
-  name: humidity-db
 spec:
   type: NodePort
   ports:
