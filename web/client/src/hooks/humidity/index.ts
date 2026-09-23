@@ -10,6 +10,7 @@ export { useSuppliers } from './useSuppliers';
 export { useTopSuppliers } from './useTopSuppliers';
 export { useVehicles } from './useVehicles';
 export { usePeriodReport } from './usePeriodReport';
+export { useBackendVersion } from './useBackendVersion';
 
 // Экспорт типов, определённых в хуках
 export type {

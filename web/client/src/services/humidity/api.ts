@@ -8,7 +8,8 @@ import type {
     SupplierVehicleSummaryDto,
     PeriodReportResponseDto,
     PeriodReportSortBy,
-    VehiclesQueryParams
+    VehiclesQueryParams,
+    VersionResponse,
 } from '../../types/humidity';
 import {
     requestInterceptor,
@@ -264,6 +265,21 @@ export const supplierService = {
         });
         return response.data;
     }
+};
+
+/**
+ * API-функции для получения информации о версии бэкенда (Humidity.API).
+ */
+export const versionApi = {
+    /**
+     * Получить информацию о версии запущенного приложения.
+     * Соответствует GET /humidity/api/v1/Version на бэкенде (VersionController).
+     * @returns Объект с именем приложения, версией, окружением, хэшем коммита и датой сборки.
+     */
+    getVersion: async (): Promise<VersionResponse> => {
+        const response = await apiClient.get<VersionResponse>('/version');
+        return response.data;
+    },
 };
 
 export default apiClient;
