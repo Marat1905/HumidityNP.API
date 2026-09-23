@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import type { ShiftReportItem, ShiftSummaryStats } from '../../../hooks/humidity';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
@@ -11,30 +12,26 @@ import {
     TrendingDown,
     ChevronDown,
     ChevronRight,
+    LogOut,
 } from 'lucide-react';
-import { VehicleMeasurementsExpand } from '../humidity';
-import type { PeriodReportItemDto, PeriodReportSummaryDto } from '../../types/humidity';
+import { VehicleMeasurementsExpand } from '..';
 
-/**
- * Совместимые алиасы типов: компонент может принимать как DTO с сервера,
- * так и прежние локальные типы. По структуре они полностью совпадают.
- */
-export type PeriodReportItem = PeriodReportItemDto;
-export type PeriodSummaryStats = PeriodReportSummaryDto;
-
-interface PeriodReportTableProps {
-    items: PeriodReportItemDto[];
-    summary: PeriodReportSummaryDto;
-    periodLabel: string;
+interface ShiftReportTableProps {
+    items: ShiftReportItem[];
+    summary: ShiftSummaryStats;
 }
 
 /**
- * Табличное представление отчёта за период с возможностью раскрытия замеров по машине.
+ * Табличное представление отчёта по смене с возможностью раскрытия замеров по машине.
  *
- * ВАЖНО: сортировка и пагинация выполняются на сервере.
- * Компонент отображает переданный порядок как есть и не сортирует данные.
+ * ВАЖНО: список машин уже отсортирован на сервере или в хуке useShiftReport.
+ * Компонент НЕ выполняет дополнительную сортировку — он просто отображает
+ * порядок, переданный в items.
+ *
+ * В таблицу добавлена колонка «Выезд» (дата выезда машины), так как именно
+ * по времени выезда машина привязывается к смене.
  */
-const PeriodReportTable: React.FC<PeriodReportTableProps> = ({ items, summary, periodLabel }) => {
+const ShiftReportTable: React.FC<ShiftReportTableProps> = ({ items, summary }) => {
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
     const toggleExpand = (vehicleId: string) => {
@@ -53,18 +50,13 @@ const PeriodReportTable: React.FC<PeriodReportTableProps> = ({ items, summary, p
         return (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
                 <Activity className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-                <p>За выбранный период нет замеров.</p>
+                <p>За выбранную смену нет замеров.</p>
             </div>
         );
     }
 
     return (
         <div>
-            {/* Заголовок с периодом */}
-            <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
-                Период: <span className="font-semibold">{periodLabel}</span>
-            </div>
-
             {/* Блок общей статистики */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 shadow-sm border border-blue-200 dark:border-blue-800">
@@ -182,7 +174,10 @@ const PeriodReportTable: React.FC<PeriodReportTableProps> = ({ items, summary, p
                                 Въезд
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Выезд
+                                <div className="flex items-center gap-1">
+                                    <LogOut className="w-3 h-3" />
+                                    Выезд
+                                </div>
                             </th>
                             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Замеров
@@ -222,22 +217,20 @@ const PeriodReportTable: React.FC<PeriodReportTableProps> = ({ items, summary, p
                                         </td>
                                         <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
                                             {item.entryDate
-                                                ? format(new Date(item.entryDate), 'dd MMM yyyy HH:mm', { locale: ru })
+                                                ? format(new Date(item.entryDate), 'dd MMM HH:mm', { locale: ru })
                                                 : '—'}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
                                             {item.exitDate
-                                                ? format(new Date(item.exitDate), 'dd MMM yyyy HH:mm', { locale: ru })
+                                                ? format(new Date(item.exitDate), 'dd MMM HH:mm', { locale: ru })
                                                 : '—'}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-center font-medium text-gray-700 dark:text-gray-300">
                                             {item.measurementsCount}
                                         </td>
-                                        {/* УМЕНЬШЕНА ШИРИНА: компактная ячейка «Средняя влажность» */}
                                         <td className="px-2 py-3 text-sm text-center font-semibold text-gray-900 dark:text-white whitespace-nowrap">
                                             {item.averageHumidity !== null ? item.averageHumidity.toFixed(1) + '%' : '—'}
                                         </td>
-                                        {/* УМЕНЬШЕНА ШИРИНА: компактная ячейка «Авто / Ручные» */}
                                         <td className="px-2 py-3 text-sm text-center whitespace-nowrap">
                                             <span className="font-medium text-blue-600 dark:text-blue-400">
                                                 {item.autoCount}
@@ -309,4 +302,4 @@ const PeriodReportTable: React.FC<PeriodReportTableProps> = ({ items, summary, p
     );
 };
 
-export default PeriodReportTable;
+export default ShiftReportTable;

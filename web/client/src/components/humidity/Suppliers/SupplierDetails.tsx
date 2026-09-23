@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { useSupplierDetails, useSupplierChartData } from '../../hooks/humidity';
-import { SkeletonReport } from '../common';
-import { SupplierChart, SupplierVehiclesTable, MeasurementStatistics } from '../humidity';
+import { useSupplierDetails, useSupplierChartData } from '../../../hooks/humidity';
+import { SkeletonReport } from '../../common';
+import SupplierChart from './SupplierChart';
+import SupplierVehiclesTable from './SupplierVehiclesTable';
+import MeasurementStatistics from '../MeasurementStatistics';
 
 interface SupplierDetailsProps {
     supplierInn: string;

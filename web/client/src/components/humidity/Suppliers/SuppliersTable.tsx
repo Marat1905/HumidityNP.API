@@ -1,5 +1,5 @@
 import React from 'react';
-import type { SupplierDto } from '../../types/humidity';
+import type { SupplierDto } from '../../../types/humidity';
 
 interface SuppliersTableProps {
     suppliers: SupplierDto[];

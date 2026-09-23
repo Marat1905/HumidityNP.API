@@ -1,7 +1,7 @@
 import React from 'react';
-import type { SupplierDto } from '../../types/humidity';
+import type { SupplierDto } from '../../../types/humidity';
 import { ChevronRight, Truck, Activity, Droplet } from 'lucide-react';
-import { SupplierDetails } from '../humidity';
+import SupplierDetails from './SupplierDetails';
 
 interface SupplierListProps {
     suppliers: SupplierDto[];

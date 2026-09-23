@@ -14,8 +14,8 @@ import {
     LogIn,
     LogOut,
 } from 'lucide-react';
-import { VehicleMeasurementsExpand } from '../humidity';
-import type { PeriodReportItemDto, PeriodReportSummaryDto } from '../../types/humidity';
+import { VehicleMeasurementsExpand } from '..';
+import type { PeriodReportItemDto, PeriodReportSummaryDto } from '../../../types/humidity';
 
 interface PeriodReportCardViewProps {
     items: PeriodReportItemDto[];

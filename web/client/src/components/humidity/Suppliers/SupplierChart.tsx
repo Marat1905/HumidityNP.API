@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import type { SupplierVehicleSummaryDto } from '../../types/humidity';
+import type { SupplierVehicleSummaryDto } from '../../../types/humidity';
 
 interface SupplierChartProps {
     vehicles: SupplierVehicleSummaryDto[];

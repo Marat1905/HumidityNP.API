@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Pencil, Trash2, PenTool } from 'lucide-react';
-import { type MeasurementDto, SignType, MeasurementSource } from '../../types/humidity';
-import { Pagination } from '../common';
-import { DeleteConfirmationModal, MeasurementFormModal } from '../humidity';
-import { measurementService } from '../../services/humidity/api';
+import { type MeasurementDto, SignType, MeasurementSource } from '../../../types/humidity';
+import { Pagination } from '../../common';
+import { DeleteConfirmationModal, MeasurementFormModal } from '../modals';
+import { measurementService } from '../../../services/humidity/api';
 import toast from 'react-hot-toast';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../../context/AuthContext';
 
 interface MeasurementListProps {
     vehicleId: string;

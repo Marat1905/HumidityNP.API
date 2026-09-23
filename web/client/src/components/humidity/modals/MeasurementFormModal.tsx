@@ -3,9 +3,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { type MeasurementDto, MeasurementSource, SignType, type CreateMeasurementRequest, type UpdateMeasurementRequest } from '../../types/humidity';
-import { type MeasurementFormData, CreateMeasurementFormData } from '../../schemas/humidity';
-import { measurementService } from '../../services/humidity/api';
+import { type MeasurementDto, MeasurementSource, SignType, type CreateMeasurementRequest, type UpdateMeasurementRequest } from '../../../types/humidity';
+import { type MeasurementFormData, CreateMeasurementFormData } from '../../../schemas/humidity';
+import { measurementService } from '../../../services/humidity/api';
 
 /**
  * Вспомогательная функция для преобразования UTC-строки в локальное время для поля datetime-local.

@@ -1,9 +1,9 @@
 import React from 'react';
-import type { SupplierVehicleSummaryDto, PagedResult } from '../../types/humidity';
+import type { SupplierVehicleSummaryDto, PagedResult } from '../../../types/humidity';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Truck } from 'lucide-react';
-import { Pagination } from '../common';
+import { Pagination } from '../../common';
 
 interface SupplierVehiclesTableProps {
     /**

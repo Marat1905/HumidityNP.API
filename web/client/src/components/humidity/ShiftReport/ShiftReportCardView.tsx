@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { ShiftReportItem, ShiftSummaryStats } from '../../hooks/humidity';
+import type { ShiftReportItem, ShiftSummaryStats } from '../../../hooks/humidity';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import {
@@ -15,7 +15,7 @@ import {
     LogIn,
     LogOut,
 } from 'lucide-react';
-import { VehicleMeasurementsExpand } from '../humidity';
+import { VehicleMeasurementsExpand } from '..';
 
 interface ShiftReportCardViewProps {
     items: ShiftReportItem[];

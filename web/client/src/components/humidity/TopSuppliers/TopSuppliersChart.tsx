@@ -11,7 +11,7 @@ import {
     ResponsiveContainer,
     Cell,
 } from 'recharts';
-import type { SupplierDto } from '../../types/humidity';
+import type { SupplierDto } from '../../../types/humidity';
 import { Droplet, Activity, Truck } from 'lucide-react';
 
 interface TopSuppliersChartProps {
