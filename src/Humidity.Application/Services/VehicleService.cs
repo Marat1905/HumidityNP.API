@@ -1,10 +1,12 @@
 ﻿using AutoMapper;
+using Humidity.Application.Common.Models;
 using Humidity.Application.DTOs;
 using Humidity.Application.Interfaces;
 using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Humidity.Application.Services;
 
@@ -18,16 +20,42 @@ public class VehicleService : IVehicleService
     private readonly IMapper _mapper;
     private readonly ILogger<VehicleService> _logger;
 
+    /// <summary>
+    /// Часовой пояс, в котором работает сервер 1С (например, "Ekaterinburg Standard Time").
+    /// Используется для преобразования дат, полученных от 1С (в локальном времени 1С),
+    /// в UTC перед сравнением с полями БД, которые хранятся в UTC.
+    /// </summary>
+    private readonly TimeZoneInfo _oneCTimeZone;
+
     public VehicleService(
         IVehicleRepository repository,
         IMeasurementRepository measurementRepository,
         IMapper mapper,
-        ILogger<VehicleService> logger)
+        ILogger<VehicleService> logger,
+        IOptions<OneCIntegrationSettings> oneCSettings)
     {
         _repository = repository;
         _measurementRepository = measurementRepository;
         _mapper = mapper;
         _logger = logger;
+
+        // Инициализируем часовой пояс 1С из настроек.
+        // При ошибке (пояс не найден или некорректен) используем UTC — это безопасный фолбэк,
+        // чтобы не падать при старте приложения из-за опечатки в конфиге.
+        try
+        {
+            _oneCTimeZone = TimeZoneInfo.FindSystemTimeZoneById(oneCSettings.Value.TimeZoneId);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            _logger.LogError("Часовой пояс 1С '{TimeZoneId}' не найден. Используется UTC.", oneCSettings.Value.TimeZoneId);
+            _oneCTimeZone = TimeZoneInfo.Utc;
+        }
+        catch (InvalidTimeZoneException)
+        {
+            _logger.LogError("Некорректный идентификатор часового пояса 1С '{TimeZoneId}'. Используется UTC.", oneCSettings.Value.TimeZoneId);
+            _oneCTimeZone = TimeZoneInfo.Utc;
+        }
     }
 
     public async Task<IEnumerable<VehicleDto>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -260,5 +288,101 @@ public class VehicleService : IVehicleService
             id, request.BaleCount, request.DamagedBaleCount, request.WeightKg, request.StackNumber);
 
         return result;
+    }
+
+    /// <summary>
+    /// Получить информацию о разгрузке машины и среднюю влажность по уникальному идентификатору 1С (ГУИД).
+    /// Даты здесь не участвуют, поэтому преобразование часового пояса не требуется.
+    /// </summary>
+    /// <param name="oneCGuid">Уникальный идентификатор записи из 1С.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>DTO с информацией о разгрузке и средней влажности или null, если машина не найдена.</returns>
+    public async Task<OneCVehicleUnloadDto?> GetUnloadInfoByOneCGuidAsync(string oneCGuid, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Запрос информации о разгрузке по OneCGuid: {OneCGuid}", oneCGuid);
+
+        var result = await _repository.GetUnloadInfoByOneCGuidAsync(oneCGuid, cancellationToken);
+
+        if (result == null)
+        {
+            _logger.LogWarning("Машина с OneCGuid {OneCGuid} не найдена", oneCGuid);
+        }
+        else
+        {
+            _logger.LogInformation("Информация о разгрузке для OneCGuid {OneCGuid} получена", oneCGuid);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Получить информацию о разгрузке машин и среднюю влажность за период.
+    /// Период фильтруется по дате создания пропуска (Vehicle.Date).
+    ///
+    /// ВАЖНО: 1С работает в часовом поясе Екатеринбурга (UTC+5), а в БД все даты хранятся в UTC.
+    /// Поэтому входящие даты (from, to), полученные от 1С, интерпретируются как локальное
+    /// время 1С и преобразуются в UTC перед сравнением с Vehicle.Date.
+    /// </summary>
+    /// <param name="from">Начало периода (включительно) в локальном времени 1С.</param>
+    /// <param name="to">Конец периода (включительно) в локальном времени 1С.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Коллекция DTO с информацией о разгрузке и средней влажности.</returns>
+    public async Task<IEnumerable<OneCVehicleUnloadDto>> GetUnloadInfoByPeriodAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default)
+    {
+        // Преобразуем даты из локального времени 1С в UTC.
+        // Логика:
+        //   - Если 1С передала дату со смещением (например, "2024-01-01T00:00:00+05:00"),
+        //     просто конвертируем её в UTC.
+        //   - Если 1С передала дату без смещения или с Z (например, "2024-01-01T00:00:00Z"
+        //     или "2024-01-01T00:00:00"), интерпретируем её как локальное время 1С
+        //     и преобразуем в UTC через TimeZoneInfo.
+        var fromUtc = ConvertFromOneCTimeZone(from);
+        var toUtc = ConvertFromOneCTimeZone(to);
+
+        _logger.LogInformation(
+            "Запрос информации о разгрузке за период (1С локальное время): {From:O} — {To:O}; " +
+            "после преобразования в UTC: {FromUtc:O} — {ToUtc:O}",
+            from, to, fromUtc, toUtc);
+
+        var result = await _repository.GetUnloadInfoByPeriodAsync(fromUtc, toUtc, cancellationToken);
+
+        _logger.LogInformation("Получено {Count} записей о разгрузке за период", result.Count());
+
+        return result;
+    }
+
+    /// <summary>
+    /// Преобразует дату, полученную от 1С, в UTC.
+    ///
+    /// Правила:
+    ///   1. Если дата пришла с явным ненулевым смещением (например, +05:00),
+    ///      считаем, что 1С передала корректный DateTimeOffset, и просто конвертируем в UTC.
+    ///   2. Если смещение нулевое (Z или отсутствует), считаем, что 1С передала
+    ///      локальное время в своём часовом поясе (Екатеринбург, UTC+5).
+    ///      В этом случае интерпретируем компоненты даты/времени как локальные
+    ///      в часовом поясе 1С и преобразуем в UTC.
+    ///
+    /// Такой подход устойчив к обоим вариантам, которые может использовать 1С,
+    /// и не приводит к двойному сдвигу, если 1С вдруг начнёт передавать смещение.
+    /// </summary>
+    /// <param name="oneCDate">Дата, полученная от 1С.</param>
+    /// <returns>Дата в UTC.</returns>
+    private DateTimeOffset ConvertFromOneCTimeZone(DateTimeOffset oneCDate)
+    {
+        // Случай 1: смещение уже задано и не равно нулю — доверяем ему.
+        if (oneCDate.Offset != TimeSpan.Zero)
+        {
+            return oneCDate.ToUniversalTime();
+        }
+
+        // Случай 2: смещение нулевое — интерпретируем как локальное время 1С.
+        // DateTimeKind.Unspecified нужен, чтобы TimeZoneInfo корректно применил правила
+        // часового пояса (включая возможный переход на летнее время, если он есть).
+        var localDateTime = DateTime.SpecifyKind(oneCDate.DateTime, DateTimeKind.Unspecified);
+        var utcDateTime = TimeZoneInfo.ConvertTimeToUtc(localDateTime, _oneCTimeZone);
+        return new DateTimeOffset(utcDateTime, TimeSpan.Zero);
     }
 }

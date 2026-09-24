@@ -99,4 +99,22 @@ public interface IVehicleRepository : IRepository<Vehicle>
         DateTimeOffset? entryDateFrom = null,
         DateTimeOffset? entryDateTo = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить информацию о разгрузке машины и среднюю влажность по уникальному идентификатору 1С (ГУИД).
+    /// </summary>
+    /// <param name="oneCGuid">Уникальный идентификатор записи из 1С.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>DTO с информацией о разгрузке и средней влажности или null, если машина не найдена.</returns>
+    Task<OneCVehicleUnloadDto?> GetUnloadInfoByOneCGuidAsync(string oneCGuid, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить информацию о разгрузке машин и среднюю влажность за период.
+    /// Период фильтруется по дате создания пропуска (Vehicle.Date).
+    /// </summary>
+    /// <param name="from">Начало периода (включительно).</param>
+    /// <param name="to">Конец периода (включительно).</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Коллекция DTO с информацией о разгрузке и средней влажности.</returns>
+    Task<IEnumerable<OneCVehicleUnloadDto>> GetUnloadInfoByPeriodAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default);
 }

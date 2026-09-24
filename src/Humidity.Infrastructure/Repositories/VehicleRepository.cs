@@ -292,4 +292,61 @@ public class VehicleRepository : BaseRepository<Vehicle>, IVehicleRepository
             TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
         };
     }
+
+    /// <summary>
+    /// Получить информацию о разгрузке машины и среднюю влажность по уникальному идентификатору 1С (ГУИД).
+    /// </summary>
+    /// <param name="oneCGuid">Уникальный идентификатор записи из 1С.</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>DTO с информацией о разгрузке и средней влажности или null, если машина не найдена.</returns>
+    public async Task<OneCVehicleUnloadDto?> GetUnloadInfoByOneCGuidAsync(string oneCGuid, CancellationToken cancellationToken = default)
+    {
+        return await _context.Vehicles
+            .AsNoTracking()
+            .Where(v => v.OneCGuid == oneCGuid)
+            .Select(v => new OneCVehicleUnloadDto
+            {
+                OneCGuid = v.OneCGuid,
+                BaleCount = v.BaleCount,
+                DamagedBaleCount = v.DamagedBaleCount,
+                WeightKg = v.WeightKg,
+                StackNumber = v.StackNumber,
+                AverageHumidity = v.Measurements.Any()
+                    ? v.Measurements.Average(m => m.HumidityValue)
+                    : (double?)null
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Получить информацию о разгрузке машин и среднюю влажность за период.
+    /// Период фильтруется по дате создания пропуска (Vehicle.Date).
+    /// </summary>
+    /// <param name="from">Начало периода (включительно).</param>
+    /// <param name="to">Конец периода (включительно).</param>
+    /// <param name="cancellationToken">Токен отмены операции.</param>
+    /// <returns>Коллекция DTO с информацией о разгрузке и средней влажности.</returns>
+    public async Task<IEnumerable<OneCVehicleUnloadDto>> GetUnloadInfoByPeriodAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Vehicles
+            .AsNoTracking()
+            .Where(v => v.Date >= from && v.Date <= to
+                        && v.OneCGuid != null && v.OneCGuid != string.Empty)
+            .Select(v => new OneCVehicleUnloadDto
+            {
+                OneCGuid = v.OneCGuid,
+                BaleCount = v.BaleCount,
+                DamagedBaleCount = v.DamagedBaleCount,
+                WeightKg = v.WeightKg,
+                StackNumber = v.StackNumber,
+                AverageHumidity = v.Measurements.Any()
+                    ? v.Measurements.Average(m => m.HumidityValue)
+                    : (double?)null
+            })
+            .OrderBy(x => x.OneCGuid)
+            .ToListAsync(cancellationToken);
+    }
 }
