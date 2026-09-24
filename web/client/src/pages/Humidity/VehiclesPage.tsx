@@ -58,6 +58,14 @@ type PeriodCode = '3m' | '6m' | '1y' | '2y' | 'all';
 const DEFAULT_PERIOD: PeriodCode = '3m';
 
 /**
+ * Значение фильтра статуса по умолчанию.
+ * 'all' — показываем все машины: и на площадке, и выехавшие.
+ * Вынесено в константу, чтобы использовать и в useState/resetFilters,
+ * и в логике построения чипов — единая точка правды.
+ */
+const DEFAULT_STATUS = 'all';
+
+/**
  * Человекочитаемые подписи для селекта «Период въезда».
  */
 const PERIOD_LABELS: Record<PeriodCode, string> = {
@@ -317,7 +325,10 @@ export default function VehiclesPage() {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const size = parseInt(searchParams.get('size') || '10', 10);
     const counterparty = searchParams.get('counterparty') || '';
-    const status = searchParams.get('status') || 'active';
+    // ИЗМЕНЕНИЕ: значение по умолчанию для статуса — 'all' (Все машины),
+    // а не 'active' (только на площадке). Раньше при первом открытии вкладки
+    // показывались только машины «на площадке», что скрывало выехавшие.
+    const status = searchParams.get('status') || DEFAULT_STATUS;
     const plate = searchParams.get('plate') || '';
     const driver = searchParams.get('driver') || '';
     // Период въезда из URL. По умолчанию — «последние 3 месяца».
@@ -509,8 +520,11 @@ export default function VehiclesPage() {
     if (counterparty) activeFilters.push({ key: 'counterparty', label: `Поставщик: ${counterparty}`, value: counterparty });
     if (plate) activeFilters.push({ key: 'plate', label: `Госномер: ${plate}`, value: plate });
     if (driver) activeFilters.push({ key: 'driver', label: `Водитель: ${driver}`, value: driver });
-    if (status !== 'active') {
-        const statusLabel = status === 'exited' ? 'Выехали' : 'Все';
+    // ИЗМЕНЕНИЕ: теперь чип статуса показывается, только если статус отличается
+    // от дефолтного 'all'. При 'all' фильтр не считается «активным»,
+    // так как это значение по умолчанию.
+    if (status !== DEFAULT_STATUS) {
+        const statusLabel = status === 'exited' ? 'Выехали' : status === 'active' ? 'На площадке' : 'Все';
         activeFilters.push({ key: 'status', label: `Статус: ${statusLabel}`, value: status });
     }
     // Показываем чип периода только если он отличается от значения по умолчанию (3 месяца).
@@ -571,7 +585,8 @@ export default function VehiclesPage() {
             page: '1',
             size: String(size),
             counterparty: key === 'counterparty' ? '' : localCounterparty,
-            status: key === 'status' ? 'active' : status,
+            // ИЗМЕНЕНИЕ: снятие чипа статуса возвращает к 'all' (значение по умолчанию).
+            status: key === 'status' ? DEFAULT_STATUS : status,
             plate: key === 'plate' ? '' : localPlate,
             driver: key === 'driver' ? '' : localDriver,
             period: key === 'period' ? DEFAULT_PERIOD : period,
@@ -597,6 +612,8 @@ export default function VehiclesPage() {
 
     /**
      * Полный сброс фильтров к значениям по умолчанию.
+     * ИЗМЕНЕНИЕ: статус сбрасывается в 'all' (Все машины),
+     * а не в 'active', как было раньше.
      */
     const resetFilters = () => {
         setLocalCounterparty('');
@@ -605,7 +622,7 @@ export default function VehiclesPage() {
         setSearchParams({
             page: '1',
             size: String(size),
-            status: 'active',
+            status: DEFAULT_STATUS,
             period: DEFAULT_PERIOD,
         });
     };
@@ -826,7 +843,9 @@ export default function VehiclesPage() {
                             </span>
                             <div className="flex flex-wrap gap-2">
                                 {/* Статус — применяется МГНОВЕННО при клике.
-                                    Кнопка «Поиск» не требуется. */}
+                                    Кнопка «Поиск» не требуется.
+                                    Порядок кнопок оставлен прежним (На площадке → Выехали → Все),
+                                    но по умолчанию теперь активна кнопка «Все». */}
                                 {[
                                     { value: 'active', label: 'На площадке', icon: <Clock className="w-4 h-4" />, color: 'yellow' },
                                     { value: 'exited', label: 'Выехали', icon: <BadgeCheck className="w-4 h-4" />, color: 'green' },
