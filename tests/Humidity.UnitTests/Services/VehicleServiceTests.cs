@@ -5,12 +5,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using FluentAssertions;
+using Humidity.Application.Common.Models;
 using Humidity.Application.DTOs;
 using Humidity.Application.Services;
 using Humidity.Domain.Common;
 using Humidity.Domain.Entities;
 using Humidity.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
@@ -22,6 +24,7 @@ public class VehicleServiceTests
     private readonly Mock<IMeasurementRepository> _measurementRepositoryMock;
     private readonly Mock<IMapper> _mapperMock;
     private readonly Mock<ILogger<VehicleService>> _loggerMock;
+    private readonly IOptions<OneCIntegrationSettings> _oneCSettings;
     private readonly VehicleService _service;
 
     public VehicleServiceTests()
@@ -31,11 +34,21 @@ public class VehicleServiceTests
         _mapperMock = new Mock<IMapper>();
         _loggerMock = new Mock<ILogger<VehicleService>>();
 
+        // Настройки интеграции с 1С нужны конструктору VehicleService
+        // для инициализации часового пояса. Для юнит-тестов достаточно
+        // корректного TimeZoneId: берём UTC, чтобы не зависеть от ОС,
+        // на которой запускаются тесты (Windows/Linux).
+        _oneCSettings = Options.Create(new OneCIntegrationSettings
+        {
+            TimeZoneId = "UTC"
+        });
+
         _service = new VehicleService(
             _vehicleRepositoryMock.Object,
             _measurementRepositoryMock.Object,
             _mapperMock.Object,
-            _loggerMock.Object);
+            _loggerMock.Object,
+            _oneCSettings);
     }
 
     [Fact]
