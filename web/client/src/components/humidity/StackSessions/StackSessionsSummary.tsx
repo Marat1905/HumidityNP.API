@@ -143,9 +143,6 @@ const StackSessionsSummary: React.FC<StackSessionsSummaryProps> = ({ sessions, s
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm">
                     <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                     <div className="flex-1">
-                        <div className="font-medium text-blue-900 dark:text-blue-200">
-                            Почему цифры отличаются от «Отчёта за период»
-                        </div>
                         <div className="text-blue-800 dark:text-blue-300 mt-0.5">
                             В отчёт по штабелям попадают только замеры машин с заполненным номером штабеля.
                             За период <span className="font-semibold">всего {stats.totalMeasurements}</span> замеров,
@@ -159,10 +156,6 @@ const StackSessionsSummary: React.FC<StackSessionsSummaryProps> = ({ sessions, s
                                 Машин: {stats.totalVehicles} всего,
                                 {' '}<span className="text-emerald-700 dark:text-emerald-400">{stats.vehiclesWithStack} с штабелем</span>,
                                 {' '}<span className="text-amber-700 dark:text-amber-400">{stats.vehiclesWithoutStack} без штабеля</span>
-                            </span>
-                            <span className="inline-flex items-center gap-1">
-                                <AlertTriangle className="w-3.5 h-3.5" />
-                                Заполните StackNumber при разгрузке, чтобы данные попадали в отчёт по штабелям.
                             </span>
                         </div>
                     </div>
