@@ -4,6 +4,7 @@ using Humidity.Domain.Enums;
 using Humidity.Domain.Interfaces;
 using Humidity.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace Humidity.Infrastructure.Repositories;
 
@@ -977,5 +978,367 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
             : items.OrderByDescending(x => x.AdjustedAverageHumidity).ThenByDescending(x => x.TotalMeasurements);
 
         return sorted.Take(top).ToList();
+    }
+    /// <summary>
+    /// SQL-запрос для получения сессий по штабелям.
+    ///
+    /// Логика запроса:
+    ///  1. normalized — нормализуем данные: получаем ключ поставщика (ИНН или имя),
+    ///     очищенное имя, время замера, влажность, нормализованный номер штабеля.
+    ///     Тут же фильтруем по периоду [@From, @To].
+    ///  2. with_gap — считаем разрыв между соседними замерами внутри одного штабеля.
+    ///  3. base_marked — помечаем начало новой базовой сессии, если разрыв >= 24 часов.
+    ///  4. base_session — присваиваем каждой строке id базовой сессии (сумма флагов).
+    ///  5. base_summary — агрегируем базовые сессии: начало, конец, замеры, машины.
+    ///  6. with_prev — считаем разрыв между текущей и предыдущей базовой сессией.
+    ///  7. to_merge — решаем, нужно ли склеить сессию с предыдущей:
+    ///     разрыв < 72 часов И (мало замеров ИЛИ мало машин).
+    ///  8. renumber_map — пересчитываем id сессии с учётом склеек.
+    ///  9. suppliers_raw/with_len/canon/ranked/agg — строим список поставщиков сессии:
+    ///     группируем по ключу, выбираем каноническое (самое короткое) имя,
+    ///     считаем машины, выбираем основного поставщика (rn=1).
+    /// 10. Финальный SELECT — агрегируем сессии и джойним поставщиков.
+    ///
+    /// Параметры: @From, @To — границы периода.
+    ///
+    /// ВАЖНО про типы:
+    ///  - COUNT(*) и SUM(...) OVER (...) в PostgreSQL возвращают bigint (int8).
+    ///    Npgsql 6+ не приводит типы молча: reader.GetInt32() на bigint бросает
+    ///    InvalidCastException. Поэтому в финальном SELECT все «счётные» колонки
+    ///    явно приводятся к int через ::int. Это самый чистый способ —
+    ///    SQL сам объявляет ожидаемый тип, ридер читает без сюрпризов.
+    ///  - AVG(...)::numeric в Postgres — это numeric (в Npgsql мапится в decimal).
+    ///    GetDouble() на numeric работает не везде, поэтому итоговое значение
+    ///    явно приводится к float8: ROUND(AVG(...)::numeric, 2)::float8.
+    /// </summary>
+    private const string StackSessionsSql = @"
+WITH params AS (
+    SELECT
+        INTERVAL '24 hours' AS base_gap,
+        INTERVAL '72 hours' AS merge_gap,
+        20                  AS min_meas,
+        3                   AS min_veh
+),
+normalized AS (
+    SELECT
+        v.""Id""                                          AS vehicle_id,
+        -- Ключ группировки поставщика: ИНН, если есть, иначе нормализованное имя
+        COALESCE(
+            NULLIF(TRIM(v.""Inn""), ''),
+            'NAME:' || UPPER(REGEXP_REPLACE(TRIM(v.""Counterparty""), '\s+', ' ', 'g'))
+        )                                               AS cp_key,
+        -- Очищенное имя (TRIM + схлопывание пробелов)
+        REGEXP_REPLACE(TRIM(v.""Counterparty""), '\s+', ' ', 'g') AS counterparty_clean,
+        m.""Timestamp""                                   AS ts,
+        m.""HumidityValue""                               AS humidity,
+        UPPER(TRANSLATE(v.""StackNumber"", 'аА', 'aA'))   AS stack_number
+    FROM ""Vehicles""     v
+    JOIN ""Measurements"" m ON m.""VehicleId"" = v.""Id""
+    WHERE v.""StackNumber"" IS NOT NULL
+      AND TRIM(v.""StackNumber"") <> ''
+      AND m.""Timestamp"" >= @From
+      AND m.""Timestamp"" <= @To
+),
+with_gap AS (
+    SELECT n.*,
+           n.ts - LAG(n.ts) OVER (
+                      PARTITION BY n.stack_number ORDER BY n.ts
+                  ) AS gap
+    FROM normalized n
+),
+base_marked AS (
+    SELECT w.*,
+           CASE
+               WHEN w.gap IS NULL OR w.gap >= (SELECT base_gap FROM params)
+               THEN 1 ELSE 0
+           END AS is_break
+    FROM with_gap w
+),
+base_session AS (
+    SELECT b.*,
+           SUM(b.is_break) OVER (
+               PARTITION BY b.stack_number ORDER BY b.ts
+           ) AS base_session_id
+    FROM base_marked b
+),
+base_summary AS (
+    SELECT stack_number,
+           base_session_id,
+           MIN(ts)                    AS start_ts,
+           MAX(ts)                    AS end_ts,
+           COUNT(*)                   AS meas_cnt,
+           COUNT(DISTINCT vehicle_id) AS veh_cnt
+    FROM base_session
+    GROUP BY stack_number, base_session_id
+),
+with_prev AS (
+    SELECT bs.*,
+           bs.start_ts - LAG(bs.end_ts) OVER (
+                             PARTITION BY bs.stack_number
+                             ORDER BY bs.start_ts
+                         ) AS gap_from_prev
+    FROM base_summary bs
+),
+to_merge AS (
+    SELECT wp.*,
+           CASE
+               WHEN wp.gap_from_prev IS NOT NULL
+                AND wp.gap_from_prev < (SELECT merge_gap FROM params)
+                AND (wp.meas_cnt < (SELECT min_meas FROM params)
+                     OR wp.veh_cnt < (SELECT min_veh  FROM params))
+               THEN 1 ELSE 0
+           END AS merge_flag
+    FROM with_prev wp
+),
+renumber_map AS (
+    SELECT tm.stack_number,
+           tm.base_session_id,
+           tm.base_session_id - COALESCE(
+               SUM(tm.merge_flag) OVER (
+                   PARTITION BY tm.stack_number
+                   ORDER BY tm.base_session_id
+               ), 0
+           ) AS final_session_id
+    FROM to_merge tm
+),
+-- (A) Уникальные поставщики по ключу cp_key
+suppliers_raw AS (
+    SELECT
+        bs.stack_number,
+        rm.final_session_id,
+        bs.cp_key,
+        bs.counterparty_clean,
+        bs.vehicle_id
+    FROM base_session bs
+    JOIN renumber_map rm
+      ON rm.stack_number    = bs.stack_number
+     AND rm.base_session_id = bs.base_session_id
+    WHERE bs.cp_key IS NOT NULL
+      AND bs.cp_key <> ''
+      AND bs.counterparty_clean IS NOT NULL
+      AND bs.counterparty_clean <> ''
+),
+suppliers_with_len AS (
+    SELECT sr.*,
+           LENGTH(sr.counterparty_clean) AS name_len,
+           MIN(LENGTH(sr.counterparty_clean)) OVER (
+               PARTITION BY sr.stack_number, sr.final_session_id, sr.cp_key
+           ) AS min_len
+    FROM suppliers_raw sr
+),
+-- Каноническое имя = самое короткое из группы (обычно «Тандер», а не «Тандер(Новосибирск)»)
+suppliers_canon AS (
+    SELECT
+        stack_number,
+        final_session_id,
+        cp_key,
+        MIN(counterparty_clean)     AS counterparty_canonical,
+        COUNT(DISTINCT vehicle_id)  AS vehicles_cnt
+    FROM suppliers_with_len
+    WHERE name_len = min_len
+    GROUP BY stack_number, final_session_id, cp_key
+),
+suppliers_ranked AS (
+    SELECT s.*,
+           ROW_NUMBER() OVER (
+               PARTITION BY stack_number, final_session_id
+               ORDER BY vehicles_cnt DESC, counterparty_canonical
+           ) AS rn
+    FROM suppliers_canon s
+),
+-- (C) Основной поставщик + список, отсортированный по числу машин
+suppliers_agg AS (
+    SELECT
+        stack_number,
+        final_session_id,
+        COUNT(*)                                                       AS counterparty_count,
+        STRING_AGG(counterparty_canonical, '; '
+                   ORDER BY vehicles_cnt DESC, counterparty_canonical) AS counterparties,
+        MAX(counterparty_canonical) FILTER (WHERE rn = 1)              AS primary_counterparty
+    FROM suppliers_ranked
+    GROUP BY stack_number, final_session_id
+)
+SELECT
+    t.stack_number                                                          AS ""StackNumber"",
+    -- SessionId: final_session_id имеет тип bigint (base_session_id - SUM(...) OVER ...).
+    -- Явно приводим к int, чтобы reader.GetInt32() работал без InvalidCastException.
+    t.session_id::int                                                       AS ""SessionId"",
+    t.session_start                                                         AS ""SessionStart"",
+    t.session_end                                                           AS ""SessionEnd"",
+    -- (E) Единый формат длительности: чч:мм:сс, где чч может быть > 24
+    LPAD((EXTRACT(DAY    FROM t.dur) * 24
+        + EXTRACT(HOUR   FROM t.dur))::int::text, 2, '0')
+      || ':' || LPAD(EXTRACT(MINUTE FROM t.dur)::int::text, 2, '0')
+      || ':' || LPAD(EXTRACT(SECOND FROM t.dur)::int::text, 2, '0')         AS ""Duration"",
+    -- COUNT(*) → bigint; приводим к int для reader.GetInt32().
+    t.measurements_count::int                                               AS ""MeasurementsCount"",
+    -- COUNT(DISTINCT ...) → bigint; приводим к int.
+    t.vehicles_count::int                                                   AS ""VehiclesCount"",
+    -- COUNT(*) + COALESCE(..., 0) → bigint; приводим к int.
+    t.counterparty_count::int                                               AS ""CounterpartyCount"",
+    t.primary_counterparty                                                  AS ""PrimaryCounterparty"",
+    t.counterparties                                                        AS ""Counterparties"",
+    t.avg_humidity                                                          AS ""AverageHumidity"",
+    t.min_humidity                                                          AS ""MinHumidity"",
+    t.max_humidity                                                          AS ""MaxHumidity""
+FROM (
+    SELECT
+        bs.stack_number,
+        rm.final_session_id                                          AS session_id,
+        MIN(date_trunc('second', bs.ts AT TIME ZONE 'Asia/Yekaterinburg')) AS session_start,
+        MAX(date_trunc('second', bs.ts AT TIME ZONE 'Asia/Yekaterinburg')) AS session_end,
+        date_trunc('second', MAX(bs.ts) - MIN(bs.ts))                AS dur,
+        COUNT(*)                                                     AS measurements_count,
+        COUNT(DISTINCT bs.vehicle_id)                                AS vehicles_count,
+        COALESCE(sa.counterparty_count, 0)                           AS counterparty_count,
+        COALESCE(sa.primary_counterparty, '')                        AS primary_counterparty,
+        COALESCE(sa.counterparties, '')                              AS counterparties,
+        -- ROUND(...::numeric, 2) даёт numeric; приводим итог к float8,
+        -- чтобы Npgsql отдал его именно как double precision,
+        -- а не как decimal (иначе reader.GetDouble() может упасть).
+        ROUND(AVG(bs.humidity)::numeric, 2)::float8                  AS avg_humidity,
+        MIN(bs.humidity)                                             AS min_humidity,
+        MAX(bs.humidity)                                             AS max_humidity
+    FROM base_session bs
+    JOIN renumber_map rm
+      ON rm.stack_number    = bs.stack_number
+     AND rm.base_session_id = bs.base_session_id
+    LEFT JOIN suppliers_agg sa
+           ON sa.stack_number     = bs.stack_number
+          AND sa.final_session_id = rm.final_session_id
+    GROUP BY bs.stack_number,
+             rm.final_session_id,
+             sa.counterparty_count,
+             sa.primary_counterparty,
+             sa.counterparties
+) t
+ORDER BY
+    NULLIF(regexp_replace(t.stack_number, '\D', '', 'g'), '')::int NULLS LAST,
+    t.stack_number,
+    t.session_id;
+";
+
+    /// <summary>
+    /// Получить список сессий работы со штабелями за указанный период.
+    ///
+    /// Используем ADO.NET напрямую (а не EF Core SqlQuery), потому что запрос:
+    ///   - содержит CTE (WITH) и оконные функции;
+    ///   - использует PostgreSQL-специфичные функции (TRANSLATE, REGEXP_REPLACE,
+    ///     STRING_AGG, date_trunc, AT TIME ZONE);
+    ///   - возвращает колонки с русскими именами в исходнике — здесь мы уже
+    ///     переименовали их в английские алиасы для маппинга.
+    ///
+    /// Ручное чтение через NpgsqlDataReader даёт полный контроль над SQL
+    /// и не зависит от того, как EF Core компонует запросы.
+    ///
+    /// Производительность:
+    ///  - GetOrdinal() делается ОДИН раз на колонку (а не на каждую строку):
+    ///    это линейный поиск по списку колонок, и на 10k строк он бы дал
+    ///    десятки тысяч лишних операций.
+    ///  - CommandTimeout увеличен до 120 секунд: запрос с несколькими
+    ///    оконными функциями и STRING_AGG может не уложиться в дефолтные 30.
+    /// </summary>
+    /// <param name="from">Начало периода (включительно) по Timestamp замера.</param>
+    /// <param name="to">Конец периода (включительно) по Timestamp замера.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    public async Task<IEnumerable<StackSessionDto>> GetStackSessionsAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = Context.Database.GetDbConnection();
+        var wasClosed = connection.State == ConnectionState.Closed;
+        if (wasClosed)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = StackSessionsSql;
+
+            // Тяжёлый отчёт с оконными функциями: даём запросу больше времени,
+            // чем дефолтные 30 секунд. При необходимости вынести в настройки.
+            command.CommandTimeout = 120;
+
+            // Приводим границы периода к UTC — Timestamp в БД хранится в UTC.
+            // В SQL-запросе мы фильтруем по m."Timestamp" (UTC), а уже в финальном
+            // SELECT конвертируем в Asia/Yekaterinburg для отображения.
+            var fromParam = command.CreateParameter();
+            fromParam.ParameterName = "@From";
+            fromParam.Value = from.ToUniversalTime();
+            command.Parameters.Add(fromParam);
+
+            var toParam = command.CreateParameter();
+            toParam.ParameterName = "@To";
+            toParam.Value = to.ToUniversalTime();
+            command.Parameters.Add(toParam);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+            // Выносим индексы колонок за цикл: GetOrdinal — линейный поиск
+            // по списку колонок, и на большом числе строк повторные вызовы
+            // дают заметный оверхед. Считаем один раз до цикла.
+            var ordStackNumber = reader.GetOrdinal("StackNumber");
+            var ordSessionId = reader.GetOrdinal("SessionId");
+            var ordSessionStart = reader.GetOrdinal("SessionStart");
+            var ordSessionEnd = reader.GetOrdinal("SessionEnd");
+            var ordDuration = reader.GetOrdinal("Duration");
+            var ordMeasurementsCount = reader.GetOrdinal("MeasurementsCount");
+            var ordVehiclesCount = reader.GetOrdinal("VehiclesCount");
+            var ordCounterpartyCount = reader.GetOrdinal("CounterpartyCount");
+            var ordPrimaryCounterparty = reader.GetOrdinal("PrimaryCounterparty");
+            var ordCounterparties = reader.GetOrdinal("Counterparties");
+            var ordAverageHumidity = reader.GetOrdinal("AverageHumidity");
+            var ordMinHumidity = reader.GetOrdinal("MinHumidity");
+            var ordMaxHumidity = reader.GetOrdinal("MaxHumidity");
+
+            var result = new List<StackSessionDto>();
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                result.Add(new StackSessionDto
+                {
+                    StackNumber = reader.GetString(ordStackNumber),
+                    // SessionId в SQL явно приведён к int (::int) — GetInt32 безопасен.
+                    SessionId = reader.GetInt32(ordSessionId),
+                    SessionStart = reader.GetDateTime(ordSessionStart),
+                    SessionEnd = reader.GetDateTime(ordSessionEnd),
+                    Duration = reader.GetString(ordDuration),
+                    // Счётчики в SQL приведены к int (::int) — GetInt32 безопасен.
+                    MeasurementsCount = reader.GetInt32(ordMeasurementsCount),
+                    VehiclesCount = reader.GetInt32(ordVehiclesCount),
+                    CounterpartyCount = reader.GetInt32(ordCounterpartyCount),
+                    PrimaryCounterparty = reader.IsDBNull(ordPrimaryCounterparty)
+                        ? string.Empty
+                        : reader.GetString(ordPrimaryCounterparty),
+                    Counterparties = reader.IsDBNull(ordCounterparties)
+                        ? string.Empty
+                        : reader.GetString(ordCounterparties),
+                    // Влажности — nullable: NULL в БД означает «нет данных»,
+                    // и это отличается от «средняя 0%». Раньше мы возвращали 0,
+                    // что на клиенте уходило в красную зону графика.
+                    AverageHumidity = reader.IsDBNull(ordAverageHumidity)
+                        ? (double?)null
+                        : reader.GetDouble(ordAverageHumidity),
+                    MinHumidity = reader.IsDBNull(ordMinHumidity)
+                        ? (double?)null
+                        : reader.GetDouble(ordMinHumidity),
+                    MaxHumidity = reader.IsDBNull(ordMaxHumidity)
+                        ? (double?)null
+                        : reader.GetDouble(ordMaxHumidity)
+                });
+            }
+
+            return result;
+        }
+        finally
+        {
+            if (wasClosed)
+            {
+                await connection.CloseAsync();
+            }
+        }
     }
 }

@@ -263,4 +263,27 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
         DateTimeOffset to,
         double priorWeight = 30,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить список сессий работы со штабелями за указанный период.
+    ///
+    /// Сессии формируются сложным SQL-запросом с оконными функциями:
+    ///  - базовый разрыв между замерами, разделяющий сессии, — 24 часа;
+    ///  - «склейка» коротких осколков с предыдущей сессией — если разрыв < 72 часов
+    ///    и в осколке мало замеров/машин;
+    ///  - поставщики группируются по ИНН, при его отсутствии — по нормализованному имени.
+    ///
+    /// ВАЖНО: сессии считаются по замерам, попавшим в диапазон [from, to].
+    /// Если сессия началась до from или заканчивается после to, она будет усечена
+    /// по границе диапазона. Это осознанное поведение: фильтр применяется на уровне
+    /// «сырых» замеров, а не на уровне готовых сессий.
+    /// </summary>
+    /// <param name="from">Начало периода (включительно) по Timestamp замера.</param>
+    /// <param name="to">Конец периода (включительно) по Timestamp замера.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <returns>Список сессий, отсортированный по штабелю и времени начала.</returns>
+    Task<IEnumerable<StackSessionDto>> GetStackSessionsAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default);
 }

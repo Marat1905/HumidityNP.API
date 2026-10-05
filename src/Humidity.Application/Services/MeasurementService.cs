@@ -373,4 +373,24 @@ public class MeasurementService : IMeasurementService
 
         return result;
     }
+
+    /// <summary>
+    /// Получить список сессий работы со штабелями за указанный период.
+    /// Просто проксирует вызов в репозиторий: сервер сам делает всю тяжёлую работу
+    /// (оконные функции, склейка сессий, группировка поставщиков) внутри одного SQL-запроса.
+    /// </summary>
+    public async Task<IEnumerable<StackSessionDto>> GetStackSessionsAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "Запрос сессий по штабелям за период с {From:O} по {To:O}",
+            from, to);
+
+        var result = await _repository.GetStackSessionsAsync(from, to, cancellationToken);
+
+        _logger.LogInformation("Получено {Count} сессий по штабелям", result.Count());
+        return result;
+    }
 }

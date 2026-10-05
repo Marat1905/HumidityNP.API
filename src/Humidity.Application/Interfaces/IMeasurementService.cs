@@ -160,4 +160,20 @@ public interface IMeasurementService
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить список сессий работы со штабелями за указанный период.
+    ///
+    /// Сессии формируются на сервере сложным SQL-запросом с оконными функциями:
+    ///  - базовый разрыв между замерами — 24 часа;
+    ///  - короткие осколки склеиваются с предыдущей сессией, если разрыв < 72 часов;
+    ///  - поставщики группируются по ИНН, при его отсутствии — по нормализованному имени.
+    /// </summary>
+    /// <param name="from">Начало периода (включительно).</param>
+    /// <param name="to">Конец периода (включительно).</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    Task<IEnumerable<StackSessionDto>> GetStackSessionsAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default);
 }

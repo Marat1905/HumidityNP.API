@@ -271,4 +271,30 @@ public class MeasurementsController : ControllerBase
 
         return Ok(result);
     }
+
+    /// <summary>
+    /// Получить список сессий работы со штабелями за период.
+    ///
+    /// Сессии формируются на сервере сложным SQL-запросом с оконными функциями:
+    ///  - базовый разрыв между замерами — 24 часа;
+    ///  - короткие осколки (мало замеров/машин) склеиваются с предыдущей сессией,
+    ///    если разрыв < 72 часов;
+    ///  - поставщики группируются по ИНН, при его отсутствии — по нормализованному имени;
+    ///  - «основной поставщик» сессии — тот, у которого больше всего машин.
+    ///
+    /// ВАЖНО: границы периода применяются к «сырым» замерам, а не к сессиям.
+    /// Если сессия пересекает границу периода, она будет усечена по границе.
+    /// </summary>
+    /// <param name="from">Начало периода (включительно) в формате ISO 8601.</param>
+    /// <param name="to">Конец периода (включительно) в формате ISO 8601.</param>
+    [HttpGet("stack-sessions")]
+    [ProducesResponseType(typeof(IEnumerable<StackSessionDto>), 200)]
+    public async Task<IActionResult> GetStackSessions(
+        [FromQuery] DateTimeOffset from,
+        [FromQuery] DateTimeOffset to)
+    {
+        var result = await _measurementService.GetStackSessionsAsync(
+            from, to, HttpContext.RequestAborted);
+        return Ok(result);
+    }
 }
