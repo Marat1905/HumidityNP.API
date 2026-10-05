@@ -331,3 +331,25 @@ export interface StackSessionDto {
     /** Максимальная влажность среди замеров сессии. null — нет данных. */
     maxHumidity: number | null;
 }
+
+/**
+* Сводная статистика по штабелям за период.
+*
+* Считается отдельно от сессий, по «сырым» замерам:
+*  - totalMeasurements — все замеры за период (без фильтра по штабелю);
+*  - measurementsWithStack — замеры с заполненным StackNumber;
+*  - measurementsWithoutStack — замеры без StackNumber
+*    (именно они не попадают в отчёт по штабелям и создают расхождение
+*    с «Отчётом за период»);
+*  - аналогично по уникальным машинам;
+*  - uniqueStacks — количество уникальных штабелей.
+*/
+export interface StackSessionsStatsDto {
+    totalMeasurements: number;
+    measurementsWithStack: number;
+    measurementsWithoutStack: number;
+    totalVehicles: number;
+    vehiclesWithStack: number;
+    vehiclesWithoutStack: number;
+    uniqueStacks: number;
+}

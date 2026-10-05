@@ -9,6 +9,7 @@
     <BuildOutputFolder>$(MSBuildProjectDirectory)\dist</BuildOutputFolder>
   </PropertyGroup>
   <ItemGroup>
+    <Folder Include="src\components\humidity\StackSessions\" />
     <Folder Include="src\constants\" />
   </ItemGroup>
 </Project>

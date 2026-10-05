@@ -176,4 +176,19 @@ public interface IMeasurementService
         DateTimeOffset from,
         DateTimeOffset to,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить сводную статистику по штабелям за период.
+    ///
+    /// Возвращает разбивку замеров и машин на «с указанным штабелем» и «без штабеля»,
+    /// чтобы клиент мог объяснить пользователю расхождение между
+    /// «Отчётом за период» и «Отчётом по штабелям».
+    /// </summary>
+    /// <param name="from">Начало периода (включительно).</param>
+    /// <param name="to">Конец периода (включительно).</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    Task<StackSessionsStatsDto> GetStackSessionsStatsAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default);
 }

@@ -15,3 +15,4 @@ export * from './PeriodReport';
 export * from './ShiftReport';
 export * from './Suppliers';
 export * from './TopSuppliers';
+export * from './StackSessions';

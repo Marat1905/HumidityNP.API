@@ -286,4 +286,25 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
         DateTimeOffset from,
         DateTimeOffset to,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить сводную статистику по штабелям за период.
+    ///
+    /// Считает:
+    ///  - общее количество замеров (без фильтра по штабелю);
+    ///  - количество замеров с заполненным StackNumber;
+    ///  - количество замеров без StackNumber (они не попадают в отчёт по штабелям);
+    ///  - то же самое по уникальным машинам;
+    ///  - количество уникальных штабелей.
+    ///
+    /// Используется на клиенте, чтобы объяснить расхождение между
+    /// «Отчётом за период» и «Отчётом по штабелям».
+    /// </summary>
+    /// <param name="from">Начало периода (включительно) по Timestamp замера.</param>
+    /// <param name="to">Конец периода (включительно) по Timestamp замера.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    Task<StackSessionsStatsDto> GetStackSessionsStatsAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default);
 }

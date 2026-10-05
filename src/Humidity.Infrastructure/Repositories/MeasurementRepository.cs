@@ -1341,4 +1341,132 @@ ORDER BY
             }
         }
     }
+
+    /// <summary>
+    /// SQL-запрос для сводной статистики по штабелям за период.
+    ///
+    /// Считает в одном проходе:
+    ///  - total_measurements — все замеры за период (без фильтра по штабелю);
+    ///  - measurements_with_stack — замеры с заполненным StackNumber;
+    ///  - measurements_without_stack — замеры без StackNumber;
+    ///  - total_vehicles — уникальные машины с замерами;
+    ///  - vehicles_with_stack — уникальные машины с заполненным StackNumber;
+    ///  - vehicles_without_stack — уникальные машины без StackNumber;
+    ///  - unique_stacks — уникальные штабели (по нормализованному номеру).
+    ///
+    /// FILTER (WHERE ...) — это стандартный PostgreSQL-синтаксис для
+    /// условной агрегации. Работает быстрее, чем отдельные подзапросы.
+    ///
+    /// ВАЖНО про типы:
+    ///  COUNT(*) и COUNT(DISTINCT ...) в Postgres возвращают bigint.
+    ///  Npgsql 6+ не приводит типы молча, поэтому явно приводим к ::int,
+    ///  чтобы reader.GetInt32() работал без InvalidCastException.
+    /// </summary>
+    private const string StackSessionsStatsSql = @"
+SELECT
+    COUNT(*)::int AS ""TotalMeasurements"",
+    COUNT(*) FILTER (
+        WHERE v.""StackNumber"" IS NOT NULL
+          AND TRIM(v.""StackNumber"") <> ''
+    )::int AS ""MeasurementsWithStack"",
+    COUNT(*) FILTER (
+        WHERE v.""StackNumber"" IS NULL
+           OR TRIM(v.""StackNumber"") = ''
+    )::int AS ""MeasurementsWithoutStack"",
+    COUNT(DISTINCT v.""Id"")::int AS ""TotalVehicles"",
+    COUNT(DISTINCT v.""Id"") FILTER (
+        WHERE v.""StackNumber"" IS NOT NULL
+          AND TRIM(v.""StackNumber"") <> ''
+    )::int AS ""VehiclesWithStack"",
+    COUNT(DISTINCT v.""Id"") FILTER (
+        WHERE v.""StackNumber"" IS NULL
+           OR TRIM(v.""StackNumber"") = ''
+    )::int AS ""VehiclesWithoutStack"",
+    COUNT(DISTINCT UPPER(TRANSLATE(TRIM(v.""StackNumber""), 'аА', 'aA'))) FILTER (
+        WHERE v.""StackNumber"" IS NOT NULL
+          AND TRIM(v.""StackNumber"") <> ''
+    )::int AS ""UniqueStacks""
+FROM ""Measurements"" m
+JOIN ""Vehicles"" v ON v.""Id"" = m.""VehicleId""
+WHERE m.""Timestamp"" >= @From
+  AND m.""Timestamp"" <= @To;
+";
+
+    /// <summary>
+    /// Получить сводную статистику по штабелям за период.
+    ///
+    /// Отдельный запрос от <see cref="GetStackSessionsAsync"/>, потому что
+    /// статистика считается по «сырым» замерам (в т.ч. без штабеля),
+    /// а не по сессиям. Запрос лёгкий — один проход по индексированному Timestamp.
+    /// </summary>
+    /// <param name="from">Начало периода (включительно) по Timestamp замера.</param>
+    /// <param name="to">Конец периода (включительно) по Timestamp замера.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
+    public async Task<StackSessionsStatsDto> GetStackSessionsStatsAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = Context.Database.GetDbConnection();
+        var wasClosed = connection.State == ConnectionState.Closed;
+        if (wasClosed)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = StackSessionsStatsSql;
+            command.CommandTimeout = 60;
+
+            var fromParam = command.CreateParameter();
+            fromParam.ParameterName = "@From";
+            fromParam.Value = from.ToUniversalTime();
+            command.Parameters.Add(fromParam);
+
+            var toParam = command.CreateParameter();
+            toParam.ParameterName = "@To";
+            toParam.Value = to.ToUniversalTime();
+            command.Parameters.Add(toParam);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+            // Статистика — одна строка. Если по каким-то причинам строк нет
+            // (например, не нашлось ни одного замера), возвращаем пустой DTO
+            // со всеми нулями.
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return new StackSessionsStatsDto();
+            }
+
+            // Индексы колонок — один раз на строку (здесь их всего одна),
+            // но паттерн оставляем единый с остальными методами.
+            var ordTotalMeasurements = reader.GetOrdinal("TotalMeasurements");
+            var ordMeasurementsWithStack = reader.GetOrdinal("MeasurementsWithStack");
+            var ordMeasurementsWithoutStack = reader.GetOrdinal("MeasurementsWithoutStack");
+            var ordTotalVehicles = reader.GetOrdinal("TotalVehicles");
+            var ordVehiclesWithStack = reader.GetOrdinal("VehiclesWithStack");
+            var ordVehiclesWithoutStack = reader.GetOrdinal("VehiclesWithoutStack");
+            var ordUniqueStacks = reader.GetOrdinal("UniqueStacks");
+
+            return new StackSessionsStatsDto
+            {
+                TotalMeasurements = reader.GetInt32(ordTotalMeasurements),
+                MeasurementsWithStack = reader.GetInt32(ordMeasurementsWithStack),
+                MeasurementsWithoutStack = reader.GetInt32(ordMeasurementsWithoutStack),
+                TotalVehicles = reader.GetInt32(ordTotalVehicles),
+                VehiclesWithStack = reader.GetInt32(ordVehiclesWithStack),
+                VehiclesWithoutStack = reader.GetInt32(ordVehiclesWithoutStack),
+                UniqueStacks = reader.GetInt32(ordUniqueStacks)
+            };
+        }
+        finally
+        {
+            if (wasClosed)
+            {
+                await connection.CloseAsync();
+            }
+        }
+    }
 }

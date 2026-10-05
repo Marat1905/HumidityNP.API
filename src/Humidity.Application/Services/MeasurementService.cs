@@ -393,4 +393,26 @@ public class MeasurementService : IMeasurementService
         _logger.LogInformation("Получено {Count} сессий по штабелям", result.Count());
         return result;
     }
+
+    /// <summary>
+    /// Получить сводную статистику по штабелям за период.
+    /// Просто проксирует вызов в репозиторий.
+    /// </summary>
+    public async Task<StackSessionsStatsDto> GetStackSessionsStatsAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "Запрос сводной статистики по штабелям за период с {From:O} по {To:O}",
+            from, to);
+
+        var result = await _repository.GetStackSessionsStatsAsync(from, to, cancellationToken);
+
+        _logger.LogInformation(
+            "Статистика по штабелям: всего замеров {Total}, с штабелем {With}, без штабеля {Without}",
+            result.TotalMeasurements, result.MeasurementsWithStack, result.MeasurementsWithoutStack);
+
+        return result;
+    }
 }

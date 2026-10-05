@@ -297,4 +297,28 @@ public class MeasurementsController : ControllerBase
             from, to, HttpContext.RequestAborted);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Получить сводную статистику по штабелям за период.
+    ///
+    /// Возвращает разбивку замеров и машин:
+    ///  - с заполненным StackNumber (попадают в отчёт по штабелям);
+    ///  - без StackNumber (в отчёт по штабелям не попадают).
+    ///
+    /// Нужно на клиенте, чтобы объяснить расхождение между
+    /// «Отчётом за период» (там фильтра по штабелю нет) и
+    /// «Отчётом по штабелям» (там фильтр StackNumber обязателен).
+    /// </summary>
+    /// <param name="from">Начало периода (включительно) в формате ISO 8601.</param>
+    /// <param name="to">Конец периода (включительно) в формате ISO 8601.</param>
+    [HttpGet("stack-sessions-stats")]
+    [ProducesResponseType(typeof(StackSessionsStatsDto), 200)]
+    public async Task<IActionResult> GetStackSessionsStats(
+        [FromQuery] DateTimeOffset from,
+        [FromQuery] DateTimeOffset to)
+    {
+        var result = await _measurementService.GetStackSessionsStatsAsync(
+            from, to, HttpContext.RequestAborted);
+        return Ok(result);
+    }
 }

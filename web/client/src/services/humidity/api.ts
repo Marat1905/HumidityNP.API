@@ -11,6 +11,7 @@ import type {
     VehiclesQueryParams,
     VersionResponse,
     StackSessionDto,
+    StackSessionsStatsDto,
 } from '../../types/humidity';
 import {
     requestInterceptor,
@@ -181,6 +182,25 @@ export const measurementService = {
         to: string
     ): Promise<StackSessionDto[]> {
         const response = await apiClient.get('/measurements/stack-sessions', {
+            params: { from, to }
+        });
+        return response.data;
+    },
+    /**
+ * Получить сводную статистику по штабелям за период.
+ *
+ * Возвращает разбивку замеров и машин на «с указанным штабелем» и «без штабеля».
+ * Нужно, чтобы объяснить расхождение с «Отчётом за период»:
+ * в отчёте по штабелям не учитываются замеры машин с пустым StackNumber.
+ *
+ * @param from Начало периода (ISO-строка).
+ * @param to Конец периода (ISO-строка).
+ */
+    async getStackSessionsStats(
+        from: string,
+        to: string
+    ): Promise<StackSessionsStatsDto> {
+        const response = await apiClient.get('/measurements/stack-sessions-stats', {
             params: { from, to }
         });
         return response.data;
