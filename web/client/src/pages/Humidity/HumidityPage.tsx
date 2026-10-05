@@ -1,22 +1,23 @@
 import { useState } from 'react';
-import { VehiclesPage, MeasurementsPage, ShiftReportsPage, ReportPeriodPage, SuppliersPage, TopSuppliersPage } from '../Humidity'
+import { VehiclesPage, MeasurementsPage, ShiftReportsPage, ReportPeriodPage, SuppliersPage, TopSuppliersPage, StackSessionsPage } from '../Humidity'
 import { useBackendVersion } from '../../hooks/humidity';
 
 /**
  * Страница контроля влажности макулатуры.
- * Содержит шесть вкладок:
+ * Содержит семь вкладок:
  *  - Машины;
  *  - Все замеры;
  *  - Отчёты по сменам;
  *  - Отчёт за период;
  *  - Поставщики;
- *  - Топ поставщиков.
+ *  - Топ поставщиков;
+ *  - По штабелям.
  *
  * Справа от вкладок отображается версия бэкенда (Humidity.API),
  * получаемая с эндпоинта /humidity/api/v1/version через хук useBackendVersion.
  */
 export default function HumidityPage() {
-    const [activeTab, setActiveTab] = useState<'vehicles' | 'measurements' | 'reports' | 'period' | 'suppliers' | 'top'>('vehicles');
+    const [activeTab, setActiveTab] = useState<'vehicles' | 'measurements' | 'reports' | 'period' | 'suppliers' | 'top' | 'stacks'>('vehicles');
 
     // Версия бэкенда (null, пока не загружена)
     const version = useBackendVersion();
@@ -85,10 +86,18 @@ export default function HumidityPage() {
                         >
                             Топ поставщиков
                         </button>
+                        <button
+                            onClick={() => setActiveTab('stacks')}
+                            className={`pb-3 px-1 text-sm font-medium transition-colors ${activeTab === 'stacks'
+                                ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                                }`}
+                        >
+                            По штабелям
+                        </button>
                     </nav>
 
-                    {/* Версия бэкенда справа от вкладок.
-                        Отображается только когда данные успешно загружены. */}
+                    {/* Версия бэкенда справа от вкладок. */}
                     {version && (
                         <div
                             className="flex items-center gap-1.5 pb-3 text-xs font-mono text-gray-500 dark:text-gray-400"
@@ -109,6 +118,7 @@ export default function HumidityPage() {
             {activeTab === 'period' && <ReportPeriodPage />}
             {activeTab === 'suppliers' && <SuppliersPage />}
             {activeTab === 'top' && <TopSuppliersPage />}
+            {activeTab === 'stacks' && <StackSessionsPage />}
         </div>
     );
 }

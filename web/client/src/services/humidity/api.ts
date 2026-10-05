@@ -10,6 +10,7 @@ import type {
     PeriodReportSortBy,
     VehiclesQueryParams,
     VersionResponse,
+    StackSessionDto,
 } from '../../types/humidity';
 import {
     requestInterceptor,
@@ -162,7 +163,28 @@ export const measurementService = {
             params: { from, to, sortBy, order, pageNumber, pageSize }
         });
         return response.data;
-    }
+    },
+        /**
+     * Получить список сессий работы со штабелями за период.
+     *
+     * Сессии формируются на сервере сложным SQL-запросом с оконными функциями:
+     *  - базовый разрыв между замерами — 24 часа;
+     *  - короткие осколки (мало замеров/машин) склеиваются с предыдущей сессией,
+     *    если разрыв < 72 часов;
+     *  - поставщики группируются по ИНН, при его отсутствии — по нормализованному имени.
+     *
+     * @param from Начало периода (ISO-строка).
+     * @param to Конец периода (ISO-строка).
+     */
+    async getStackSessions(
+        from: string,
+        to: string
+    ): Promise<StackSessionDto[]> {
+        const response = await apiClient.get('/measurements/stack-sessions', {
+            params: { from, to }
+        });
+        return response.data;
+    },
 };
 
 export const supplierService = {
