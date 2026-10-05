@@ -23,6 +23,14 @@ interface StackGroupProps {
  *  - среднюю влажность по штабелю.
  *
  * В развёрнутом виде — список карточек сессий.
+ *
+ * Сессии отображаются по УБЫВАНИЮ sessionId: последняя сессия — сверху,
+ * самая ранняя — снизу. Это совпадает с порядком, который отдаёт сервер
+ * (ORDER BY ... session_id DESC), но компонент всё равно сортирует сам —
+ * защитно, чтобы UI не зависел от контракта API.
+ *
+ * Диапазон дат в шапке группы считается явно через min/max, чтобы не
+ * зависеть от порядка сортировки массива.
  */
 const StackGroup: React.FC<StackGroupProps> = ({
     stackNumber,
@@ -31,15 +39,27 @@ const StackGroup: React.FC<StackGroupProps> = ({
 }) => {
     const [expanded, setExpanded] = useState(defaultExpanded);
 
-    // Сортировку сессий делаем по sessionId (сервер уже отдаёт их по порядку,
-    // но подстрахуемся на случай будущих изменений в SQL).
-    const sortedSessions = [...sessions].sort((a, b) => a.sessionId - b.sessionId);
+    // Сессии — по убыванию sessionId (новые сверху).
+    const sortedSessions = [...sessions].sort((a, b) => b.sessionId - a.sessionId);
 
     const totalMeasurements = sortedSessions.reduce((acc, s) => acc + s.measurementsCount, 0);
     const totalVehicles = sortedSessions.reduce((acc, s) => acc + s.vehiclesCount, 0);
 
-    const firstStart = sortedSessions[0]?.sessionStart;
-    const lastEnd = sortedSessions[sortedSessions.length - 1]?.sessionEnd;
+    // Диапазон дат считаем явно через min/max, чтобы он не зависел от порядка
+    // отображения сессий. Если сессий нет — обе переменные undefined.
+    const firstStart = sortedSessions.length > 0
+        ? sortedSessions.reduce(
+            (min, s) => (s.sessionStart < min ? s.sessionStart : min),
+            sortedSessions[0].sessionStart
+        )
+        : undefined;
+
+    const lastEnd = sortedSessions.length > 0
+        ? sortedSessions.reduce(
+            (max, s) => (s.sessionEnd > max ? s.sessionEnd : max),
+            sortedSessions[0].sessionEnd
+        )
+        : undefined;
 
     // Взвешенная средняя влажность по штабелю: сессии с большим числом замеров
     // влияют сильнее. Это корректнее простого среднего по сессиям.
