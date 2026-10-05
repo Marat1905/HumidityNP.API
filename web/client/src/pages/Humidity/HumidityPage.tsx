@@ -1,26 +1,49 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { VehiclesPage, MeasurementsPage, ShiftReportsPage, ReportPeriodPage, SuppliersPage, TopSuppliersPage, StackSessionsPage } from '../Humidity'
 import { useBackendVersion } from '../../hooks/humidity';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Страница контроля влажности макулатуры.
- * Содержит семь вкладок:
+ * Содержит вкладки:
  *  - Машины;
  *  - Все замеры;
  *  - Отчёты по сменам;
  *  - Отчёт за период;
  *  - Поставщики;
  *  - Топ поставщиков;
- *  - По штабелям.
+ *  - По штабелям (ТОЛЬКО ДЛЯ АДМИНИСТРАТОРА).
  *
  * Справа от вкладок отображается версия бэкенда (Humidity.API),
  * получаемая с эндпоинта /humidity/api/v1/version через хук useBackendVersion.
+ *
+ * Вкладка «По штабелям» доступна только пользователям с ролью Admin.
+ * Защита реализована на трёх уровнях:
+ *  1. Кнопка вкладки не показывается не-админам.
+ *  2. При смене роли с Admin на User на лету — активная вкладка 'stacks'
+ *     принудительно переключается на 'vehicles' (см. useEffect ниже).
+ *  3. Сама страница StackSessionsPage внутри себя тоже проверяет роль
+ *     и показывает «Доступ запрещён» (на случай прямого перехода по URL).
  */
 export default function HumidityPage() {
     const [activeTab, setActiveTab] = useState<'vehicles' | 'measurements' | 'reports' | 'period' | 'suppliers' | 'top' | 'stacks'>('vehicles');
 
     // Версия бэкенда (null, пока не загружена)
     const version = useBackendVersion();
+
+    // Роль пользователя из контекста аутентификации.
+    // isAdmin === true только для роли Admin.
+    const { isAdmin } = useAuth();
+
+    // Если пользователь был админом, открыл вкладку «По штабелям»,
+    // а затем роль сменилась на User (например, через тестовый переключатель
+    // в правом верхнем углу) — принудительно уводим его на «Машины»,
+    // чтобы не оставлять на вкладке, к которой нет доступа.
+    useEffect(() => {
+        if (!isAdmin && activeTab === 'stacks') {
+            setActiveTab('vehicles');
+        }
+    }, [isAdmin, activeTab]);
 
     return (
         <div>
@@ -86,18 +109,24 @@ export default function HumidityPage() {
                         >
                             Топ поставщиков
                         </button>
-                        <button
-                            onClick={() => setActiveTab('stacks')}
-                            className={`pb-3 px-1 text-sm font-medium transition-colors ${activeTab === 'stacks'
-                                ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                                }`}
-                        >
-                            По штабелям
-                        </button>
+
+                        {/* Вкладка «По штабелям» — только для администратора.
+                            Кнопка не рендерится для ролей User / TCX. */}
+                        {isAdmin && (
+                            <button
+                                onClick={() => setActiveTab('stacks')}
+                                className={`pb-3 px-1 text-sm font-medium transition-colors ${activeTab === 'stacks'
+                                    ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                                    }`}
+                            >
+                                По штабелям
+                            </button>
+                        )}
                     </nav>
 
-                    {/* Версия бэкенда справа от вкладок. */}
+                    {/* Версия бэкенда справа от вкладок.
+                        Отображается только когда данные успешно загружены. */}
                     {version && (
                         <div
                             className="flex items-center gap-1.5 pb-3 text-xs font-mono text-gray-500 dark:text-gray-400"
@@ -118,7 +147,11 @@ export default function HumidityPage() {
             {activeTab === 'period' && <ReportPeriodPage />}
             {activeTab === 'suppliers' && <SuppliersPage />}
             {activeTab === 'top' && <TopSuppliersPage />}
-            {activeTab === 'stacks' && <StackSessionsPage />}
+
+            {/* Двойная защита: рендерим страницу только если роль Admin.
+                Даже если каким-то образом activeTab окажется 'stacks' у не-админа —
+                страница не покажется. */}
+            {activeTab === 'stacks' && isAdmin && <StackSessionsPage />}
         </div>
     );
 }
