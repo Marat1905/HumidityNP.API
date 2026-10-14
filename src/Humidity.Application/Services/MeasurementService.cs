@@ -376,20 +376,32 @@ public class MeasurementService : IMeasurementService
 
     /// <summary>
     /// Получить список сессий работы со штабелями за указанный период.
-    /// Просто проксирует вызов в репозиторий: сервер сам делает всю тяжёлую работу
-    /// (оконные функции, склейка сессий, группировка поставщиков) внутри одного SQL-запроса.
+    ///
+    /// Просто делегирует в репозиторий, пробрасывая все параметры.
+    /// Валидация и подстановка дефолтов выполняются в репозитории —
+    /// здесь мы намеренно не дублируем логику, чтобы поведение было
+    /// одинаковым при любом пути вызова (сервис, репозиторий напрямую).
     /// </summary>
+    /// <param name="from">Начало периода (включительно) по Timestamp замера.</param>
+    /// <param name="to">Конец периода (включительно) по Timestamp замера.</param>
+    /// <param name="baseGap">Разрыв, разрезающий сессии. Дефолт 48ч.</param>
+    /// <param name="mergeGap">Максимальный разрыв для склейки. Дефолт 72ч.</param>
+    /// <param name="minMeas">Порог «мало замеров». Дефолт 20.</param>
+    /// <param name="minVeh">Порог «мало машин». Дефолт 3.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
     public async Task<IEnumerable<StackSessionDto>> GetStackSessionsAsync(
         DateTimeOffset from,
         DateTimeOffset to,
+        TimeSpan? baseGap = null,
+        TimeSpan? mergeGap = null,
+        int? minMeas = null,
+        int? minVeh = null,
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation(
             "Запрос сессий по штабелям за период с {From:O} по {To:O}",
             from, to);
-
-        var result = await _repository.GetStackSessionsAsync(from, to, cancellationToken);
-
+        var result = await _repository.GetStackSessionsAsync( from, to, baseGap, mergeGap, minMeas, minVeh, cancellationToken);
         _logger.LogInformation("Получено {Count} сессий по штабелям", result.Count());
         return result;
     }

@@ -979,6 +979,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
 
         return sorted.Take(top).ToList();
     }
+
     /// <summary>
     /// SQL-запрос для получения сессий по штабелям.
     ///
@@ -987,19 +988,25 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     ///     очищенное имя, время замера, влажность, нормализованный номер штабеля.
     ///     Тут же фильтруем по периоду [@From, @To].
     ///  2. with_gap — считаем разрыв между соседними замерами внутри одного штабеля.
-    ///  3. base_marked — помечаем начало новой базовой сессии, если разрыв >= 24 часов.
+    ///  3. base_marked — помечаем начало новой базовой сессии, если разрыв >= @base_gap.
     ///  4. base_session — присваиваем каждой строке id базовой сессии (сумма флагов).
     ///  5. base_summary — агрегируем базовые сессии: начало, конец, замеры, машины.
     ///  6. with_prev — считаем разрыв между текущей и предыдущей базовой сессией.
     ///  7. to_merge — решаем, нужно ли склеить сессию с предыдущей:
-    ///     разрыв < 72 часов И (мало замеров ИЛИ мало машин).
+    ///     разрыв < @merge_gap И (замеров < @min_meas ИЛИ машин < @min_veh).
     ///  8. renumber_map — пересчитываем id сессии с учётом склеек.
     ///  9. suppliers_raw/with_len/canon/ranked/agg — строим список поставщиков сессии:
     ///     группируем по ключу, выбираем каноническое (самое короткое) имя,
     ///     считаем машины, выбираем основного поставщика (rn=1).
     /// 10. Финальный SELECT — агрегируем сессии и джойним поставщиков.
     ///
-    /// Параметры: @From, @To — границы периода.
+    /// Параметры:
+    ///  - @From      — начало периода (timestamptz).
+    ///  - @To        — конец периода (timestamptz).
+    ///  - @base_gap  — интервал, разделяющий базовые сессии (interval).
+    ///  - @merge_gap — максимальный разрыв для склейки сессий (interval).
+    ///  - @min_meas  — порог «мало замеров» (int).
+    ///  - @min_veh   — порог «мало машин» (int).
     ///
     /// Сортировка результата:
     ///  - сначала штабели: по числовому префиксу ВОЗРАСТАНИЕ (1, 2, 3, ..., 10, 11, ...),
@@ -1023,10 +1030,13 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     private const string StackSessionsSql = @"
 WITH params AS (
     SELECT
-        INTERVAL '24 hours' AS base_gap,
-        INTERVAL '72 hours' AS merge_gap,
-        20                  AS min_meas,
-        3                   AS min_veh
+        -- Все пороги приходят параметрами из C#.
+        -- Явные ::interval-приведения нужны, чтобы PostgreSQL однозначно
+        -- интерпретировал строковые/иные значения как interval, а не как text.
+        @base_gap::interval  AS base_gap,
+        @merge_gap::interval AS merge_gap,
+        @min_meas::int       AS min_meas,
+        @min_veh::int        AS min_veh
 ),
 normalized AS (
     SELECT
@@ -1252,15 +1262,75 @@ ORDER BY
     ///    десятки тысяч лишних операций.
     ///  - CommandTimeout увеличен до 120 секунд: запрос с несколькими
     ///    оконными функциями и STRING_AGG может не уложиться в дефолтные 30.
+    ///
+    /// Параметры алгоритма сессий (все опциональные, с безопасными дефолтами):
+    ///  - <paramref name=""baseGap""/>   — минимальный разрыв между замерами,
+    ///    который РАЗРЕЗАЕТ сессию на две. Всё, что меньше — склеивается в одну.
+    ///    Дефолт: 48 часов. Диапазон: 1 минута .. 30 суток.
+    ///  - <paramref name=""mergeGap""/>  — максимальный разрыв между двумя
+    ///    СОСЕДНИМИ сессиями, при котором ещё возможна склейка (если одна из
+    ///    них «маленькая» — см. minMeas / minVeh). Дефолт: 72 часа.
+    ///    ВАЖНО: для работы склейки должно быть mergeGap > baseGap, иначе
+    ///    ни одна сессия не будет склеена (разрыв был >= baseGap > mergeGap).
+    ///    Если пользователь передаст mergeGap <= baseGap, метод поднимет его
+    ///    до baseGap + 24 часа автоматически.
+    ///  - <paramref name=""minMeas""/>   — порог «мало замеров» в сессии для склейки.
+    ///    Дефолт: 20. Диапазон: 0 .. 10000.
+    ///  - <paramref name=""minVeh""/>    — порог «мало машин» в сессии для склейки.
+    ///    Дефолт: 3. Диапазон: 0 .. 1000.
     /// </summary>
-    /// <param name="from">Начало периода (включительно) по Timestamp замера.</param>
-    /// <param name="to">Конец периода (включительно) по Timestamp замера.</param>
-    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <param name=""from"">Начало периода (включительно) по Timestamp замера.</param>
+    /// <param name=""to"">Конец периода (включительно) по Timestamp замера.</param>
+    /// <param name=""baseGap"">Разрыв, разрезающий сессии. Дефолт 48ч.</param>
+    /// <param name=""mergeGap"">Максимальный разрыв для склейки. Дефолт 72ч.</param>
+    /// <param name=""minMeas"">Порог «мало замеров». Дефолт 20.</param>
+    /// <param name=""minVeh"">Порог «мало машин». Дефолт 3.</param>
+    /// <param name=""cancellationToken"">Токен отмены.</param>
     public async Task<IEnumerable<StackSessionDto>> GetStackSessionsAsync(
         DateTimeOffset from,
         DateTimeOffset to,
+        TimeSpan? baseGap = null,
+        TimeSpan? mergeGap = null,
+        int? minMeas = null,
+        int? minVeh = null,
         CancellationToken cancellationToken = default)
     {
+        // ---------- 1. Нормализация и валидация параметров ----------
+        var effectiveBaseGap = baseGap ?? TimeSpan.FromHours(48);
+        var effectiveMergeGap = mergeGap ?? TimeSpan.FromHours(72);
+        var effectiveMinMeas = minMeas ?? 20;
+        var effectiveMinVeh = minVeh ?? 3;
+
+        // Нижняя/верхняя границы для интервалов: от 1 минуты до 30 суток.
+        // Верхняя граница не даёт случайно «склеить всё в одну сессию» из-за
+        // опечатки в UI, нижняя защищает от деления периода на сотни микросессий.
+        var minInterval = TimeSpan.FromMinutes(1);
+        var maxInterval = TimeSpan.FromDays(30);
+
+        if (effectiveBaseGap < minInterval) effectiveBaseGap = minInterval;
+        if (effectiveBaseGap > maxInterval) effectiveBaseGap = maxInterval;
+        if (effectiveMergeGap < minInterval) effectiveMergeGap = minInterval;
+        if (effectiveMergeGap > maxInterval) effectiveMergeGap = maxInterval;
+
+        // КРИТИЧНО: mergeGap должен быть строго больше baseGap.
+        // Иначе разрыв между любыми двумя базовыми сессиями всегда >= baseGap,
+        // а условие склейки требует gap < mergeGap — и ни одна склейка
+        // никогда не сработает. Если пользователь передал невалидную пару,
+        // молча поднимаем mergeGap до baseGap + 24ч.
+        if (effectiveMergeGap <= effectiveBaseGap)
+        {
+            effectiveMergeGap = effectiveBaseGap + TimeSpan.FromHours(24);
+            if (effectiveMergeGap > maxInterval) effectiveMergeGap = maxInterval;
+        }
+
+        // Пороги количества: не могут быть отрицательными, и не должны
+        // быть абсурдно большими (иначе склейка никогда не сработает).
+        if (effectiveMinMeas < 0) effectiveMinMeas = 0;
+        if (effectiveMinMeas > 10_000) effectiveMinMeas = 10_000;
+        if (effectiveMinVeh < 0) effectiveMinVeh = 0;
+        if (effectiveMinVeh > 1_000) effectiveMinVeh = 1_000;
+
+        // ---------- 2. Открываем соединение ----------
         var connection = Context.Database.GetDbConnection();
         var wasClosed = connection.State == ConnectionState.Closed;
         if (wasClosed)
@@ -1277,6 +1347,7 @@ ORDER BY
             // чем дефолтные 30 секунд. При необходимости вынести в настройки.
             command.CommandTimeout = 120;
 
+            // ---------- 3. Параметры периода ----------
             // Приводим границы периода к UTC — Timestamp в БД хранится в UTC.
             // В SQL-запросе мы фильтруем по m."Timestamp" (UTC), а уже в финальном
             // SELECT конвертируем в Asia/Yekaterinburg для отображения.
@@ -1290,6 +1361,31 @@ ORDER BY
             toParam.Value = to.ToUniversalTime();
             command.Parameters.Add(toParam);
 
+            // ---------- 4. Параметры алгоритма сессий ----------
+            // TimeSpan → interval: Npgsql мапит TimeSpan в PostgreSQL interval
+            // по умолчанию. В SQL стоит явный ::interval — на случай, если
+            // Npgsql по какой-то причине отправит значение как text.
+            var baseGapParam = command.CreateParameter();
+            baseGapParam.ParameterName = "@base_gap";
+            baseGapParam.Value = effectiveBaseGap;
+            command.Parameters.Add(baseGapParam);
+
+            var mergeGapParam = command.CreateParameter();
+            mergeGapParam.ParameterName = "@merge_gap";
+            mergeGapParam.Value = effectiveMergeGap;
+            command.Parameters.Add(mergeGapParam);
+
+            var minMeasParam = command.CreateParameter();
+            minMeasParam.ParameterName = "@min_meas";
+            minMeasParam.Value = effectiveMinMeas;
+            command.Parameters.Add(minMeasParam);
+
+            var minVehParam = command.CreateParameter();
+            minVehParam.ParameterName = "@min_veh";
+            minVehParam.Value = effectiveMinVeh;
+            command.Parameters.Add(minVehParam);
+
+            // ---------- 5. Чтение ----------
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
             // Выносим индексы колонок за цикл: GetOrdinal — линейный поиск
@@ -1410,13 +1506,13 @@ WHERE m.""Timestamp"" >= @From
     /// <summary>
     /// Получить сводную статистику по штабелям за период.
     ///
-    /// Отдельный запрос от <see cref="GetStackSessionsAsync"/>, потому что
+    /// Отдельный запрос от <see cref=""GetStackSessionsAsync""/>, потому что
     /// статистика считается по «сырым» замерам (в т.ч. без штабеля),
     /// а не по сессиям. Запрос лёгкий — один проход по индексированному Timestamp.
     /// </summary>
-    /// <param name="from">Начало периода (включительно) по Timestamp замера.</param>
-    /// <param name="to">Конец периода (включительно) по Timestamp замера.</param>
-    /// <param name="cancellationToken">Токен отмены.</param>
+    /// <param name=""from"">Начало периода (включительно) по Timestamp замера.</param>
+    /// <param name=""to"">Конец периода (включительно) по Timestamp замера.</param>
+    /// <param name=""cancellationToken"">Токен отмены.</param>
     public async Task<StackSessionsStatsDto> GetStackSessionsStatsAsync(
         DateTimeOffset from,
         DateTimeOffset to,
