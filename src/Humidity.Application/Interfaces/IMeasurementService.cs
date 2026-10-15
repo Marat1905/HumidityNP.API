@@ -179,6 +179,12 @@ public interface IMeasurementService
     ///                никогда не сработает (метод поднимет его автоматически).
     ///  - minMeas   — порог «мало замеров». Дефолт 20. Диапазон: [0; 10000].
     ///  - minVeh    — порог «мало машин». Дефолт 3. Диапазон: [0; 1000].
+    ///
+    /// ПАРАМЕТРЫ СОРТИРОВКИ (добавлены для UI):
+    ///  - sortBy    — "stack" (по умолчанию) — по номеру штабеля;
+    ///                "lastSession" — по времени последней сессии в штабеле.
+    ///  - order     — "asc" (по умолчанию) или "desc".
+    ///                Применяется только к sortBy = "lastSession".
     /// </summary>
     /// <param name="from">Начало периода (включительно) по Timestamp замера.</param>
     /// <param name="to">Конец периода (включительно) по Timestamp замера.</param>
@@ -186,6 +192,8 @@ public interface IMeasurementService
     /// <param name="mergeGap">Максимальный разрыв для склейки. Дефолт 72ч.</param>
     /// <param name="minMeas">Порог «мало замеров». Дефолт 20.</param>
     /// <param name="minVeh">Порог «мало машин». Дефолт 3.</param>
+    /// <param name="sortBy">Поле сортировки штабелей: "stack" (по умолчанию) или "lastSession".</param>
+    /// <param name="order">Направление сортировки: "asc" (по умолчанию) или "desc".</param>
     /// <param name="cancellationToken">Токен отмены.</param>
     Task<IEnumerable<StackSessionDto>> GetStackSessionsAsync(
         DateTimeOffset from,
@@ -194,6 +202,8 @@ public interface IMeasurementService
         TimeSpan? mergeGap = null,
         int? minMeas = null,
         int? minVeh = null,
+        string? sortBy = null,
+        string? order = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

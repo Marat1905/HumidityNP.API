@@ -353,3 +353,18 @@ export interface StackSessionsStatsDto {
     vehiclesWithoutStack: number;
     uniqueStacks: number;
 }
+
+/**
+ * Поле сортировки списка сессий по штабелям.
+ * Соответствует серверному параметру sortBy.
+ *
+ *  - 'stack'       — по номеру штабеля (по умолчанию).
+ *                    Числовой префикс по возрастанию, затем по полному имени;
+ *                    внутри штабеля — свежие сессии сверху (session_id DESC).
+ *  - 'lastSession' — по времени последней сессии в штабеле.
+ *                    Направление задаётся параметром order:
+ *                    - 'desc' — сверху штабели с самой свежей сессией;
+ *                    - 'asc'  — сверху штабели с самой старой сессией.
+ *                    При равенстве — tie-break по номеру штабеля и session_id DESC.
+ */
+export type StackSessionsSortBy = 'stack' | 'lastSession';

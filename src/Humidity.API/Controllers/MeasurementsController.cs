@@ -302,6 +302,14 @@ public class MeasurementsController : ControllerBase
     ///  - minMeas       — порог «мало замеров». Дефолт 20. Диапазон: [0; 10000].
     ///  - minVeh        — порог «мало машин». Дефолт 3. Диапазон: [0; 1000].
     ///
+    /// ПАРАМЕТРЫ СОРТИРОВКИ (добавлены для UI):
+    ///  - sortBy        — "stack" (по умолчанию) — по номеру штабеля;
+    ///                    "lastSession" — по времени последней сессии в штабеле.
+    ///  - order         — "asc" (по умолчанию) или "desc".
+    ///                    Применяется только к sortBy = "lastSession":
+    ///                    - "desc" — сверху штабели с самой свежей сессией;
+    ///                    - "asc"  — сверху штабели с самой старой сессией.
+    ///
     /// ВАЖНО: границы периода применяются к «сырым» замерам, а не к сессиям.
     /// Если сессия пересекает границу периода, она будет усечена по границе.
     /// </summary>
@@ -311,6 +319,8 @@ public class MeasurementsController : ControllerBase
     /// <param name="mergeGapHours">Максимальный разрыв в часах для склейки. Дефолт 72.</param>
     /// <param name="minMeas">Порог «мало замеров». Дефолт 20.</param>
     /// <param name="minVeh">Порог «мало машин». Дефолт 3.</param>
+    /// <param name="sortBy">Поле сортировки штабелей: "stack" (по умолчанию) или "lastSession".</param>
+    /// <param name="order">Направление сортировки: "asc" (по умолчанию) или "desc".</param>
     [HttpGet("stack-sessions")]
     [ProducesResponseType(typeof(IEnumerable<StackSessionDto>), 200)]
     public async Task<IActionResult> GetStackSessions(
@@ -319,7 +329,9 @@ public class MeasurementsController : ControllerBase
         [FromQuery] int? baseGapHours = null,
         [FromQuery] int? mergeGapHours = null,
         [FromQuery] int? minMeas = null,
-        [FromQuery] int? minVeh = null)
+        [FromQuery] int? minVeh = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? order = null)
     {
         // Конвертируем часы (int?) в TimeSpan? — внутри репозитория уже
         // подставятся дефолты, если параметр не задан. Это позволяет UI
@@ -339,6 +351,8 @@ public class MeasurementsController : ControllerBase
             mergeGap,
             minMeas,
             minVeh,
+            sortBy,
+            order,
             HttpContext.RequestAborted);
 
         return Ok(result);

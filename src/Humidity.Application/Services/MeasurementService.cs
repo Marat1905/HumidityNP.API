@@ -377,7 +377,7 @@ public class MeasurementService : IMeasurementService
     /// <summary>
     /// Получить список сессий работы со штабелями за указанный период.
     ///
-    /// Просто делегирует в репозиторий, пробрасывая все параметры.
+    /// Просто делегирует в репозиторий, пробрасывая все параметры, включая сортировку.
     /// Валидация и подстановка дефолтов выполняются в репозитории —
     /// здесь мы намеренно не дублируем логику, чтобы поведение было
     /// одинаковым при любом пути вызова (сервис, репозиторий напрямую).
@@ -388,6 +388,8 @@ public class MeasurementService : IMeasurementService
     /// <param name="mergeGap">Максимальный разрыв для склейки. Дефолт 72ч.</param>
     /// <param name="minMeas">Порог «мало замеров». Дефолт 20.</param>
     /// <param name="minVeh">Порог «мало машин». Дефолт 3.</param>
+    /// <param name="sortBy">Поле сортировки штабелей: "stack" (по умолчанию) или "lastSession".</param>
+    /// <param name="order">Направление сортировки: "asc" (по умолчанию) или "desc".</param>
     /// <param name="cancellationToken">Токен отмены.</param>
     public async Task<IEnumerable<StackSessionDto>> GetStackSessionsAsync(
         DateTimeOffset from,
@@ -396,12 +398,17 @@ public class MeasurementService : IMeasurementService
         TimeSpan? mergeGap = null,
         int? minMeas = null,
         int? minVeh = null,
+        string? sortBy = null,
+        string? order = null,
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation(
-            "Запрос сессий по штабелям за период с {From:O} по {To:O}",
-            from, to);
-        var result = await _repository.GetStackSessionsAsync( from, to, baseGap, mergeGap, minMeas, minVeh, cancellationToken);
+            "Запрос сессий по штабелям за период с {From:O} по {To:O} (сортировка: {SortBy} {Order})",
+            from, to, sortBy ?? "stack", order ?? "asc");
+
+        var result = await _repository.GetStackSessionsAsync(
+            from, to, baseGap, mergeGap, minMeas, minVeh, sortBy, order, cancellationToken);
+
         _logger.LogInformation("Получено {Count} сессий по штабелям", result.Count());
         return result;
     }

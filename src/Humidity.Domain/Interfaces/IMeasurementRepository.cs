@@ -295,6 +295,20 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
     ///  - minMeas   — порог «мало замеров». Дефолт 20. Диапазон: [0; 10000].
     ///  - minVeh    — порог «мало машин». Дефолт 3. Диапазон: [0; 1000].
     ///
+    /// ПАРАМЕТРЫ СОРТИРОВКИ (добавлены для UI):
+    ///  - sortBy    — поле сортировки штабелей в ответе:
+    ///                - "stack"       — по номеру штабеля (числовой префикс по возрастанию,
+    ///                                  затем по полному имени). Историческое поведение,
+    ///                                  значение по умолчанию при sortBy = null.
+    ///                - "lastSession" — по времени последней сессии в штабеле.
+    ///                                  Направление задаётся order.
+    ///  - order     — направление сортировки: "asc" (по умолчанию) или "desc".
+    ///                Применяется только к sortBy = "lastSession":
+    ///                - "desc" — сверху штабели с самой свежей сессией (по времени старта);
+    ///                - "asc"  — сверху штабели с самой старой сессией.
+    ///                При равенстве значения времени последней сессии — tie-break
+    ///                по номеру штабеля и по session_id DESC (новые сессии сверху).
+    ///
     /// ВАЖНО: сессии считаются по замерам, попавшим в диапазон [from, to].
     /// Если сессия началась до from или заканчивается после to, она будет усечена
     /// по границе диапазона. Это осознанное поведение: фильтр применяется на уровне
@@ -306,8 +320,10 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
     /// <param name="mergeGap">Максимальный разрыв для склейки. Дефолт 72ч. Должен быть больше baseGap.</param>
     /// <param name="minMeas">Порог «мало замеров» для склейки. Дефолт 20.</param>
     /// <param name="minVeh">Порог «мало машин» для склейки. Дефолт 3.</param>
+    /// <param name="sortBy">Поле сортировки штабелей: "stack" (по умолчанию) или "lastSession".</param>
+    /// <param name="order">Направление сортировки: "asc" (по умолчанию) или "desc".</param>
     /// <param name="cancellationToken">Токен отмены.</param>
-    /// <returns>Список сессий, отсортированный по штабелю и времени начала.</returns>
+    /// <returns>Список сессий, отсортированный по выбранному полю.</returns>
     Task<IEnumerable<StackSessionDto>> GetStackSessionsAsync(
         DateTimeOffset from,
         DateTimeOffset to,
@@ -315,6 +331,8 @@ public interface IMeasurementRepository : IRepository<HumidityMeasurement>
         TimeSpan? mergeGap = null,
         int? minMeas = null,
         int? minVeh = null,
+        string? sortBy = null,
+        string? order = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -3,10 +3,34 @@ import { format, subDays } from 'date-fns';
 import { useStackSessions } from '../../hooks/humidity';
 import { RangeDatePicker, SkeletonTable } from '../../components/common';
 import { StackGroup, StackSessionsSummary, StackSessionsTable } from '../../components/humidity';
-import { Package, RotateCcw, RefreshCw, LayoutGrid, Table as TableIcon } from 'lucide-react';
-import type { StackSessionDto } from '../../types/humidity';
+import { Package, RotateCcw, RefreshCw, LayoutGrid, Table as TableIcon, ArrowUpDown } from 'lucide-react';
+import type { StackSessionDto, StackSessionsSortBy } from '../../types/humidity';
 
 type ViewMode = 'groups' | 'table';
+
+/**
+ * Значение сортировки в UI — единый параметр, объединяющий sortBy и order.
+ * Это удобнее для селекта «одно поле»: пользователю не нужно отдельно
+ * выбирать поле и направление. Для типа «stack» направление игнорируется
+ * (сортировка по номеру всегда по возрастанию).
+ */
+type SortOption = 'stack' | 'lastSessionDesc' | 'lastSessionAsc';
+
+/**
+ * Преобразует UI-значение SortOption в пару (sortBy, order),
+ * которую понимает API и хук.
+ */
+function parseSortOption(option: SortOption): { sortBy: StackSessionsSortBy; order: 'asc' | 'desc' } {
+    switch (option) {
+        case 'lastSessionDesc':
+            return { sortBy: 'lastSession', order: 'desc' };
+        case 'lastSessionAsc':
+            return { sortBy: 'lastSession', order: 'asc' };
+        case 'stack':
+        default:
+            return { sortBy: 'stack', order: 'asc' };
+    }
+}
 
 /**
  * Страница «По штабелям».
@@ -21,7 +45,9 @@ type ViewMode = 'groups' | 'table';
  * Плитки считаются на клиенте из уже загруженных сессий, а числа
  * «всего замеров» и «без штабеля» приходят с сервера в stats.
  *
- * Фильтры: только период. Вся агрегация — на сервере.
+ * Фильтры: период и сортировка штабелей. Вся агрегация — на сервере.
+ * Сервер получает sortBy/order и возвращает уже отсортированный список,
+ * клиент дополнительно сортирует внутри каждой группы (защитно).
  */
 export default function StackSessionsPage() {
     const DEFAULT_DAYS = 30;
@@ -29,15 +55,31 @@ export default function StackSessionsPage() {
     const [startDate, setStartDate] = useState<Date>(() => subDays(new Date(), DEFAULT_DAYS));
     const [endDate, setEndDate] = useState<Date>(() => new Date());
     const [viewMode, setViewMode] = useState<ViewMode>('groups');
+    // По умолчанию — сортировка по номеру штабеля (историческое поведение).
+    const [sortOption, setSortOption] = useState<SortOption>('stack');
+
+    // Преобразуем UI-значение в пару (sortBy, order) для API/хука.
+    const { sortBy, order } = parseSortOption(sortOption);
 
     // Хук возвращает и сами сессии (data), и сводную статистику (stats),
     // которая нужна для пояснения расхождения с «Отчётом за период».
-    const { data, stats, loading, error, refetch } = useStackSessions(startDate, endDate);
+    // Сортировка передаётся на сервер — там она выполняется в SQL.
+    const { data, stats, loading, error, refetch } = useStackSessions(startDate, endDate, sortBy, order);
 
     /**
      * Группируем сессии по номеру штабеля.
-     * Порядок штабелей — по «числовой» части номера (если она есть),
-     * чтобы «Штабель 2» шёл раньше «Штабель 10».
+     *
+     * Порядок штабелей внутри карты Map — это порядок ПЕРВОГО появления
+     * штабеля в массиве data. Так как сервер уже отсортировал сессии
+     * согласно выбранной пользователем сортировке, порядок групп тоже
+     * будет соответствовать этой сортировке (например, для lastSessionDesc
+     * сверху будут штабели с самой свежей сессией).
+     *
+     * Дополнительно НЕ сортируем группы на клиенте для случая
+     * sortBy='lastSession' — иначе мы бы перезаписали серверный порядок.
+     * Для sortBy='stack' можно было бы отсортировать на клиенте,
+     * но раз сервер уже это делает, оставляем как есть — это быстрее
+     * и не требует парсинга чисел на клиенте.
      */
     const groupedSessions = useMemo(() => {
         const map = new Map<string, StackSessionDto[]>();
@@ -46,19 +88,7 @@ export default function StackSessionsPage() {
             map.get(s.stackNumber)!.push(s);
         }
 
-        const entries = Array.from(map.entries());
-        entries.sort((a, b) => {
-            const numA = parseInt(a[0].replace(/\D/g, ''), 10);
-            const numB = parseInt(b[0].replace(/\D/g, ''), 10);
-            const hasNumA = !isNaN(numA);
-            const hasNumB = !isNaN(numB);
-            if (hasNumA && hasNumB) return numA - numB;
-            if (hasNumA) return -1;
-            if (hasNumB) return 1;
-            return a[0].localeCompare(b[0]);
-        });
-
-        return entries;
+        return Array.from(map.entries());
     }, [data]);
 
     const handleDateRangeChange = (dates: [Date | null, Date | null]) => {
@@ -77,6 +107,7 @@ export default function StackSessionsPage() {
         const now = new Date();
         setStartDate(subDays(now, DEFAULT_DAYS));
         setEndDate(now);
+        setSortOption('stack');
     };
 
     const periodLabel = `с ${format(startDate, 'dd.MM.yyyy')} по ${format(endDate, 'dd.MM.yyyy')}`;
@@ -134,11 +165,31 @@ export default function StackSessionsPage() {
                         />
                     </div>
                 </div>
+
+                {/* Выбор сортировки списка штабелей.
+                    Значение собирается из двух параметров (поле + направление),
+                    но для пользователя это один селект с понятными подписями. */}
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 inline-flex items-center gap-1">
+                        <ArrowUpDown className="w-4 h-4" />
+                        Сортировка:
+                    </span>
+                    <select
+                        value={sortOption}
+                        onChange={(e) => setSortOption(e.target.value as SortOption)}
+                        className="px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                        <option value="stack">По номеру штабеля</option>
+                        <option value="lastSessionDesc">По последней сессии (сначала свежие)</option>
+                        <option value="lastSessionAsc">По последней сессии (сначала старые)</option>
+                    </select>
+                </div>
+
                 <div className="text-sm text-gray-500 dark:text-gray-400">{periodLabel}</div>
                 <button
                     onClick={resetFilter}
                     className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                    title="Сбросить фильтр к последним 30 дням"
+                    title="Сбросить фильтр к последним 30 дням и сортировке по номеру штабеля"
                 >
                     <RotateCcw className="w-4 h-4" />
                     Сбросить

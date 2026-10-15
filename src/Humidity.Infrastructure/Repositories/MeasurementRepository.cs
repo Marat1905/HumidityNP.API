@@ -981,7 +981,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     }
 
     /// <summary>
-    /// SQL-запрос для получения сессий по штабелям.
+    /// Базовая часть SQL-запроса для получения сессий по штабелям — всё ДО финального ORDER BY.
     ///
     /// Логика запроса:
     ///  1. normalized — нормализуем данные: получаем ключ поставщика (ИНН или имя),
@@ -1000,6 +1000,9 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     ///     считаем машины, выбираем основного поставщика (rn=1).
     /// 10. Финальный SELECT — агрегируем сессии и джойним поставщиков.
     ///
+    /// ORDER BY вынесен отдельно (см. StackSessionsOrderBy* ниже) и добавляется
+    /// к базе в зависимости от параметров sortBy / order.
+    ///
     /// Параметры:
     ///  - @From      — начало периода (timestamptz).
     ///  - @To        — конец периода (timestamptz).
@@ -1007,15 +1010,6 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     ///  - @merge_gap — максимальный разрыв для склейки сессий (interval).
     ///  - @min_meas  — порог «мало замеров» (int).
     ///  - @min_veh   — порог «мало машин» (int).
-    ///
-    /// Сортировка результата:
-    ///  - сначала штабели: по числовому префиксу ВОЗРАСТАНИЕ (1, 2, 3, ..., 10, 11, ...),
-    ///    NULLS LAST — штабели без цифр уходят в конец;
-    ///  - при равенстве числового префикса — по полному имени штабеля ПО ВОЗРАСТАНИЮ
-    ///    (это даёт «1» перед «1A», «7» перед «7A»);
-    ///  - внутри штабеля — сессии по УБЫВАНИЮ номера (session_id DESC):
-    ///    САМАЯ СВЕЖАЯ СЕССИЯ СВЕРХУ. Номер сессии сквозной по времени:
-    ///    чем больше номер, тем позже сессия началась. Поэтому DESC = новые сверху.
     ///
     /// ВАЖНО про типы:
     ///  - COUNT(*) и SUM(...) OVER (...) в PostgreSQL возвращают bigint (int8).
@@ -1027,7 +1021,7 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     ///    GetDouble() на numeric работает не везде, поэтому итоговое значение
     ///    явно приводится к float8: ROUND(AVG(...)::numeric, 2)::float8.
     /// </summary>
-    private const string StackSessionsSql = @"
+    private const string StackSessionsSqlBase = @"
 WITH params AS (
     SELECT
         -- Все пороги приходят параметрами из C#.
@@ -1231,6 +1225,21 @@ FROM (
              sa.primary_counterparty,
              sa.counterparties
 ) t
+";
+
+    /// <summary>
+    /// ORDER BY для сортировки по номеру штабеля (историческое поведение).
+    ///
+    /// Сортировка:
+    ///  - сначала штабели: по числовому префиксу ВОЗРАСТАНИЕ (1, 2, 3, ..., 10, 11, ...),
+    ///    NULLS LAST — штабели без цифр уходят в конец;
+    ///  - при равенстве числового префикса — по полному имени штабеля ПО ВОЗРАСТАНИЮ
+    ///    (это даёт «1» перед «1A», «7» перед «7A»);
+    ///  - внутри штабеля — сессии по УБЫВАНИЮ номера (session_id DESC):
+    ///    САМАЯ СВЕЖАЯ СЕССИЯ СВЕРХУ. Номер сессии сквозной по времени:
+    ///    чем больше номер, тем позже сессия началась. Поэтому DESC = новые сверху.
+    /// </summary>
+    private const string StackSessionsOrderByStack = @"
 ORDER BY
     -- Числовой префикс штабеля по возрастанию (1, 2, ..., 10, 11, ...).
     -- NULLS LAST — штабели без цифр уходят в конец.
@@ -1244,7 +1253,42 @@ ORDER BY
 ";
 
     /// <summary>
+    /// ORDER BY для сортировки штабелей по времени последней сессии — СНАЧАЛА СВЕЖИЕ.
+    ///
+    /// Идея: для каждой строки окно PARTITION BY t.stack_number даёт максимальный
+    /// session_start среди ВСЕХ сессий данного штабеля. Все строки одного штабеля
+    /// получают одно и то же значение, поэтому сортировка по нему не «рвёт»
+    /// штабель на куски, а переставляет целиком.
+    ///
+    /// Направление DESC — сверху штабели с самой свежей сессией.
+    /// При равенстве — tie-break по номеру штабеля и session_id DESC
+    /// (внутри штабеля — свежие сессии сверху).
+    /// </summary>
+    private const string StackSessionsOrderByLastSessionDesc = @"
+ORDER BY
+    MAX(t.session_start) OVER (PARTITION BY t.stack_number) DESC NULLS LAST,
+    t.stack_number,
+    t.session_id DESC;
+";
+
+    /// <summary>
+    /// ORDER BY для сортировки штабелей по времени последней сессии — СНАЧАЛА СТАРЫЕ.
+    /// Симметрично <see cref="StackSessionsOrderByLastSessionDesc"/>, только ASC.
+    /// </summary>
+    private const string StackSessionsOrderByLastSessionAsc = @"
+ORDER BY
+    MAX(t.session_start) OVER (PARTITION BY t.stack_number) ASC NULLS LAST,
+    t.stack_number,
+    t.session_id DESC;
+";
+
+    /// <summary>
     /// Получить список сессий работы со штабелями за указанный период.
+    ///
+    /// Помимо порогов алгоритма сессий поддерживается сортировка списка штабелей:
+    ///  - sortBy = "stack"       — по номеру штабеля (историческое поведение, дефолт);
+    ///  - sortBy = "lastSession" — по времени последней сессии в штабеле
+    ///                             (order = "desc" — свежие сверху, "asc" — старые сверху).
     ///
     /// Используем ADO.NET напрямую (а не EF Core SqlQuery), потому что запрос:
     ///   - содержит CTE (WITH) и оконные функции;
@@ -1264,28 +1308,34 @@ ORDER BY
     ///    оконными функциями и STRING_AGG может не уложиться в дефолтные 30.
     ///
     /// Параметры алгоритма сессий (все опциональные, с безопасными дефолтами):
-    ///  - <paramref name=""baseGap""/>   — минимальный разрыв между замерами,
+    ///  - <paramref name="baseGap"/>   — минимальный разрыв между замерами,
     ///    который РАЗРЕЗАЕТ сессию на две. Всё, что меньше — склеивается в одну.
     ///    Дефолт: 48 часов. Диапазон: 1 минута .. 30 суток.
-    ///  - <paramref name=""mergeGap""/>  — максимальный разрыв между двумя
+    ///  - <paramref name="mergeGap"/>  — максимальный разрыв между двумя
     ///    СОСЕДНИМИ сессиями, при котором ещё возможна склейка (если одна из
     ///    них «маленькая» — см. minMeas / minVeh). Дефолт: 72 часа.
     ///    ВАЖНО: для работы склейки должно быть mergeGap > baseGap, иначе
     ///    ни одна сессия не будет склеена (разрыв был >= baseGap > mergeGap).
     ///    Если пользователь передаст mergeGap <= baseGap, метод поднимет его
     ///    до baseGap + 24 часа автоматически.
-    ///  - <paramref name=""minMeas""/>   — порог «мало замеров» в сессии для склейки.
+    ///  - <paramref name="minMeas"/>   — порог «мало замеров» в сессии для склейки.
     ///    Дефолт: 20. Диапазон: 0 .. 10000.
-    ///  - <paramref name=""minVeh""/>    — порог «мало машин» в сессии для склейки.
+    ///  - <paramref name="minVeh"/>    — порог «мало машин» в сессии для склейки.
     ///    Дефолт: 3. Диапазон: 0 .. 1000.
+    ///
+    /// Параметры сортировки:
+    ///  - <paramref name="sortBy"/>    — "stack" (по умолчанию) или "lastSession".
+    ///  - <paramref name="order"/>     — "asc" (по умолчанию) или "desc".
     /// </summary>
-    /// <param name=""from"">Начало периода (включительно) по Timestamp замера.</param>
-    /// <param name=""to"">Конец периода (включительно) по Timestamp замера.</param>
-    /// <param name=""baseGap"">Разрыв, разрезающий сессии. Дефолт 48ч.</param>
-    /// <param name=""mergeGap"">Максимальный разрыв для склейки. Дефолт 72ч.</param>
-    /// <param name=""minMeas"">Порог «мало замеров». Дефолт 20.</param>
-    /// <param name=""minVeh"">Порог «мало машин». Дефолт 3.</param>
-    /// <param name=""cancellationToken"">Токен отмены.</param>
+    /// <param name="from">Начало периода (включительно) по Timestamp замера.</param>
+    /// <param name="to">Конец периода (включительно) по Timestamp замера.</param>
+    /// <param name="baseGap">Разрыв, разрезающий сессии. Дефолт 48ч.</param>
+    /// <param name="mergeGap">Максимальный разрыв для склейки. Дефолт 72ч.</param>
+    /// <param name="minMeas">Порог «мало замеров». Дефолт 20.</param>
+    /// <param name="minVeh">Порог «мало машин». Дефолт 3.</param>
+    /// <param name="sortBy">Поле сортировки: "stack" (по умолчанию) или "lastSession".</param>
+    /// <param name="order">Направление сортировки: "asc" (по умолчанию) или "desc".</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
     public async Task<IEnumerable<StackSessionDto>> GetStackSessionsAsync(
         DateTimeOffset from,
         DateTimeOffset to,
@@ -1293,9 +1343,11 @@ ORDER BY
         TimeSpan? mergeGap = null,
         int? minMeas = null,
         int? minVeh = null,
+        string? sortBy = null,
+        string? order = null,
         CancellationToken cancellationToken = default)
     {
-        // ---------- 1. Нормализация и валидация параметров ----------
+        // ---------- 1. Нормализация и валидация параметров алгоритма сессий ----------
         var effectiveBaseGap = baseGap ?? TimeSpan.FromHours(48);
         var effectiveMergeGap = mergeGap ?? TimeSpan.FromHours(72);
         var effectiveMinMeas = minMeas ?? 20;
@@ -1330,7 +1382,28 @@ ORDER BY
         if (effectiveMinVeh < 0) effectiveMinVeh = 0;
         if (effectiveMinVeh > 1_000) effectiveMinVeh = 1_000;
 
-        // ---------- 2. Открываем соединение ----------
+        // ---------- 2. Нормализация и валидация параметров сортировки ----------
+        // sortBy по умолчанию — "stack" (историческое поведение).
+        // order по умолчанию — "asc", но он применяется ТОЛЬКО к "lastSession".
+        // Для sortBy = "stack" направление всегда одно и то же (ascending numeric),
+        // потому что такова семантика «сортировки по номеру штабеля».
+        var normalizedSortBy = (sortBy ?? "stack").Trim().ToLowerInvariant();
+        var normalizedOrder = (order ?? "asc").Trim().ToLowerInvariant();
+
+        // Выбираем ORDER BY под конкретный сценарий. Любое неизвестное значение
+        // sortBy трактуем как "stack" — это безопасно и предсказуемо.
+        var orderByClause = normalizedSortBy switch
+        {
+            "lastsession" => normalizedOrder == "asc"
+                ? StackSessionsOrderByLastSessionAsc
+                : StackSessionsOrderByLastSessionDesc,
+            _ => StackSessionsOrderByStack,
+        };
+
+        // Итоговый SQL = база + выбранный ORDER BY.
+        var sql = StackSessionsSqlBase + orderByClause;
+
+        // ---------- 3. Открываем соединение ----------
         var connection = Context.Database.GetDbConnection();
         var wasClosed = connection.State == ConnectionState.Closed;
         if (wasClosed)
@@ -1341,13 +1414,13 @@ ORDER BY
         try
         {
             using var command = connection.CreateCommand();
-            command.CommandText = StackSessionsSql;
+            command.CommandText = sql;
 
             // Тяжёлый отчёт с оконными функциями: даём запросу больше времени,
             // чем дефолтные 30 секунд. При необходимости вынести в настройки.
             command.CommandTimeout = 120;
 
-            // ---------- 3. Параметры периода ----------
+            // ---------- 4. Параметры периода ----------
             // Приводим границы периода к UTC — Timestamp в БД хранится в UTC.
             // В SQL-запросе мы фильтруем по m."Timestamp" (UTC), а уже в финальном
             // SELECT конвертируем в Asia/Yekaterinburg для отображения.
@@ -1361,7 +1434,7 @@ ORDER BY
             toParam.Value = to.ToUniversalTime();
             command.Parameters.Add(toParam);
 
-            // ---------- 4. Параметры алгоритма сессий ----------
+            // ---------- 5. Параметры алгоритма сессий ----------
             // TimeSpan → interval: Npgsql мапит TimeSpan в PostgreSQL interval
             // по умолчанию. В SQL стоит явный ::interval — на случай, если
             // Npgsql по какой-то причине отправит значение как text.
@@ -1385,7 +1458,7 @@ ORDER BY
             minVehParam.Value = effectiveMinVeh;
             command.Parameters.Add(minVehParam);
 
-            // ---------- 5. Чтение ----------
+            // ---------- 6. Чтение ----------
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
             // Выносим индексы колонок за цикл: GetOrdinal — линейный поиск
@@ -1506,13 +1579,13 @@ WHERE m.""Timestamp"" >= @From
     /// <summary>
     /// Получить сводную статистику по штабелям за период.
     ///
-    /// Отдельный запрос от <see cref=""GetStackSessionsAsync""/>, потому что
+    /// Отдельный запрос от <see cref="GetStackSessionsAsync"/>, потому что
     /// статистика считается по «сырым» замерам (в т.ч. без штабеля),
     /// а не по сессиям. Запрос лёгкий — один проход по индексированному Timestamp.
     /// </summary>
-    /// <param name=""from"">Начало периода (включительно) по Timestamp замера.</param>
-    /// <param name=""to"">Конец периода (включительно) по Timestamp замера.</param>
-    /// <param name=""cancellationToken"">Токен отмены.</param>
+    /// <param name="from">Начало периода (включительно) по Timestamp замера.</param>
+    /// <param name="to">Конец периода (включительно) по Timestamp замера.</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
     public async Task<StackSessionsStatsDto> GetStackSessionsStatsAsync(
         DateTimeOffset from,
         DateTimeOffset to,

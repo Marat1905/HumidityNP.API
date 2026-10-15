@@ -12,6 +12,7 @@ import type {
     VersionResponse,
     StackSessionDto,
     StackSessionsStatsDto,
+    StackSessionsSortBy,
 } from '../../types/humidity';
 import {
     requestInterceptor,
@@ -165,37 +166,46 @@ export const measurementService = {
         });
         return response.data;
     },
-        /**
+    /**
      * Получить список сессий работы со штабелями за период.
      *
      * Сессии формируются на сервере сложным SQL-запросом с оконными функциями:
-     *  - базовый разрыв между замерами — 24 часа;
+     *  - базовый разрыв между замерами — 48 часов;
      *  - короткие осколки (мало замеров/машин) склеиваются с предыдущей сессией,
      *    если разрыв < 72 часов;
      *  - поставщики группируются по ИНН, при его отсутствии — по нормализованному имени.
      *
+     * Сортировка штабелей в ответе:
+     *  - sortBy='stack' (по умолчанию)       — по номеру штабеля;
+     *  - sortBy='lastSession'&order='desc'   — по времени последней сессии, свежие сверху;
+     *  - sortBy='lastSession'&order='asc'    — по времени последней сессии, старые сверху.
+     *
      * @param from Начало периода (ISO-строка).
      * @param to Конец периода (ISO-строка).
+     * @param sortBy Поле сортировки штабелей: 'stack' (по умолчанию) или 'lastSession'.
+     * @param order Направление сортировки: 'asc' (по умолчанию) или 'desc'.
      */
     async getStackSessions(
         from: string,
-        to: string
+        to: string,
+        sortBy: StackSessionsSortBy = 'stack',
+        order: 'asc' | 'desc' = 'asc'
     ): Promise<StackSessionDto[]> {
         const response = await apiClient.get('/measurements/stack-sessions', {
-            params: { from, to }
+            params: { from, to, sortBy, order }
         });
         return response.data;
     },
     /**
- * Получить сводную статистику по штабелям за период.
- *
- * Возвращает разбивку замеров и машин на «с указанным штабелем» и «без штабеля».
- * Нужно, чтобы объяснить расхождение с «Отчётом за период»:
- * в отчёте по штабелям не учитываются замеры машин с пустым StackNumber.
- *
- * @param from Начало периода (ISO-строка).
- * @param to Конец периода (ISO-строка).
- */
+     * Получить сводную статистику по штабелям за период.
+     *
+     * Возвращает разбивку замеров и машин на «с указанным штабелем» и «без штабеля».
+     * Нужно, чтобы объяснить расхождение с «Отчётом за период»:
+     * в отчёте по штабелям не учитываются замеры машин с пустым StackNumber.
+     *
+     * @param from Начало периода (ISO-строка).
+     * @param to Конец периода (ISO-строка).
+     */
     async getStackSessionsStats(
         from: string,
         to: string

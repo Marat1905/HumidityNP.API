@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { measurementService } from '../../services/humidity/api';
-import type { StackSessionDto, StackSessionsStatsDto } from '../../types/humidity';
+import type {
+    StackSessionDto,
+    StackSessionsStatsDto,
+    StackSessionsSortBy,
+} from '../../types/humidity';
 
 /**
  * Хук для получения списка сессий работы со штабелями за период
@@ -16,13 +20,22 @@ import type { StackSessionDto, StackSessionsStatsDto } from '../../types/humidit
  * в отчёте по штабелям могут отличаться от «Отчёта за период»:
  * замеры машин с пустым StackNumber в отчёт по штабелям не попадают.
  *
+ * Сортировка списка сессий задаётся параметрами sortBy и order:
+ *  - sortBy = 'stack'       — по номеру штабеля (по умолчанию);
+ *  - sortBy = 'lastSession' — по времени последней сессии в штабеле,
+ *                             направление задаётся order ('asc' | 'desc').
+ *
  * @param fromDate Начало периода (Date) или null.
  * @param toDate Конец периода (Date) или null.
+ * @param sortBy Поле сортировки: 'stack' (по умолчанию) или 'lastSession'.
+ * @param order Направление сортировки: 'asc' (по умолчанию) или 'desc'.
  * @returns Объект с сессиями, статистикой, состоянием загрузки, ошибкой и refetch.
  */
 export const useStackSessions = (
     fromDate: Date | null,
-    toDate: Date | null
+    toDate: Date | null,
+    sortBy: StackSessionsSortBy = 'stack',
+    order: 'asc' | 'desc' = 'asc'
 ) => {
     const [data, setData] = useState<StackSessionDto[]>([]);
     const [stats, setStats] = useState<StackSessionsStatsDto | null>(null);
@@ -51,8 +64,10 @@ export const useStackSessions = (
         try {
             // Параллельно запрашиваем сессии и статистику — так быстрее,
             // чем последовательно, и статистика не блокирует показ сессий.
+            // Сортировку прокидываем в запрос сессий — сервер отсортирует
+            // ответ до отправки, чтобы клиент не делал лишнюю работу.
             const [sessions, statsResult] = await Promise.all([
-                measurementService.getStackSessions(fromISO, toISO),
+                measurementService.getStackSessions(fromISO, toISO, sortBy, order),
                 measurementService.getStackSessionsStats(fromISO, toISO),
             ]);
             setData(sessions);
@@ -68,7 +83,7 @@ export const useStackSessions = (
         } finally {
             setLoading(false);
         }
-    }, [fromDate, toDate]);
+    }, [fromDate, toDate, sortBy, order]);
 
     useEffect(() => {
         fetchData();
