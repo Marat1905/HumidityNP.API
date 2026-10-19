@@ -1,31 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { type UnloadVehicleRequest } from '../../../types/humidity';
+import { UnloadVehicleFormData, type UnloadVehicleSchemaType } from '../../../schemas/humidity';
 import { vehicleService } from '../../../services/humidity/api';
-
-// Схема валидации формы разгрузки. Повторяет правила UnloadVehicleRequestValidator с бэкенда.
-const UnloadVehicleFormData = z.object({
-    baleCount: z.coerce.number().min(0, 'Количество тюков не может быть отрицательным'),
-    damagedBaleCount: z.coerce.number().min(0, 'Количество порванных тюков не может быть отрицательным'),
-    weightKg: z.coerce.number().min(0, 'Вес не может быть отрицательным'),
-    stackNumber: z.string().min(1, 'Номер штабеля обязателен').max(50, 'Номер штабеля не должен превышать 50 символов'),
-}).refine((data) => data.damagedBaleCount <= data.baleCount, {
-    message: 'Количество порванных тюков не может превышать общее количество',
-    path: ['damagedBaleCount'],
-}).refine((data) => {
-    // Если порванных тюков больше 0, вес должен быть > 0
-    if (data.damagedBaleCount > 0) return data.weightKg > 0;
-    return true;
-}, {
-    message: 'При наличии порванных тюков вес должен быть больше 0',
-    path: ['weightKg'],
-});
-
-type FormData = z.infer<typeof UnloadVehicleFormData>;
 
 interface UnloadVehicleModalProps {
     isOpen: boolean;
@@ -54,7 +34,7 @@ export default function UnloadVehicleModal({
         handleSubmit,
         reset,
         formState: { errors },
-    } = useForm<FormData>({
+    } = useForm<UnloadVehicleSchemaType>({
         resolver: zodResolver(UnloadVehicleFormData),
         defaultValues: {
             baleCount: initialData?.baleCount ?? 0,
@@ -65,7 +45,7 @@ export default function UnloadVehicleModal({
     });
 
     // Сбрасываем форму при открытии, подставляя текущие значения (если есть)
-    useState(() => {
+    useEffect(() => {
         if (isOpen) {
             reset({
                 baleCount: initialData?.baleCount ?? 0,
@@ -74,9 +54,9 @@ export default function UnloadVehicleModal({
                 stackNumber: initialData?.stackNumber ?? '',
             });
         }
-    });
+    }, [isOpen, initialData, reset]);
 
-    const onSubmit = async (data: FormData) => {
+    const onSubmit = async (data: UnloadVehicleSchemaType) => {
         setIsSubmitting(true);
         try {
             const payload: UnloadVehicleRequest = {
