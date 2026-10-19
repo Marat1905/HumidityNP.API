@@ -13,6 +13,7 @@ import type {
     StackSessionDto,
     StackSessionsStatsDto,
     StackSessionsSortBy,
+    UnloadVehicleRequest,
 } from '../../types/humidity';
 import {
     requestInterceptor,
@@ -58,6 +59,15 @@ export const vehicleService = {
     },
     async delete(id: string): Promise<void> {
         await apiClient.delete(`/vehicles/${id}`);
+    },
+    /**
+     * Зафиксировать разгрузку машины.
+     * @param id Идентификатор машины.
+     * @param data Данные разгрузки (тюки, порванные, вес, штабель).
+     */
+    async unload(id: string, data: UnloadVehicleRequest): Promise<VehicleDto> {
+        const response = await apiClient.post(`/vehicles/${id}/unload`, data);
+        return response.data;
     }
 };
 

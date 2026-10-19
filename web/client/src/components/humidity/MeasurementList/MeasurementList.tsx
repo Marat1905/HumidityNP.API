@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Pencil, Trash2, PenTool } from 'lucide-react';
+import { Pencil, Trash2, PenTool, PackageOpen } from 'lucide-react';
 import { type MeasurementDto, SignType, MeasurementSource } from '../../../types/humidity';
 import { Pagination } from '../../common';
-import { DeleteConfirmationModal, MeasurementFormModal } from '../modals';
+import { DeleteConfirmationModal, MeasurementFormModal, UnloadVehicleModal } from '../modals';
 import { measurementService } from '../../../services/humidity/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
@@ -20,6 +20,13 @@ interface MeasurementListProps {
     onPageSizeChange: (size: number) => void;
     onRefresh: () => void;
     loading: boolean;
+    /** Данные машины для предзаполнения модалки разгрузки (опционально) */
+    vehicleData?: {
+        baleCount?: number | null;
+        damagedBaleCount?: number | null;
+        weightKg?: number | null;
+        stackNumber?: string | null;
+    };
 }
 
 export default function MeasurementList({
@@ -33,11 +40,13 @@ export default function MeasurementList({
     onPageSizeChange,
     onRefresh,
     loading,
+    vehicleData,
 }: MeasurementListProps) {
     const { isAdminOrTcx } = useAuth();
     const [editMeasurement, setEditMeasurement] = useState<MeasurementDto | null>(null);
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showUnloadModal, setShowUnloadModal] = useState(false);
 
     const handleDelete = async () => {
         if (!deleteId) return;
@@ -73,12 +82,21 @@ export default function MeasurementList({
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Замеры влажности</h3>
                 {isAdminOrTcx && (
-                    <button
-                        onClick={() => setShowCreateModal(true)}
-                        className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition"
-                    >
-                        + Добавить замер
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowUnloadModal(true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition"
+                        >
+                            <PackageOpen className="w-4 h-4" />
+                            Зафиксировать разгрузку
+                        </button>
+                        <button
+                            onClick={() => setShowCreateModal(true)}
+                            className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition"
+                        >
+                            + Добавить замер
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -195,6 +213,18 @@ export default function MeasurementList({
                 }}
                 vehicleId={vehicleId}
                 measurement={editMeasurement}
+            />
+
+            {/* Модалка фиксации разгрузки */}
+            <UnloadVehicleModal
+                isOpen={showUnloadModal}
+                onClose={() => setShowUnloadModal(false)}
+                onSuccess={() => {
+                    onRefresh();
+                    setShowUnloadModal(false);
+                }}
+                vehicleId={vehicleId}
+                initialData={vehicleData}
             />
 
             {/* Модалка удаления */}

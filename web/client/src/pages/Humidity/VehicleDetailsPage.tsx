@@ -44,19 +44,29 @@ export default function VehicleDetailsPage() {
     // Получение статистики
     const { data: statsData, loading: loadingStats, refetch: refetchStats } = useMeasurementStatistics(id || null);
 
-    // Общий рефреш для обновления и списка, и статистики
+    // Функция загрузки данных машины
+    const fetchVehicle = async () => {
+        if (id) {
+            try {
+                const data = await vehicleService.getById(id);
+                setVehicle(data);
+            } catch (err) {
+                toast.error('Ошибка загрузки машины');
+            } finally {
+                setLoadingVehicle(false);
+            }
+        }
+    };
+
+    // Общий рефреш для обновления и списка, и статистики, и данных машины
     const handleRefresh = () => {
         refetchMeasurements();
         refetchStats();
+        fetchVehicle();
     };
 
     useEffect(() => {
-        if (id) {
-            vehicleService.getById(id)
-                .then(setVehicle)
-                .catch(err => toast.error('Ошибка загрузки машины'))
-                .finally(() => setLoadingVehicle(false));
-        }
+        fetchVehicle();
     }, [id]);
 
     if (loadingVehicle) return <SkeletonDetails />;
@@ -156,7 +166,7 @@ export default function VehicleDetailsPage() {
                         />
                     </div>
 
-                    {/* ===== НОВЫЙ БЛОК: Разгрузка ===== */}
+                    {/* ===== БЛОК: Разгрузка ===== */}
                     <div className="sm:col-span-2 lg:col-span-3 border-t border-gray-100 dark:border-gray-700 pt-4 mt-2">
                         <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2 mb-2">
                             <Package className="w-4 h-4" /> Разгрузка
@@ -210,7 +220,13 @@ export default function VehicleDetailsPage() {
             ) : measurementsData ? (
                 <MeasurementList
                     vehicleId={vehicle.id}
-                    // ИСПРАВЛЕНИЕ: безопасная передача пропсов с резервными значениями
+                    // Передаем данные для предзаполнения модалки разгрузки
+                    vehicleData={{
+                        baleCount: vehicle.baleCount,
+                        damagedBaleCount: vehicle.damagedBaleCount,
+                        weightKg: vehicle.weightKg,
+                        stackNumber: vehicle.stackNumber,
+                    }}
                     measurements={measurementsData?.items ?? []}
                     totalCount={measurementsData?.totalCount ?? 0}
                     pageNumber={measurementsData?.pageNumber ?? 1}

@@ -104,6 +104,21 @@ export interface UpdateMeasurementRequest {
 }
 
 /**
+ * Запрос на фиксацию разгрузки машины.
+ * Соответствует UnloadVehicleRequest на бэкенде.
+ */
+export interface UnloadVehicleRequest {
+    /** Количество тюков. */
+    baleCount: number;
+    /** Количество порванных тюков. */
+    damagedBaleCount: number;
+    /** Вес в килограммах. */
+    weightKg: number;
+    /** Номер штабеля. */
+    stackNumber: string;
+}
+
+/**
  * Обёртка для пагинированного ответа от API.
  * @template T Тип элементов на странице.
  */
