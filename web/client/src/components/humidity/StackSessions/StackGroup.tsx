@@ -35,7 +35,7 @@ const formatWeight = (value: number | null): string => {
  *  - номер штабеля;
  *  - количество сессий;
  *  - суммарное число замеров и машин;
- *  - суммарные тюки и среднее количество тюков на машину;
+ *  - среднее количество тюков за сессию;
  *  - диапазон дат (от первой до последней сессии);
  *  - среднюю влажность по штабелю.
  *
@@ -50,9 +50,8 @@ const formatWeight = (value: number | null): string => {
  * зависеть от порядка сортировки массива.
  *
  * Тюки:
- *  - «Всего тюков» = сумма totalBales по всем сессиям;
- *  - «Среднее на машину» = totalBales / totalVehicles (только если есть данные
- *    хотя бы у одной сессии; иначе «—»).
+ *  - «Среднее за сессию» = сумма totalBales / количество сессий (только если
+ *    есть данные хотя бы у одной сессии; иначе «—»).
  */
 const StackGroup: React.FC<StackGroupProps> = ({
     stackNumber,
@@ -75,12 +74,11 @@ const StackGroup: React.FC<StackGroupProps> = ({
         ? sessionsWithBales.reduce((acc, s) => acc + (s.totalBales ?? 0), 0)
         : null;
 
-    // Среднее количество тюков на машину в штабеле.
-    // Считаем только по машинам из сессий, где данные вообще есть — иначе
-    // знаменатель раздувается «пустыми» машинами и среднее не отражает реальность.
-    const vehiclesWithBales = sessionsWithBales.reduce((acc, s) => acc + s.vehiclesCount, 0);
-    const averageBalesPerVehicle = (totalBales !== null && vehiclesWithBales > 0)
-        ? totalBales / vehiclesWithBales
+    // Среднее количество тюков за сессию.
+    // Считаем только по сессиям, где данные вообще есть — иначе
+    // знаменатель раздувается «пустыми» сессиями и среднее не отражает реальность.
+    const averageBalesPerSession = (totalBales !== null && sessionsWithBales.length > 0)
+        ? totalBales / sessionsWithBales.length
         : null;
 
     // Суммарный вес по штабелю.
@@ -171,18 +169,17 @@ const StackGroup: React.FC<StackGroupProps> = ({
                         <Truck className="w-4 h-4 text-blue-500" />
                         <span className="font-semibold">{totalVehicles}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300" title="Всего тюков в штабеле">
+                    
+                    {/* Заменено «Всего тюков» и «Среднее на машину» на «Среднее за сессию» */}
+                    <div className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300" title="Среднее количество тюков за сессию">
                         <Package className="w-4 h-4 text-purple-500" />
-                        <span className="font-semibold">{formatBales(totalBales)}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300" title="Среднее количество тюков на машину">
-                        <Weight className="w-4 h-4 text-emerald-500" />
                         <span className="font-semibold">
-                            {averageBalesPerVehicle !== null
-                                ? averageBalesPerVehicle.toFixed(1)
+                            {averageBalesPerSession !== null
+                                ? averageBalesPerSession.toFixed(1)
                                 : '—'}
                         </span>
                     </div>
+
                     <div className={`flex items-center gap-1.5 font-semibold ${getHumidityColor(avgHumidity)}`} title="Средняя влажность по штабелю">
                         <Droplet className="w-4 h-4" />
                         <span>{avgHumidity !== null ? avgHumidity.toFixed(1) + '%' : '—'}</span>
@@ -195,10 +192,6 @@ const StackGroup: React.FC<StackGroupProps> = ({
                     {/* Мини-сводка по тюкам в раскрытом виде — полезна на мобильных,
                         где верхние метрики скрыты (hidden lg:flex). */}
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
-                        <span className="inline-flex items-center gap-1.5">
-                            <Package className="w-3.5 h-3.5 text-purple-500" />
-                            Всего тюков: <span className="font-semibold text-gray-900 dark:text-white">{formatBales(totalBales)}</span>
-                        </span>
                         <span className="inline-flex items-center gap-1.5">
                             <Package className="w-3.5 h-3.5 text-red-500" />
                             Порванных:{' '}
@@ -216,11 +209,13 @@ const StackGroup: React.FC<StackGroupProps> = ({
                             <Weight className="w-3.5 h-3.5 text-green-500" />
                             Вес: <span className="font-semibold text-gray-900 dark:text-white">{formatWeight(totalWeight)}</span>
                         </span>
+                        
+                        {/* Добавлено «Среднее тюков за сессию» */}
                         <span className="inline-flex items-center gap-1.5">
-                            <Weight className="w-3.5 h-3.5 text-emerald-500" />
-                            Среднее на машину:{' '}
+                            <Package className="w-3.5 h-3.5 text-purple-500" />
+                            Среднее тюков за сессию:{' '}
                             <span className="font-semibold text-gray-900 dark:text-white">
-                                {averageBalesPerVehicle !== null ? averageBalesPerVehicle.toFixed(1) : '—'}
+                                {averageBalesPerSession !== null ? averageBalesPerSession.toFixed(1) : '—'}
                             </span>
                         </span>
                     </div>
