@@ -288,11 +288,30 @@ export interface VersionResponse {
 
 // ===== Сессии по штабелям =====
 
+// ===== Сессии по штабелям =====
+
+/**
+ * Информация о поставщике внутри сессии по штабелю.
+ * Содержит количество машин, тюков, порванных тюков и общий вес.
+ */
+export interface StackSessionCounterpartyDto {
+    /** Каноническое (самое короткое) имя поставщика в группе. */
+    name: string;
+    /** Количество машин этого поставщика в сессии. */
+    vehiclesCount: number;
+    /** Общее количество тюков. null — данных нет. */
+    bales: number | null;
+    /** Общее количество порванных тюков. null — данных нет. */
+    damagedBales: number | null;
+    /** Общий вес груза (кг). null — данных нет. */
+    weightKg: number | null;
+}
+
 /**
  * Одна сессия работы со штабелем.
  *
  * Формируется на сервере SQL-запросом с оконными функциями:
- *  - базовый разрыв между замерами — 24 часа;
+ *  - базовый разрыв между замерами — 48 часов;
  *  - короткие осколки (мало замеров/машин) склеиваются с предыдущей сессией,
  *    если разрыв между ними меньше 72 часов;
  *  - поставщики группируются по ИНН, при его отсутствии — по нормализованному имени.
@@ -302,6 +321,8 @@ export interface VersionResponse {
  *
  * Влажности (averageHumidity / minHumidity / maxHumidity) — nullable.
  * null означает «нет данных», 0 — «средняя 0%». Это разные вещи.
+ *
+ * Тюки (totalBales / totalDamagedBales / totalWeightKg) — nullable по той же причине.
  */
 export interface StackSessionDto {
     /** Номер штабеля (нормализованный: пробелы схлопнуты, латинские «а/А» приведены к латинице). */
@@ -330,6 +351,20 @@ export interface StackSessionDto {
     minHumidity: number | null;
     /** Максимальная влажность среди замеров сессии. null — нет данных. */
     maxHumidity: number | null;
+
+    /**
+     * Общее количество тюков в сессии (сумма по всем уникальным машинам).
+     * null — если ни у одной машины в сессии не указано количество тюков.
+     */
+    totalBales: number | null;
+    /** Общее количество порванных тюков в сессии. null — нет данных. */
+    totalDamagedBales: number | null;
+    /** Общий вес груза (кг) в сессии. null — нет данных. */
+    totalWeightKg: number | null;
+    /** Количество тюков у основного поставщика сессии. null — нет данных. */
+    primaryCounterpartyBales: number | null;
+    /** Детальная разбивка по поставщикам сессии с количеством тюков и весом. */
+    counterpartiesDetails: StackSessionCounterpartyDto[];
 }
 
 /**
@@ -367,4 +402,3 @@ export interface StackSessionsStatsDto {
  *                    - 'asc'  — сверху штабели с самой старой сессией.
  *                    При равенстве — tie-break по номеру штабеля и session_id DESC.
  */
-export type StackSessionsSortBy = 'stack' | 'lastSession';

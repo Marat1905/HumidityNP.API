@@ -4,7 +4,7 @@ import { ru } from 'date-fns/locale';
 import {
     Clock, Activity, Truck, Users, Droplet,
     TrendingDown, TrendingUp, ChevronDown, ChevronRight,
-    UserCircle2, Timer,
+    UserCircle2, Timer, Package, Weight,
 } from 'lucide-react';
 import type { StackSessionDto } from '../../../types/humidity';
 
@@ -15,16 +15,37 @@ interface StackSessionCardProps {
 }
 
 /**
+ * Форматирует число тюков:
+ *  - null → «—» (нет данных);
+ *  - иначе — число с разделителями разрядов.
+ */
+const formatBales = (value: number | null): string => {
+    if (value === null || value === undefined) return '—';
+    return value.toLocaleString('ru-RU');
+};
+
+/**
+ * Форматирует вес (кг) с одним знаком после запятой:
+ *  - null → «—»;
+ *  - иначе — число + « кг».
+ */
+const formatWeight = (value: number | null): string => {
+    if (value === null || value === undefined) return '—';
+    return `${value.toFixed(1)} кг`;
+};
+
+/**
  * Карточка одной сессии работы со штабелем.
  *
  * Особенности:
  *  - слева — цветная полоска-индикатор средней влажности
  *    (зелёный < 10%, жёлтый 10–15%, красный > 15%);
  *  - в шапке — номер сессии, временной диапазон, длительность;
- *  - в теле — три колонки: метрики, влажность, поставщики;
- *  - список поставщиков сворачивается/разворачивается по клику.
+ *  - в теле — колонки: метрики, влажность, тюки, поставщики;
+ *  - список поставщиков сворачивается/разворачивается по клику,
+ *    и в развёрнутом виде показывает по каждому поставщику количество тюков.
  *
- * Влажности nullable: null показывается как «—», а не как «0.00%».
+ * Влажности и тюки nullable: null показывается как «—», а не как «0.00%»/«0».
  */
 const StackSessionCard: React.FC<StackSessionCardProps> = ({ session, totalInStack }) => {
     const [showAllCounterparties, setShowAllCounterparties] = useState(false);
@@ -49,15 +70,16 @@ const StackSessionCard: React.FC<StackSessionCardProps> = ({ session, totalInSta
     };
 
     // Список поставщиков приходит строкой с разделителем «; ».
+    // Но для отображения тюков по каждому поставщику используем counterpartiesDetails.
     const counterpartiesList = session.counterparties
         ? session.counterparties.split('; ').filter(Boolean)
         : [];
 
     const visibleCounterparties = showAllCounterparties
-        ? counterpartiesList
-        : counterpartiesList.slice(0, 3);
+        ? session.counterpartiesDetails
+        : session.counterpartiesDetails.slice(0, 3);
 
-    const hasMoreCounterparties = counterpartiesList.length > 3;
+    const hasMoreCounterparties = session.counterpartiesDetails.length > 3;
 
     return (
         <div className="relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
@@ -92,8 +114,8 @@ const StackSessionCard: React.FC<StackSessionCardProps> = ({ session, totalInSta
                 </div>
             </div>
 
-            {/* Тело карточки: три колонки */}
-            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Тело карточки: четыре колонки */}
+            <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* Колонка 1: метрики */}
                 <div className="space-y-2">
                     <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
@@ -150,7 +172,35 @@ const StackSessionCard: React.FC<StackSessionCardProps> = ({ session, totalInSta
                     </div>
                 </div>
 
-                {/* Колонка 3: поставщики */}
+                {/* Колонка 3: тюки */}
+                <div className="space-y-2">
+                    <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
+                        Тюки
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                        <Package className="w-4 h-4 text-indigo-500" />
+                        <span className="text-gray-600 dark:text-gray-400">Всего:</span>
+                        <span className="font-bold text-gray-900 dark:text-white">
+                            {formatBales(session.totalBales)}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                        <Package className="w-4 h-4 text-red-500" />
+                        <span className="text-gray-600 dark:text-gray-400">Порванных:</span>
+                        <span className="font-medium text-red-600 dark:text-red-400">
+                            {formatBales(session.totalDamagedBales)}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                        <Weight className="w-4 h-4 text-green-500" />
+                        <span className="text-gray-600 dark:text-gray-400">Вес:</span>
+                        <span className="font-medium text-green-700 dark:text-green-400">
+                            {formatWeight(session.totalWeightKg)}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Колонка 4: поставщики */}
                 <div className="space-y-2">
                     <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
                         Поставщики
@@ -162,10 +212,17 @@ const StackSessionCard: React.FC<StackSessionCardProps> = ({ session, totalInSta
                             <div className="font-semibold text-gray-900 dark:text-white truncate">
                                 {session.primaryCounterparty || '—'}
                             </div>
+                            {session.primaryCounterpartyBales !== null && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    Тюков: <span className="font-medium text-gray-800 dark:text-gray-200">
+                                        {formatBales(session.primaryCounterpartyBales)}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {counterpartiesList.length > 1 && (
+                    {session.counterpartiesDetails.length > 1 && (
                         <div className="mt-1">
                             <button
                                 onClick={() => setShowAllCounterparties(prev => !prev)}
@@ -179,30 +236,43 @@ const StackSessionCard: React.FC<StackSessionCardProps> = ({ session, totalInSta
                                 ) : (
                                     <>
                                         <ChevronRight className="w-3.5 h-3.5" />
-                                        Показать всех ({counterpartiesList.length})
+                                        Показать всех ({session.counterpartiesDetails.length})
                                     </>
                                 )}
                             </button>
-                            <ul className="mt-2 space-y-1 text-xs text-gray-600 dark:text-gray-400">
+                            <ul className="mt-2 space-y-1.5 text-xs text-gray-600 dark:text-gray-400">
                                 {visibleCounterparties.map((cp, idx) => (
-                                    <li key={idx} className="flex items-center gap-1.5">
+                                    <li key={`${cp.name}-${idx}`} className="flex flex-wrap items-center gap-1.5">
                                         <span className="w-1 h-1 rounded-full bg-gray-400" />
                                         <span className={idx === 0 ? 'font-medium text-gray-900 dark:text-white' : ''}>
-                                            {cp}
+                                            {cp.name}
                                         </span>
                                         {idx === 0 && (
                                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 whitespace-nowrap">
                                                 основной
                                             </span>
                                         )}
+                                        <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                            ({cp.vehiclesCount} {pluralizeVehicles(cp.vehiclesCount)}, {cp.bales !== null ? `${formatBales(cp.bales)} тюков` : 'тюки —'})
+                                        </span>
                                     </li>
                                 ))}
                                 {!showAllCounterparties && hasMoreCounterparties && (
                                     <li className="text-gray-400 dark:text-gray-500 italic">
-                                        и ещё {counterpartiesList.length - 3}…
+                                        и ещё {session.counterpartiesDetails.length - 3}…
                                     </li>
                                 )}
                             </ul>
+                        </div>
+                    )}
+
+                    {/* Если поставщик один, но у него есть детали — всё равно показываем
+                        его в списке (без кнопки «Показать всех»). */}
+                    {session.counterpartiesDetails.length === 1 && session.counterpartiesDetails[0].bales !== null && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Тюков у поставщика: <span className="font-medium text-gray-800 dark:text-gray-200">
+                                {formatBales(session.counterpartiesDetails[0].bales)}
+                            </span>
                         </div>
                     )}
                 </div>
@@ -210,5 +280,16 @@ const StackSessionCard: React.FC<StackSessionCardProps> = ({ session, totalInSta
         </div>
     );
 };
+
+/**
+ * Склонение слова «машина» для русского языка.
+ */
+function pluralizeVehicles(n: number): string {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return 'машина';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'машины';
+    return 'машин';
+}
 
 export default StackSessionCard;

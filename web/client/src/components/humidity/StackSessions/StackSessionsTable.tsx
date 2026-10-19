@@ -2,17 +2,36 @@ import React from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import type { StackSessionDto } from '../../../types/humidity';
-import { TrendingDown, TrendingUp } from 'lucide-react';
+import { TrendingDown, TrendingUp, Package, Weight } from 'lucide-react';
 
 interface StackSessionsTableProps {
     sessions: StackSessionDto[];
 }
 
 /**
+ * Форматирует число тюков: null → «—», иначе с разделителями разрядов.
+ */
+const formatBales = (value: number | null): string => {
+    if (value === null || value === undefined) return '—';
+    return value.toLocaleString('ru-RU');
+};
+
+/**
+ * Форматирует вес (кг) с одним знаком после запятой.
+ */
+const formatWeight = (value: number | null): string => {
+    if (value === null || value === undefined) return '—';
+    return `${value.toFixed(1)} кг`;
+};
+
+/**
  * Плотная таблица сессий по штабелям.
  * Альтернативный вид — для случаев, когда нужно «увидеть всё сразу».
  *
- * Влажности nullable: null → «—», а не «0.00%».
+ * Влажности и тюки nullable: null → «—», а не «0.00%»/«0».
+ *
+ * Колонки с тюками добавлены ПОСЛЕ колонки «Поставщ.», чтобы не ломать
+ * привычный порядок и не отвлекать внимание от влажности.
  */
 const StackSessionsTable: React.FC<StackSessionsTableProps> = ({ sessions }) => {
     const formatSessionDate = (iso: string) =>
@@ -33,6 +52,24 @@ const StackSessionsTable: React.FC<StackSessionsTableProps> = ({ sessions }) => 
                         <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Поставщ.</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Основной поставщик</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Все поставщики</th>
+                        <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            <span className="inline-flex items-center gap-1">
+                                <Package className="w-3 h-3" />
+                                Тюки
+                            </span>
+                        </th>
+                        <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            <span className="inline-flex items-center gap-1">
+                                <Package className="w-3 h-3" />
+                                Порв.
+                            </span>
+                        </th>
+                        <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            <span className="inline-flex items-center gap-1">
+                                <Weight className="w-3 h-3" />
+                                Вес
+                            </span>
+                        </th>
                         <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ср.</th>
                         <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Мин / Макс</th>
                     </tr>
@@ -61,9 +98,23 @@ const StackSessionsTable: React.FC<StackSessionsTableProps> = ({ sessions }) => 
                             <td className="px-3 py-2.5 text-sm text-center text-gray-700 dark:text-gray-300">{s.counterpartyCount}</td>
                             <td className="px-3 py-2.5 text-sm text-gray-900 dark:text-white font-medium">
                                 {s.primaryCounterparty || '—'}
+                                {s.primaryCounterpartyBales !== null && (
+                                    <span className="block text-xs text-gray-500 dark:text-gray-400">
+                                        {formatBales(s.primaryCounterpartyBales)} тюков
+                                    </span>
+                                )}
                             </td>
                             <td className="px-3 py-2.5 text-xs text-gray-600 dark:text-gray-400 max-w-md">
                                 {s.counterparties || '—'}
+                            </td>
+                            <td className="px-3 py-2.5 text-sm text-center font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+                                {formatBales(s.totalBales)}
+                            </td>
+                            <td className="px-3 py-2.5 text-sm text-center font-medium text-red-600 dark:text-red-400 whitespace-nowrap">
+                                {formatBales(s.totalDamagedBales)}
+                            </td>
+                            <td className="px-3 py-2.5 text-sm text-center font-medium text-green-700 dark:text-green-400 whitespace-nowrap">
+                                {formatWeight(s.totalWeightKg)}
                             </td>
                             <td className="px-3 py-2.5 text-sm text-center font-semibold text-gray-900 dark:text-white whitespace-nowrap">
                                 {s.averageHumidity !== null ? s.averageHumidity.toFixed(2) + '%' : '—'}

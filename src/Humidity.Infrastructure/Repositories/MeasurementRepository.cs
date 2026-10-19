@@ -5,6 +5,7 @@ using Humidity.Domain.Interfaces;
 using Humidity.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
+using System.Text.Json;
 
 namespace Humidity.Infrastructure.Repositories;
 
@@ -15,6 +16,17 @@ namespace Humidity.Infrastructure.Repositories;
 /// </summary>
 public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasurementRepository
 {
+    /// <summary>
+    /// Общие опции десериализации JSON-полей из PostgreSQL.
+    /// PostgreSQL возвращает ключи в том виде, в котором их записал json_build_object,
+    /// поэтому включаем нечувствительность к регистру — это страхует от рассинхронизации
+    /// имён полей между SQL и DTO.
+    /// </summary>
+    private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     public MeasurementRepository(HumidityDbContext context)
         : base(context)
     {
@@ -985,7 +997,8 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     ///
     /// Логика запроса:
     ///  1. normalized — нормализуем данные: получаем ключ поставщика (ИНН или имя),
-    ///     очищенное имя, время замера, влажность, нормализованный номер штабеля.
+    ///     очищенное имя, время замера, влажность, нормализованный номер штабеля
+    ///     И данные о тюках машины (BaleCount, DamagedBaleCount, WeightKg).
     ///     Тут же фильтруем по периоду [@From, @To].
     ///  2. with_gap — считаем разрыв между соседними замерами внутри одного штабеля.
     ///  3. base_marked — помечаем начало новой базовой сессии, если разрыв >= @base_gap.
@@ -995,10 +1008,14 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     ///  7. to_merge — решаем, нужно ли склеить сессию с предыдущей:
     ///     разрыв < @merge_gap И (замеров < @min_meas ИЛИ машин < @min_veh).
     ///  8. renumber_map — пересчитываем id сессии с учётом склеек.
-    ///  9. suppliers_raw/with_len/canon/ranked/agg — строим список поставщиков сессии:
+    ///  9. session_vehicles_bales — уникальные машины в каждой сессии с их данными о тюках
+    ///     (DISTINCT нужен, чтобы не задвоить BaleCount при нескольких замерах одной машины).
+    /// 10. session_bales_agg — суммарные тюки/порванные/вес по каждой сессии.
+    /// 11. suppliers_raw/with_len/canon/ranked/agg — строим список поставщиков сессии:
     ///     группируем по ключу, выбираем каноническое (самое короткое) имя,
-    ///     считаем машины, выбираем основного поставщика (rn=1).
-    /// 10. Финальный SELECT — агрегируем сессии и джойним поставщиков.
+    ///     считаем машины, тюки, выбираем основного поставщика (rn=1) и формируем
+    ///     JSON-разбивку по поставщикам с их тюками.
+    /// 12. Финальный SELECT — агрегируем сессии и джойним поставщиков и тюки.
     ///
     /// ORDER BY вынесен отдельно (см. StackSessionsOrderBy* ниже) и добавляется
     /// к базе в зависимости от параметров sortBy / order.
@@ -1020,6 +1037,9 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     ///  - AVG(...)::numeric в Postgres — это numeric (в Npgsql мапится в decimal).
     ///    GetDouble() на numeric работает не везде, поэтому итоговое значение
     ///    явно приводится к float8: ROUND(AVG(...)::numeric, 2)::float8.
+    ///  - SUM(integer) → bigint. Поэтому для тюков используем SUM(...)::int
+    ///    в финальном SELECT.
+    ///  - json_agg возвращает json; Npgsql читает его как string через ::text.
     /// </summary>
     private const string StackSessionsSqlBase = @"
 WITH params AS (
@@ -1044,7 +1064,12 @@ normalized AS (
         REGEXP_REPLACE(TRIM(v.""Counterparty""), '\s+', ' ', 'g') AS counterparty_clean,
         m.""Timestamp""                                   AS ts,
         m.""HumidityValue""                               AS humidity,
-        UPPER(TRANSLATE(v.""StackNumber"", 'аА', 'aA'))   AS stack_number
+        UPPER(TRANSLATE(v.""StackNumber"", 'аА', 'aA'))   AS stack_number,
+        -- Данные о разгрузке машины. Они понадобятся и для агрегации по сессии,
+        -- и для агрегации по каждому поставщику.
+        v.""BaleCount""                                   AS bale_count,
+        v.""DamagedBaleCount""                            AS damaged_bale_count,
+        v.""WeightKg""                                    AS weight_kg
     FROM ""Vehicles""     v
     JOIN ""Measurements"" m ON m.""VehicleId"" = v.""Id""
     WHERE v.""StackNumber"" IS NOT NULL
@@ -1114,14 +1139,44 @@ renumber_map AS (
            ) AS final_session_id
     FROM to_merge tm
 ),
--- (A) Уникальные поставщики по ключу cp_key
+-- (A) Уникальные машины в каждой сессии с их данными о тюках.
+--     DISTINCT нужен, чтобы не задвоить BaleCount при нескольких замерах одной машины.
+session_vehicles_bales AS (
+    SELECT DISTINCT
+        bs.stack_number,
+        rm.final_session_id     AS session_id,
+        bs.vehicle_id,
+        bs.bale_count,
+        bs.damaged_bale_count,
+        bs.weight_kg
+    FROM base_session bs
+    JOIN renumber_map rm
+      ON rm.stack_number    = bs.stack_number
+     AND rm.base_session_id = bs.base_session_id
+),
+-- (B) Суммарные тюки/порванные/вес по каждой сессии.
+--     SUM(NULL) = NULL — это корректно: если у всех машин нет данных,
+--     итог тоже NULL (а не 0), и клиент увидит «—», а не «0 тюков».
+session_bales_agg AS (
+    SELECT
+        stack_number,
+        session_id,
+        SUM(bale_count)         AS total_bales,
+        SUM(damaged_bale_count) AS total_damaged_bales,
+        SUM(weight_kg)          AS total_weight_kg
+    FROM session_vehicles_bales
+    GROUP BY stack_number, session_id
+),
 suppliers_raw AS (
     SELECT
         bs.stack_number,
         rm.final_session_id,
         bs.cp_key,
         bs.counterparty_clean,
-        bs.vehicle_id
+        bs.vehicle_id,
+        bs.bale_count,
+        bs.damaged_bale_count,
+        bs.weight_kg
     FROM base_session bs
     JOIN renumber_map rm
       ON rm.stack_number    = bs.stack_number
@@ -1139,17 +1194,52 @@ suppliers_with_len AS (
            ) AS min_len
     FROM suppliers_raw sr
 ),
--- Каноническое имя = самое короткое из группы (обычно «Тандер», а не «Тандер(Новосибирск)»)
-suppliers_canon AS (
+-- (C) Уникальные машины по каждому поставщику в сессии с их тюками.
+--     DISTINCT по vehicle_id, чтобы не задвоить тюки при нескольких замерах.
+suppliers_vehicle_unique AS (
+    SELECT DISTINCT
+        stack_number,
+        final_session_id,
+        cp_key,
+        vehicle_id,
+        bale_count,
+        damaged_bale_count,
+        weight_kg
+    FROM suppliers_with_len
+),
+-- (D) Суммарные тюки/порванные/вес по каждому поставщику в сессии.
+suppliers_bale_agg AS (
     SELECT
         stack_number,
         final_session_id,
         cp_key,
-        MIN(counterparty_clean)     AS counterparty_canonical,
-        COUNT(DISTINCT vehicle_id)  AS vehicles_cnt
-    FROM suppliers_with_len
-    WHERE name_len = min_len
+        SUM(bale_count)         AS total_bales,
+        SUM(damaged_bale_count) AS total_damaged_bales,
+        SUM(weight_kg)          AS total_weight_kg
+    FROM suppliers_vehicle_unique
     GROUP BY stack_number, final_session_id, cp_key
+),
+-- Каноническое имя = самое короткое из группы (обычно «Тандер», а не «Тандер(Новосибирск)»)
+suppliers_canon AS (
+    SELECT
+        swl.stack_number,
+        swl.final_session_id,
+        swl.cp_key,
+        MIN(swl.counterparty_clean)    AS counterparty_canonical,
+        COUNT(DISTINCT swl.vehicle_id) AS vehicles_cnt,
+        -- LEFT JOIN + MAX: в sba одна строка на (stack, session, cp_key),
+        -- а swl может содержать несколько строк (по одной на уникальную машину).
+        -- MAX даёт единственное корректное значение без задвоения.
+        MAX(sba.total_bales)           AS total_bales,
+        MAX(sba.total_damaged_bales)   AS total_damaged_bales,
+        MAX(sba.total_weight_kg)       AS total_weight_kg
+    FROM suppliers_with_len swl
+    LEFT JOIN suppliers_bale_agg sba
+      ON sba.stack_number     = swl.stack_number
+     AND sba.final_session_id = swl.final_session_id
+     AND sba.cp_key           = swl.cp_key
+    WHERE swl.name_len = swl.min_len
+    GROUP BY swl.stack_number, swl.final_session_id, swl.cp_key
 ),
 suppliers_ranked AS (
     SELECT s.*,
@@ -1159,7 +1249,8 @@ suppliers_ranked AS (
            ) AS rn
     FROM suppliers_canon s
 ),
--- (C) Основной поставщик + список, отсортированный по числу машин
+-- (E) Основной поставщик + список, отсортированный по числу машин,
+--     и JSON-разбивка по поставщикам с их тюками.
 suppliers_agg AS (
     SELECT
         stack_number,
@@ -1167,7 +1258,18 @@ suppliers_agg AS (
         COUNT(*)                                                       AS counterparty_count,
         STRING_AGG(counterparty_canonical, '; '
                    ORDER BY vehicles_cnt DESC, counterparty_canonical) AS counterparties,
-        MAX(counterparty_canonical) FILTER (WHERE rn = 1)              AS primary_counterparty
+        MAX(counterparty_canonical) FILTER (WHERE rn = 1)              AS primary_counterparty,
+        MAX(total_bales) FILTER (WHERE rn = 1)                         AS primary_counterparty_bales,
+        json_agg(
+            json_build_object(
+                'Name',          counterparty_canonical,
+                'VehiclesCount', vehicles_cnt,
+                'Bales',         total_bales,
+                'DamagedBales',  total_damaged_bales,
+                'WeightKg',      total_weight_kg
+            )
+            ORDER BY vehicles_cnt DESC, counterparty_canonical
+        )                                                              AS counterparties_details
     FROM suppliers_ranked
     GROUP BY stack_number, final_session_id
 )
@@ -1178,7 +1280,7 @@ SELECT
     t.session_id::int                                                       AS ""SessionId"",
     t.session_start                                                         AS ""SessionStart"",
     t.session_end                                                           AS ""SessionEnd"",
-    -- (E) Единый формат длительности: чч:мм:сс, где чч может быть > 24
+    -- (F) Единый формат длительности: чч:мм:сс, где чч может быть > 24
     LPAD((EXTRACT(DAY    FROM t.dur) * 24
         + EXTRACT(HOUR   FROM t.dur))::int::text, 2, '0')
       || ':' || LPAD(EXTRACT(MINUTE FROM t.dur)::int::text, 2, '0')
@@ -1191,6 +1293,14 @@ SELECT
     t.counterparty_count::int                                               AS ""CounterpartyCount"",
     t.primary_counterparty                                                  AS ""PrimaryCounterparty"",
     t.counterparties                                                        AS ""Counterparties"",
+    -- SUM(integer) → bigint. Приводим к int. Если сумма NULL — останется NULL.
+    t.total_bales::int                                                      AS ""TotalBales"",
+    t.total_damaged_bales::int                                              AS ""TotalDamagedBales"",
+    -- SUM(double precision) → double precision. Приводить не нужно.
+    t.total_weight_kg                                                       AS ""TotalWeightKg"",
+    t.primary_counterparty_bales::int                                       AS ""PrimaryCounterpartyBales"",
+    -- json_agg → json. Приводим к text, Npgsql прочитает как string.
+    t.counterparties_details::text                                          AS ""CounterpartiesDetailsJson"",
     t.avg_humidity                                                          AS ""AverageHumidity"",
     t.min_humidity                                                          AS ""MinHumidity"",
     t.max_humidity                                                          AS ""MaxHumidity""
@@ -1206,6 +1316,11 @@ FROM (
         COALESCE(sa.counterparty_count, 0)                           AS counterparty_count,
         COALESCE(sa.primary_counterparty, '')                        AS primary_counterparty,
         COALESCE(sa.counterparties, '')                              AS counterparties,
+        sa.primary_counterparty_bales                                AS primary_counterparty_bales,
+        sa.counterparties_details                                    AS counterparties_details,
+        sba.total_bales                                              AS total_bales,
+        sba.total_damaged_bales                                      AS total_damaged_bales,
+        sba.total_weight_kg                                          AS total_weight_kg,
         -- ROUND(...::numeric, 2) даёт numeric; приводим итог к float8,
         -- чтобы Npgsql отдал его именно как double precision,
         -- а не как decimal (иначе reader.GetDouble() может упасть).
@@ -1219,11 +1334,19 @@ FROM (
     LEFT JOIN suppliers_agg sa
            ON sa.stack_number     = bs.stack_number
           AND sa.final_session_id = rm.final_session_id
+    LEFT JOIN session_bales_agg sba
+           ON sba.stack_number = bs.stack_number
+          AND sba.session_id   = rm.final_session_id
     GROUP BY bs.stack_number,
              rm.final_session_id,
              sa.counterparty_count,
              sa.primary_counterparty,
-             sa.counterparties
+             sa.counterparties,
+             sa.primary_counterparty_bales,
+             sa.counterparties_details,
+             sba.total_bales,
+             sba.total_damaged_bales,
+             sba.total_weight_kg
 ) t
 ";
 
@@ -1293,7 +1416,7 @@ ORDER BY
     /// Используем ADO.NET напрямую (а не EF Core SqlQuery), потому что запрос:
     ///   - содержит CTE (WITH) и оконные функции;
     ///   - использует PostgreSQL-специфичные функции (TRANSLATE, REGEXP_REPLACE,
-    ///     STRING_AGG, date_trunc, AT TIME ZONE);
+    ///     STRING_AGG, json_agg, json_build_object, date_trunc, AT TIME ZONE);
     ///   - возвращает колонки с русскими именами в исходнике — здесь мы уже
     ///     переименовали их в английские алиасы для маппинга.
     ///
@@ -1477,11 +1600,26 @@ ORDER BY
             var ordAverageHumidity = reader.GetOrdinal("AverageHumidity");
             var ordMinHumidity = reader.GetOrdinal("MinHumidity");
             var ordMaxHumidity = reader.GetOrdinal("MaxHumidity");
+            var ordTotalBales = reader.GetOrdinal("TotalBales");
+            var ordTotalDamagedBales = reader.GetOrdinal("TotalDamagedBales");
+            var ordTotalWeightKg = reader.GetOrdinal("TotalWeightKg");
+            var ordPrimaryCounterpartyBales = reader.GetOrdinal("PrimaryCounterpartyBales");
+            var ordCounterpartiesDetailsJson = reader.GetOrdinal("CounterpartiesDetailsJson");
 
             var result = new List<StackSessionDto>();
 
             while (await reader.ReadAsync(cancellationToken))
             {
+                // Десериализуем JSON-разбивку по поставщикам.
+                // Если колонка NULL (например, ни один поставщик не определён) —
+                // возвращаем пустой список, а не null.
+                var counterpartiesDetails = reader.IsDBNull(ordCounterpartiesDetailsJson)
+                    ? new List<StackSessionCounterpartyDto>()
+                    : JsonSerializer.Deserialize<List<StackSessionCounterpartyDto>>(
+                        reader.GetString(ordCounterpartiesDetailsJson),
+                        _jsonSerializerOptions
+                      ) ?? new List<StackSessionCounterpartyDto>();
+
                 result.Add(new StackSessionDto
                 {
                     StackNumber = reader.GetString(ordStackNumber),
@@ -1511,7 +1649,22 @@ ORDER BY
                         : reader.GetDouble(ordMinHumidity),
                     MaxHumidity = reader.IsDBNull(ordMaxHumidity)
                         ? (double?)null
-                        : reader.GetDouble(ordMaxHumidity)
+                        : reader.GetDouble(ordMaxHumidity),
+                    // Тюки — nullable по той же причине: NULL отличается от 0.
+                    // В SQL все три поля явно приведены к нужному типу (::int / double).
+                    TotalBales = reader.IsDBNull(ordTotalBales)
+                        ? (int?)null
+                        : reader.GetInt32(ordTotalBales),
+                    TotalDamagedBales = reader.IsDBNull(ordTotalDamagedBales)
+                        ? (int?)null
+                        : reader.GetInt32(ordTotalDamagedBales),
+                    TotalWeightKg = reader.IsDBNull(ordTotalWeightKg)
+                        ? (double?)null
+                        : reader.GetDouble(ordTotalWeightKg),
+                    PrimaryCounterpartyBales = reader.IsDBNull(ordPrimaryCounterpartyBales)
+                        ? (int?)null
+                        : reader.GetInt32(ordPrimaryCounterpartyBales),
+                    CounterpartiesDetails = counterpartiesDetails
                 });
             }
 
