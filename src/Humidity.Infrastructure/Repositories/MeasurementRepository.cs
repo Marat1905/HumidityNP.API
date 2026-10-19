@@ -1039,7 +1039,9 @@ public class MeasurementRepository : BaseRepository<HumidityMeasurement>, IMeasu
     ///    явно приводится к float8: ROUND(AVG(...)::numeric, 2)::float8.
     ///  - SUM(integer) → bigint. Поэтому для тюков используем SUM(...)::int
     ///    в финальном SELECT.
-    ///  - json_agg возвращает json; Npgsql читает его как string через ::text.
+    ///  - jsonb_agg возвращает jsonb; Npgsql читает его как string через ::text.
+    ///    Используется именно jsonb (а не json), так как jsonb поддерживает
+    ///    оператор равенства (=), необходимый для GROUP BY.
     /// </summary>
     private const string StackSessionsSqlBase = @"
 WITH params AS (
@@ -1260,8 +1262,10 @@ suppliers_agg AS (
                    ORDER BY vehicles_cnt DESC, counterparty_canonical) AS counterparties,
         MAX(counterparty_canonical) FILTER (WHERE rn = 1)              AS primary_counterparty,
         MAX(total_bales) FILTER (WHERE rn = 1)                         AS primary_counterparty_bales,
-        json_agg(
-            json_build_object(
+        -- ИСПОЛЬЗУЕМ jsonb_agg и jsonb_build_object: jsonb поддерживает оператор
+        -- равенства (=), необходимый для GROUP BY во внешнем запросе.
+        jsonb_agg(
+            jsonb_build_object(
                 'Name',          counterparty_canonical,
                 'VehiclesCount', vehicles_cnt,
                 'Bales',         total_bales,
@@ -1299,7 +1303,7 @@ SELECT
     -- SUM(double precision) → double precision. Приводить не нужно.
     t.total_weight_kg                                                       AS ""TotalWeightKg"",
     t.primary_counterparty_bales::int                                       AS ""PrimaryCounterpartyBales"",
-    -- json_agg → json. Приводим к text, Npgsql прочитает как string.
+    -- jsonb_agg → jsonb. Приводим к text, Npgsql прочитает как string.
     t.counterparties_details::text                                          AS ""CounterpartiesDetailsJson"",
     t.avg_humidity                                                          AS ""AverageHumidity"",
     t.min_humidity                                                          AS ""MinHumidity"",
@@ -1416,7 +1420,7 @@ ORDER BY
     /// Используем ADO.NET напрямую (а не EF Core SqlQuery), потому что запрос:
     ///   - содержит CTE (WITH) и оконные функции;
     ///   - использует PostgreSQL-специфичные функции (TRANSLATE, REGEXP_REPLACE,
-    ///     STRING_AGG, json_agg, json_build_object, date_trunc, AT TIME ZONE);
+    ///     STRING_AGG, jsonb_agg, jsonb_build_object, date_trunc, AT TIME ZONE);
     ///   - возвращает колонки с русскими именами в исходнике — здесь мы уже
     ///     переименовали их в английские алиасы для маппинга.
     ///
